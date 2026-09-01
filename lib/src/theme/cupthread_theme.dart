@@ -4,6 +4,8 @@ import '../client/user_token_store.dart';
 import '../models/config.dart';
 import 'sdk_theme.dart';
 
+export 'sdk_theme.dart';
+
 /// InheritedWidget providing CupThread theme colors, client, and user token.
 class CupThreadThemeScope extends InheritedWidget {
   final FeedbackClient client;

@@ -10,8 +10,8 @@ class FeedbackException implements Exception {
 /// Thrown when anonymous access is disabled and user token was not provided.
 class AuthenticationRequiredException extends FeedbackException {
   const AuthenticationRequiredException([
-    String message = 'Anonymous access is disabled for this surface; a user token is required.',
-  ]) : super(message);
+    super.message = 'Anonymous access is disabled for this surface; a user token is required.',
+  ]);
 }
 
 /// Thrown when the CupThread API returns an unexpected HTTP response status.
@@ -28,14 +28,14 @@ class InvalidResponseException extends FeedbackException {
   final Object? cause;
 
   const InvalidResponseException([
-    String message = 'Failed to parse response from CupThread API',
+    super.message = 'Failed to parse response from CupThread API',
     this.cause,
-  ]) : super(message);
+  ]);
 }
 
 /// Thrown when attachment upload response cannot be parsed.
 class UnreadableUploadResponseException extends FeedbackException {
   const UnreadableUploadResponseException([
-    String message = 'Attachment upload completed but server response could not be parsed.',
-  ]) : super(message);
+    super.message = 'Attachment upload completed but server response could not be parsed.',
+  ]);
 }
