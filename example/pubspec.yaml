@@ -1,0 +1,17 @@
+name: cupthread_feedback_example
+description: Example application demonstrating CupThread Flutter SDK.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupthread_feedback:
+    path: ../
+
+flutter:
+  uses-material-design: true

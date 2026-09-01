@@ -1,0 +1,23 @@
+name: cupthread_feedback
+description: Official CupThread SDK for Flutter — Roadmaps, Feature Requests, In-App Feedback, and Changelogs.
+version: 0.1.0
+homepage: https://cupthread.com
+repository: https://github.com/CupThread/CupThreadFlutterSDK
+issue_tracker: https://github.com/CupThread/CupThreadFlutterSDK/issues
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
