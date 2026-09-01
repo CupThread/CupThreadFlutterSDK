@@ -5,3 +5,6 @@ build/
 .pub/
 *.log
 .DS_Store
+docs-site/
+doc/
+.dart_tool/
