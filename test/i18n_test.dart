@@ -34,11 +34,63 @@ void main() {
         '功能建议',
       );
       expect(
+        CupThreadStrings.fromLocale(const Locale('ja', 'JP')).featureRequests,
+        '機能リクエスト',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('fr', 'FR')).featureRequests,
+        'Demandes de fonctionnalités',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('es', 'ES')).featureRequests,
+        'Solicitudes de funciones',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('de', 'DE')).featureRequests,
+        'Funktionswünsche',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('it', 'IT')).featureRequests,
+        'Richieste di funzionalità',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('pt', 'BR')).featureRequests,
+        'Solicitações de recursos',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('zh', 'TW')).featureRequests,
+        '功能建議',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('zh', 'HK')).featureRequests,
+        '功能建議',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('ko', 'KR')).featureRequests,
+        '기능 요청',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('pl', 'PL')).featureRequests,
+        'Propozycje funkcji',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('nb', 'NO')).featureRequests,
+        'Funksjonsønsker',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('tr', 'TR')).featureRequests,
+        'Özellik istekleri',
+      );
+      expect(
+        CupThreadStrings.fromLocale(const Locale('vi', 'VN')).featureRequests,
+        'Yêu cầu tính năng',
+      );
+      expect(
         CupThreadStrings.fromLocale(const Locale('en', 'US')).featureRequests,
         'Feature Requests',
       );
       expect(
-        CupThreadStrings.fromLocale(const Locale('fr', 'FR')).featureRequests,
+        CupThreadStrings.fromLocale(const Locale('ru', 'RU')).featureRequests,
         'Feature Requests',
       );
       expect(
