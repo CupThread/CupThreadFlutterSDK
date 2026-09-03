@@ -30,6 +30,22 @@ Integrate the CupThread SDK (feedback, roadmap, and changelog screens) into this
 
 ---
 
+## Visual Showcase
+
+The screenshots below are captured automatically from the Flutter example app using deterministic mock API data, so they stay in sync with the shipped widgets.
+
+| **Roadmap Board** | **Feature Requests** | **Submit Request** |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/roadmap.jpg" width="260" alt="Roadmap Board" /> | <img src="docs/screenshots/feature_requests.jpg" width="260" alt="Feature Requests" /> | <img src="docs/screenshots/submit_request.jpg" width="260" alt="Submit Request Sheet" /> |
+| Kanban columns, stage chips & vote counts | Optimistic voting, search & version filter | User feature request compose sheet |
+
+| **What's New / Changelog** | **Changelog Modal Overlay** | **Feedback Composer** |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/whats_new.jpg" width="260" alt="What's New Changelog" /> | <img src="docs/screenshots/changelog_overlay.jpg" width="260" alt="Changelog Overlay" /> | <img src="docs/screenshots/feedback_composer.jpg" width="260" alt="Feedback Composer" /> |
+| Markdown release notes & email subscription | In-app announcement sheet with custom copy | Structured feedback with attachment preview |
+
+---
+
 ## Manual Installation
 
 ### Option A: Via Git Dependency (Direct GitHub release)
@@ -169,6 +185,12 @@ flutter analyze
 
 # Run unit tests
 flutter test
+
+# Capture the visual showcase on an iOS Simulator
+scripts/capture-screenshots.sh "iPhone 16 Pro"
+
+# Build API documentation (the showcase is copied into the generated site)
+scripts/build-docs.sh docs-site
 ```
 
 ## License

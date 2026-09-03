@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cupthread_feedback/cupthread_feedback.dart';
+import 'demo_http_client.dart';
+
+const _screenshotMode = bool.fromEnvironment('CUPTHREAD_SCREENSHOT_MODE');
 
 void main() {
   runApp(const MyApp());
@@ -16,6 +19,7 @@ class MyApp extends StatelessWidget {
         baseUrl: 'https://api.cupthread.com',
         appKey: 'app_sample_123',
       ),
+      httpClient: _screenshotMode ? createDemoHttpClient() : null,
     );
 
     // 2. Wrap your app in CupThreadTheme to inherit console colors and anonymous user token
@@ -111,8 +115,20 @@ class HomeScreen extends StatelessWidget {
                   minimumSize: const Size.fromHeight(48),
                 ),
                 onPressed: () {
-                  FeedbackComposer.showModal(context);
+                  FeedbackComposer.showModal(
+                    context,
+                    initialDraft: demoFeedbackDraft(),
+                  );
                 },
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text("Show What's New Overlay"),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: () => ChangelogOverlay.show(context),
               ),
             ],
           ),
