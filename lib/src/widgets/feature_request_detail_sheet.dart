@@ -113,6 +113,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -124,7 +125,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(
-          'Feature Request',
+          strings.featureRequests,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 16,
@@ -188,7 +189,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _item.requesterName ?? 'Anonymous User',
+                  _item.requesterName ?? strings.anonymous,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -199,7 +200,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
                 Text('•', style: TextStyle(color: colors.textMuted)),
                 const SizedBox(width: 6),
                 Text(
-                  formatRelativeDate(_item.createdAt),
+                  formatRelativeDate(_item.createdAt, strings: strings),
                   style: TextStyle(fontSize: 12, color: colors.textMuted),
                 ),
               ],

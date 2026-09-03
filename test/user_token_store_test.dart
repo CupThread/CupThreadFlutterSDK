@@ -29,5 +29,36 @@ void main() {
       expect(token1, isNot(equals(token2)));
       expect(store.token, equals(token2));
     });
+
+    test('recovers existing token from storage on getToken()', () async {
+      final storage = MemoryTokenStorage();
+      const existingToken = 'test-token-saved-12345';
+      await storage.setItem(UserTokenStore.storageKey, existingToken);
+
+      final store = UserTokenStore(storage);
+      final retrieved = await store.getToken();
+      expect(retrieved, equals(existingToken));
+      expect(store.token, equals(existingToken));
+    });
+
+    test('generates and persists new token to storage when empty', () async {
+      final storage = MemoryTokenStorage();
+      final store = UserTokenStore(storage);
+
+      expect(await storage.getItem(UserTokenStore.storageKey), isNull);
+      final token = await store.getToken();
+      expect(token, isNotEmpty);
+      expect(await storage.getItem(UserTokenStore.storageKey), equals(token));
+    });
+
+    test('multiple store instances share persisted token', () async {
+      final storage = MemoryTokenStorage();
+      final store1 = UserTokenStore(storage);
+      final token1 = await store1.getToken();
+
+      final store2 = UserTokenStore(storage);
+      final token2 = await store2.getToken();
+      expect(token2, equals(token1));
+    });
   });
 }

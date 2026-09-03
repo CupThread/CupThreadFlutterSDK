@@ -1,7 +1,9 @@
 import 'dart:math';
 
+import '../theme/cupthread_strings.dart';
+
 /// Formats an ISO 8601 string to a human-friendly relative date.
-String formatRelativeDate(String? isoString) {
+String formatRelativeDate(String? isoString, {CupThreadStrings? strings}) {
   if (isoString == null || isoString.isEmpty) return '';
   final date = DateTime.tryParse(isoString);
   if (date == null) return isoString;
@@ -9,12 +11,21 @@ String formatRelativeDate(String? isoString) {
   final now = DateTime.now().toUtc();
   final diff = now.difference(date.toUtc());
 
-  if (diff.inSeconds < 60) return 'Just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  final s = strings ?? CupThreadStrings.en;
+  if (diff.inSeconds < 60) return s.justNow;
+  if (diff.inMinutes < 60) return '${diff.inMinutes}${s.minutesAgoSuffix}';
+  if (diff.inHours < 24) return '${diff.inHours}${s.hoursAgoSuffix}';
+  if (diff.inDays < 7) return '${diff.inDays}${s.daysAgoSuffix}';
 
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+/// Formats byte count into a human-readable file size string.
+String formatFileSize(int? bytes) {
+  if (bytes == null || bytes <= 0) return '';
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 /// Generates a standard RFC 4122 v4 compliant UUID in pure Dart.

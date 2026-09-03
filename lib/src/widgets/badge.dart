@@ -21,7 +21,7 @@ class BadgeChip extends StatelessWidget {
 
     final bg = isOutline
         ? Colors.transparent
-        : (customColor?.withOpacity(0.12) ?? colors.chipBg);
+        : (customColor?.withValues(alpha: 0.12) ?? colors.chipBg);
     final textColor = customColor ?? colors.chipText;
     final borderColor = isOutline ? (customColor ?? colors.border) : Colors.transparent;
 

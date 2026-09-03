@@ -28,9 +28,7 @@ class UserTokenStore {
   String? _cachedToken;
 
   UserTokenStore([TokenStorageAdapter? storage])
-      : _storage = storage ?? MemoryTokenStorage() {
-    _initToken();
-  }
+      : _storage = storage ?? MemoryTokenStorage();
 
   static UserTokenStore get shared => _shared ??= UserTokenStore();
 
@@ -55,9 +53,9 @@ class UserTokenStore {
     }
     try {
       final stored = await _storage.getItem(storageKey);
-      if (stored != null && stored.isNotEmpty) {
-        _cachedToken = stored;
-        return stored;
+      if (stored != null && stored.trim().isNotEmpty) {
+        _cachedToken = stored.trim();
+        return _cachedToken!;
       }
     } catch (_) {
       // Fallback

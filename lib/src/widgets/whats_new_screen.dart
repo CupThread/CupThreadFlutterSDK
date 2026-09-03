@@ -7,11 +7,11 @@ import 'markdown_text.dart';
 
 /// Screen presenting changelog release notes with email subscription.
 class WhatsNewScreen extends StatefulWidget {
-  final String title;
+  final String? title;
 
   const WhatsNewScreen({
     super.key,
-    this.title = "What's New",
+    this.title,
   });
 
   @override
@@ -91,6 +91,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -98,7 +99,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
         backgroundColor: colors.card,
         elevation: 0,
         title: Text(
-          widget.title,
+          widget.title ?? strings.whatsNew,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -127,17 +128,12 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Get notified on new releases',
+                          strings.subscribeToUpdates,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: colors.textPrimary,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Subscribe to receive release notes in your inbox.',
-                          style: TextStyle(fontSize: 13, color: colors.textSecondary),
                         ),
                         const SizedBox(height: 12),
                         if (_isSubscribed)
@@ -148,7 +144,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '✓ Subscribed to updates (${_emailController.text})',
+                              '✓ ${strings.subscribed} (${_emailController.text})',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -164,7 +160,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
                                   decoration: InputDecoration(
-                                    hintText: 'Enter your email...',
+                                    hintText: strings.enterYourEmail,
                                     hintStyle:
                                         TextStyle(color: colors.textMuted, fontSize: 13),
                                     isDense: true,
@@ -201,7 +197,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                                           color: colors.primaryText,
                                         ),
                                       )
-                                    : const Text('Subscribe', style: TextStyle(fontSize: 13)),
+                                    : Text(strings.subscribe, style: const TextStyle(fontSize: 13)),
                               ),
                             ],
                           ),
@@ -210,14 +206,15 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                   ),
 
                   // Entries
-                  ..._entries.map((entry) => _buildEntryCard(entry, colors)),
+                  ..._entries.map((entry) => _buildEntryCard(entry, colors, strings)),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildEntryCard(ChangelogEntry entry, CupThreadColors colors) {
+  Widget _buildEntryCard(
+      ChangelogEntry entry, CupThreadColors colors, CupThreadStrings strings) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -250,7 +247,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            formatRelativeDate(entry.publishedAt),
+            formatRelativeDate(entry.publishedAt, strings: strings),
             style: TextStyle(fontSize: 12, color: colors.textMuted),
           ),
           if (entry.linkedRequests.isNotEmpty) ...[

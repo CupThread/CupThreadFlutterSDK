@@ -8,17 +8,26 @@ import 'markdown_text.dart';
 class ChangelogOverlay extends StatelessWidget {
   final List<ChangelogEntry> entries;
   final ChangelogOverlayConfig config;
+  final bool autoMarkSeen;
 
   const ChangelogOverlay({
     super.key,
     required this.entries,
     required this.config,
+    this.autoMarkSeen = true,
   });
 
   /// Presents the overlay if new entries are available.
-  static Future<void> show(BuildContext context) async {
+  ///
+  /// If [onlyIfUnseen] is true, suppresses presentation if the latest release has already been seen.
+  /// If [autoMarkSeen] is true, automatically records the latest release as seen upon presentation/dismissal.
+  static Future<void> show(
+    BuildContext context, {
+    bool onlyIfUnseen = false,
+    bool autoMarkSeen = true,
+  }) async {
     final client = CupThreadTheme.clientOf(context);
-    final data = await client.prepareChangelogOverlay();
+    final data = await client.prepareChangelogOverlay(onlyIfUnseen: onlyIfUnseen);
     if (data == null || data.entries.isEmpty) return;
 
     if (!context.mounted) return;
@@ -44,16 +53,28 @@ class ChangelogOverlay extends StatelessWidget {
             child: ChangelogOverlay(
               entries: data.entries,
               config: data.appearance.changelogOverlay,
+              autoMarkSeen: autoMarkSeen,
             ),
           ),
         ),
       ),
     );
+
+    if (autoMarkSeen && data.entries.isNotEmpty) {
+      final latest = data.entries.first;
+      final key = latest.versionLabel ?? latest.id;
+      if (key.isNotEmpty) {
+        await client.markChangelogSeen(key);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
+    final titleText = config.title.isNotEmpty ? config.title : strings.whatsNew;
+    final buttonText = config.primaryButton.isNotEmpty ? config.primaryButton : strings.gotIt;
 
     return Column(
       children: [
@@ -62,7 +83,7 @@ class ChangelogOverlay extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                config.title,
+                titleText,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -127,7 +148,20 @@ class ChangelogOverlay extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.of(context).maybePop(),
+              onPressed: () async {
+                if (autoMarkSeen && entries.isNotEmpty) {
+                  final latest = entries.first;
+                  final key = latest.versionLabel ?? latest.id;
+                  if (key.isNotEmpty) {
+                    try {
+                      await CupThreadTheme.clientOf(context).markChangelogSeen(key);
+                    } catch (_) {}
+                  }
+                }
+                if (context.mounted) {
+                  Navigator.of(context).maybePop();
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: colors.primaryText,
@@ -135,7 +169,7 @@ class ChangelogOverlay extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: Text(
-                config.primaryButton,
+                buttonText,
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
             ),

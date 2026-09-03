@@ -51,6 +51,7 @@ class _UserProfileViewState extends State<UserProfileView> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -58,7 +59,7 @@ class _UserProfileViewState extends State<UserProfileView> {
         backgroundColor: colors.card,
         elevation: 0,
         title: Text(
-          'User Profile',
+          strings.userProfile,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -96,7 +97,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              _data!.profile.displayName ?? 'Anonymous Developer',
+                              _data!.profile.displayName ?? strings.anonymous,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,

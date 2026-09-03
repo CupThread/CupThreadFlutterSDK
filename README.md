@@ -32,6 +32,20 @@ Integrate the CupThread SDK (feedback, roadmap, and changelog screens) into this
 
 ## Manual Installation
 
+### Option A: Via Git Dependency (Direct GitHub release)
+
+In your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  cupthread_feedback:
+    git:
+      url: https://github.com/CupThread/CupThreadFlutterSDK.git
+      ref: v0.1.0
+```
+
+### Option B: Via pub.dev (Once published)
+
 Add `cupthread_feedback` to your `pubspec.yaml`:
 
 ```yaml
@@ -64,6 +78,9 @@ void main() {
   runApp(
     CupThreadTheme(
       client: client,
+      // Optional: set custom locale or string overrides (defaults to device locale or English)
+      // locale: const Locale('zh', 'CN'),
+      // strings: CupThreadStrings.zhHans,
       child: const MaterialApp(
         home: RoadmapBoardScreen(),
       ),
@@ -76,25 +93,45 @@ void main() {
 
 ## Ready-Made Flutter Widgets & Screens
 
-Wrap your widget hierarchy in `CupThreadTheme(client: client)` to automatically inherit developer console appearance settings, color palette, and anonymous user token.
+Wrap your widget hierarchy in `CupThreadTheme(client: client)` to automatically inherit developer console appearance settings, color palette, localized strings, and anonymous user token.
 
 - **`RoadmapBoardScreen()`**: Kanban roadmap board grouped by public columns with vote counts and stage badges.
-- **`FeatureRequestsScreen()`**: Searchable feature requests list with optimistic upvoting, version filter chips, and creation dialog.
+- **`FeatureRequestsScreen()`**: Searchable feature requests list with optimistic upvoting, version filter chips, and creation sheet.
+- **`FeatureRequestComposeSheet.show(context)`**: Dedicated sheet for proposing a new feature request (`POST /api/v1/feature-requests`).
 - **`WhatsNewScreen()`**: Interactive release notes / changelog with Markdown formatting and email subscription.
-- **`ChangelogOverlay.show(context)`**: In-app modal announcement sheet for the latest release notes.
-- **`FeedbackComposer()` / `FeedbackComposer.showModal(context)`**: Structured feedback form with attachment uploads.
+- **`ChangelogOverlay.show(context, onlyIfUnseen: true)`**: In-app modal announcement sheet for the latest release notes with built-in "seen" persistence.
+- **`FeedbackComposer()` / `FeedbackComposer.showModal(context, onPickAttachment: ...)`**: Structured feedback form with attachment uploads and host picker support.
 - **`UserProfileView(userId: ...)`**: Public user/developer profile screen.
 
-### Example: Presenting Latest Changelog on Launch
+### Example: Presenting Latest Changelog on Launch (Only If Unseen)
 
 ```dart
 @override
 void initState() {
   super.initState();
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    ChangelogOverlay.show(context);
+    // Only shows if the user hasn't seen this release yet, and automatically marks it seen
+    ChangelogOverlay.show(context, onlyIfUnseen: true);
   });
 }
+```
+
+### Example: Providing Attachment Picker to FeedbackComposer
+
+```dart
+FeedbackComposer.showModal(
+  context,
+  onPickAttachment: () async {
+    // Pick image via image_picker or file_picker, then upload:
+    // final bytes = await file.readAsBytes();
+    // return await client.uploadAttachment(
+    //   bytes: bytes,
+    //   filename: file.name,
+    //   mimeType: 'image/png',
+    // );
+    return null;
+  },
+);
 ```
 
 ---

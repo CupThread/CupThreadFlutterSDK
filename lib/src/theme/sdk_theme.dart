@@ -225,7 +225,6 @@ class CupThreadColors {
       case SdkTheme.candy:
         return candy;
       case SdkTheme.system:
-      default:
         return isDarkMode ? dark : light;
     }
   }

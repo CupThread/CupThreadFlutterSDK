@@ -7,11 +7,11 @@ import 'vote_button.dart';
 
 /// Screen presenting the app's Kanban roadmap board grouped by stage columns.
 class RoadmapBoardScreen extends StatefulWidget {
-  final String title;
+  final String? title;
 
   const RoadmapBoardScreen({
     super.key,
-    this.title = 'Roadmap',
+    this.title,
   });
 
   @override
@@ -98,6 +98,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     final activeColumn = _columns.firstWhere(
       (c) => c.id == _selectedColumnId,
@@ -129,7 +130,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         backgroundColor: colors.card,
         elevation: 0,
         title: Text(
-          widget.title,
+          widget.title ?? strings.roadmap,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -194,7 +195,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                   child: columnItems.isEmpty
                       ? Center(
                           child: Text(
-                            'No items in this milestone.',
+                            strings.noItemsInColumn,
                             style: TextStyle(color: colors.textMuted),
                           ),
                         )

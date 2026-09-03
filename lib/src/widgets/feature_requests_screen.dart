@@ -3,17 +3,17 @@ import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import 'avatar.dart';
 import 'badge.dart';
-import 'feedback_composer.dart';
+import 'feature_request_compose_sheet.dart';
 import 'feature_request_detail_sheet.dart';
 import 'vote_button.dart';
 
 /// Screen displaying searchable feature requests board with filtering and creation modal.
 class FeatureRequestsScreen extends StatefulWidget {
-  final String title;
+  final String? title;
 
   const FeatureRequestsScreen({
     super.key,
-    this.title = 'Feature Requests',
+    this.title,
   });
 
   @override
@@ -110,6 +110,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -117,7 +118,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         backgroundColor: colors.card,
         elevation: 0,
         title: Text(
-          widget.title,
+          widget.title ?? strings.featureRequests,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -127,8 +128,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.add, color: colors.primary),
-            tooltip: 'Propose Feature',
-            onPressed: () => FeedbackComposer.showModal(context).then((_) => _loadData()),
+            tooltip: strings.proposeFeature,
+            onPressed: () => FeatureRequestComposeSheet.show(context).then((res) {
+              if (res != null) _loadData();
+            }),
           ),
         ],
       ),
@@ -144,7 +147,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 _loadData();
               },
               decoration: InputDecoration(
-                hintText: 'Search feature requests...',
+                hintText: strings.searchFeatureRequests,
                 hintStyle: TextStyle(color: colors.textMuted, fontSize: 14),
                 prefixIcon: Icon(Icons.search, color: colors.textMuted),
                 filled: true,
@@ -170,7 +173,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _buildVersionChip(null, 'All Versions', colors),
+                  _buildVersionChip(null, strings.all, colors),
                   ..._versions.map((v) => _buildVersionChip(v.id, v.label, colors)),
                 ],
               ),
@@ -182,9 +185,39 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 ? Center(child: CircularProgressIndicator(color: colors.primary))
                 : _items.isEmpty
                     ? Center(
-                        child: Text(
-                          'No feature requests found.',
-                          style: TextStyle(color: colors.textMuted),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              strings.noFeatureRequestsFound,
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              strings.beTheFirstToSuggest,
+                              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () =>
+                                  FeatureRequestComposeSheet.show(context).then((res) {
+                                if (res != null) _loadData();
+                              }),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: Text(strings.proposeAnIdea),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colors.primary,
+                                foregroundColor: colors.primaryText,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     : RefreshIndicator(

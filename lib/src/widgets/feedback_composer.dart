@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
+import '../utils/formatters.dart';
 
-/// Form screen for composing and submitting user feedback.
+/// Form screen for composing and submitting user feedback with optional attachments.
 class FeedbackComposer extends StatefulWidget {
   final FeedbackDraft? initialDraft;
   final ValueChanged<FeedbackSubmissionResult>? onSubmitSuccess;
+  final Future<FeedbackAttachment?> Function()? onPickAttachment;
 
   const FeedbackComposer({
     super.key,
     this.initialDraft,
     this.onSubmitSuccess,
+    this.onPickAttachment,
   });
 
   /// Presents the composer inside a bottom sheet or dialog.
   static Future<FeedbackSubmissionResult?> showModal(
     BuildContext context, {
     FeedbackDraft? initialDraft,
+    Future<FeedbackAttachment?> Function()? onPickAttachment,
   }) {
     final client = CupThreadTheme.clientOf(context);
     final token = CupThreadTheme.userTokenOf(context);
@@ -39,6 +43,7 @@ class FeedbackComposer extends StatefulWidget {
             ),
             child: FeedbackComposer(
               initialDraft: initialDraft,
+              onPickAttachment: onPickAttachment,
               onSubmitSuccess: (res) => Navigator.of(sheetCtx).pop(res),
             ),
           ),
@@ -52,12 +57,14 @@ class FeedbackComposer extends StatefulWidget {
 }
 
 class _FeedbackComposerState extends State<FeedbackComposer> {
-  late TextEditingController _titleController;
-  late TextEditingController _descController;
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
+  late final TextEditingController _titleController;
+  late final TextEditingController _descController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final List<FeedbackAttachment> _attachments;
 
   bool _isSubmitting = false;
+  bool _isPickingAttachment = false;
   String? _errorMessage;
 
   @override
@@ -67,6 +74,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
     _descController = TextEditingController(text: widget.initialDraft?.description ?? '');
     _nameController = TextEditingController(text: widget.initialDraft?.reporterName ?? '');
     _emailController = TextEditingController(text: widget.initialDraft?.reporterEmail ?? '');
+    _attachments = widget.initialDraft?.attachments.toList() ?? [];
   }
 
   @override
@@ -78,16 +86,36 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
     super.dispose();
   }
 
+  Future<void> _handlePickAttachment() async {
+    if (widget.onPickAttachment == null) return;
+    setState(() => _isPickingAttachment = true);
+    try {
+      final attachment = await widget.onPickAttachment!();
+      if (attachment != null && mounted) {
+        setState(() => _attachments.add(attachment));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingAttachment = false);
+      }
+    }
+  }
+
   Future<void> _handleSubmit() async {
+    final strings = CupThreadTheme.stringsOf(context);
     final title = _titleController.text.trim();
     final desc = _descController.text.trim();
 
     if (title.length < 3) {
-      setState(() => _errorMessage = 'Please provide a title with at least 3 characters.');
+      setState(() => _errorMessage = strings.titleValidationMin3);
       return;
     }
     if (desc.length < 5) {
-      setState(() => _errorMessage = 'Please provide details with at least 5 characters.');
+      setState(() => _errorMessage = strings.detailsValidationMin5);
       return;
     }
 
@@ -109,16 +137,17 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         appVersion: widget.initialDraft?.appVersion,
         buildNumber: widget.initialDraft?.buildNumber,
         metadata: widget.initialDraft?.metadata ?? {},
-        attachments: widget.initialDraft?.attachments ?? [],
+        attachments: _attachments,
       );
 
       final result = await client.submit(draft, userToken: userToken);
       if (mounted) {
+        setState(() => _isSubmitting = false);
         if (widget.onSubmitSuccess != null) {
           widget.onSubmitSuccess!(result);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Feedback sent! Thank you.')),
+            SnackBar(content: Text(strings.feedbackSent)),
           );
           Navigator.of(context).maybePop(result);
         }
@@ -136,6 +165,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -143,7 +173,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         backgroundColor: colors.card,
         elevation: 0,
         title: Text(
-          'Send Feedback',
+          strings.sendFeedback,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -177,7 +207,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
                 ),
               ),
             Text(
-              'Title *',
+              strings.titleLabel,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -188,7 +218,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
-                hintText: 'Brief summary...',
+                hintText: strings.feedbackSummaryHint,
                 hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
                 fillColor: colors.inputBg,
@@ -205,7 +235,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Details *',
+              strings.detailsLabel,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -217,7 +247,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
               controller: _descController,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: 'What happened and what did you expect?',
+                hintText: strings.feedbackDetailsHint,
                 hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
                 fillColor: colors.inputBg,
@@ -234,7 +264,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Your Name (optional)',
+              strings.yourNameOptional,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -245,7 +275,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                hintText: 'e.g. Alex',
+                hintText: strings.yourNameHint,
                 hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
                 fillColor: colors.inputBg,
@@ -262,7 +292,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Email for replies (optional)',
+              strings.emailForRepliesOptional,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -274,7 +304,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                hintText: 'alex@example.com',
+                hintText: strings.emailHint,
                 hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
                 fillColor: colors.inputBg,
@@ -289,6 +319,109 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
                 ),
               ),
             ),
+            if (widget.onPickAttachment != null || _attachments.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    strings.attachments,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  if (widget.onPickAttachment != null)
+                    TextButton.icon(
+                      onPressed: _isPickingAttachment ? null : _handlePickAttachment,
+                      icon: _isPickingAttachment
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colors.primary,
+                              ),
+                            )
+                          : Icon(Icons.attach_file, size: 16, color: colors.primary),
+                      label: Text(
+                        strings.addAttachment,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (_attachments.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Column(
+                  children: _attachments.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final att = entry.value;
+                    final isImage = att.kind == AttachmentKind.image;
+                    final sizeStr = formatFileSize(att.size);
+                    final displayName = att.filename ?? att.key;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colors.card,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.cardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
+                            size: 20,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName.isNotEmpty ? displayName : strings.attachmentDefaultName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                if (sizeStr.isNotEmpty || att.mimeType != null)
+                                  Text(
+                                    [
+                                      if (sizeStr.isNotEmpty) sizeStr,
+                                      if (att.mimeType != null) att.mimeType!,
+                                    ].join(' • '),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colors.textMuted,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, size: 18, color: colors.textMuted),
+                            tooltip: strings.remove,
+                            onPressed: () => setState(() => _attachments.removeAt(idx)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _isSubmitting ? null : _handleSubmit,
@@ -307,9 +440,9 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
                         color: colors.primaryText,
                       ),
                     )
-                  : const Text(
-                      'Submit Feedback',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  : Text(
+                      strings.submitFeedback,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
             ),
           ],

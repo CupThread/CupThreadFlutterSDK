@@ -102,13 +102,14 @@ class _CommentsViewState extends State<CommentsView> {
   @override
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
+    final strings = CupThreadTheme.stringsOf(context);
     final visibleComments = _comments.where((c) => !c.isHidden).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Discussion (${visibleComments.length})',
+          '${strings.comments} (${visibleComments.length})',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -127,7 +128,7 @@ class _CommentsViewState extends State<CommentsView> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'No comments yet. Start the conversation!',
+              strings.noCommentsYet,
               style: TextStyle(
                 fontStyle: FontStyle.italic,
                 color: colors.textMuted,
@@ -136,14 +137,15 @@ class _CommentsViewState extends State<CommentsView> {
             ),
           )
         else
-          ...visibleComments.map((comment) => _buildCommentItem(comment, colors)),
+          ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
         const SizedBox(height: 12),
-        _buildComposeBox(colors),
+        _buildComposeBox(colors, strings),
       ],
     );
   }
 
-  Widget _buildCommentItem(FeatureRequestComment comment, CupThreadColors colors) {
+  Widget _buildCommentItem(
+      FeatureRequestComment comment, CupThreadColors colors, CupThreadStrings strings) {
     final isReply = comment.parentId != null;
 
     return Container(
@@ -169,7 +171,7 @@ class _CommentsViewState extends State<CommentsView> {
               ),
               const SizedBox(width: 8),
               Text(
-                comment.authorName ?? 'Anonymous User',
+                comment.authorName ?? strings.anonymous,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -178,7 +180,7 @@ class _CommentsViewState extends State<CommentsView> {
               ),
               const Spacer(),
               Text(
-                formatRelativeDate(comment.createdAt),
+                formatRelativeDate(comment.createdAt, strings: strings),
                 style: TextStyle(
                   fontSize: 11,
                   color: colors.textMuted,
@@ -217,7 +219,7 @@ class _CommentsViewState extends State<CommentsView> {
     );
   }
 
-  Widget _buildComposeBox(CupThreadColors colors) {
+  Widget _buildComposeBox(CupThreadColors colors, CupThreadStrings strings) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -240,14 +242,14 @@ class _CommentsViewState extends State<CommentsView> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Replying to ${_replyingTo!.authorName ?? "Anonymous"}',
+                      'Replying to ${_replyingTo!.authorName ?? strings.anonymous}',
                       style: TextStyle(fontSize: 12, color: colors.textSecondary),
                     ),
                   ),
                   GestureDetector(
                     onTap: () => setState(() => _replyingTo = null),
                     child: Text(
-                      'Cancel',
+                      strings.cancel,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -261,7 +263,7 @@ class _CommentsViewState extends State<CommentsView> {
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
-              hintText: 'Your name (optional)',
+              hintText: strings.yourNameOptional,
               hintStyle: TextStyle(color: colors.textMuted, fontSize: 13),
               isDense: true,
               filled: true,
@@ -282,7 +284,7 @@ class _CommentsViewState extends State<CommentsView> {
             controller: _textController,
             maxLines: 2,
             decoration: InputDecoration(
-              hintText: 'Write a comment...',
+              hintText: strings.writeAComment,
               hintStyle: TextStyle(color: colors.textMuted, fontSize: 13),
               filled: true,
               fillColor: colors.inputBg,
@@ -317,7 +319,7 @@ class _CommentsViewState extends State<CommentsView> {
                         color: colors.primaryText,
                       ),
                     )
-                  : const Text('Send', style: TextStyle(fontSize: 13)),
+                  : Text(strings.send, style: const TextStyle(fontSize: 13)),
             ),
           ),
         ],

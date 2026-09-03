@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import '../utils/formatters.dart';
 import 'feedback_exception.dart';
+import 'user_token_store.dart';
 
 /// Configuration for FeedbackClient.
 class FeedbackClientConfig {
@@ -22,11 +23,14 @@ class FeedbackClientConfig {
 class FeedbackClient {
   final FeedbackClientConfig config;
   final http.Client _httpClient;
+  final TokenStorageAdapter _storage;
 
   FeedbackClient(
     this.config, {
     http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+    TokenStorageAdapter? storage,
+  })  : _httpClient = httpClient ?? http.Client(),
+        _storage = storage ?? MemoryTokenStorage();
 
   /// Submits user feedback draft.
   Future<FeedbackSubmissionResult> submit(
@@ -224,9 +228,39 @@ class FeedbackClient {
     return list;
   }
 
+  /// Storage key for tracking seen changelog versions.
+  String get _changelogSeenKey => 'cupthread_seen_changelog_${config.appKey}';
+
+  /// Checks if a changelog version or entry ID has already been marked as seen.
+  Future<bool> hasSeenChangelog(String version) async {
+    try {
+      final val = await _storage.getItem(_changelogSeenKey);
+      if (val == null || val.isEmpty) return false;
+      final seenVersions = val.split(',').map((s) => s.trim()).toSet();
+      return seenVersions.contains(version.trim());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Marks a changelog version or entry ID as seen.
+  Future<void> markChangelogSeen(String version) async {
+    try {
+      final key = _changelogSeenKey;
+      final val = await _storage.getItem(key);
+      final seenVersions = val != null && val.isNotEmpty
+          ? val.split(',').map((s) => s.trim()).toSet()
+          : <String>{};
+      seenVersions.add(version.trim());
+      await _storage.setItem(key, seenVersions.join(','));
+    } catch (_) {}
+  }
+
   /// Loads newest release entries and appearance for the What's-New overlay.
+  ///
+  /// If [onlyIfUnseen] is true, returns null if the latest entry has already been marked seen.
   Future<({List<ChangelogEntry> entries, SdkAppearance appearance})?>
-      prepareChangelogOverlay() async {
+      prepareChangelogOverlay({bool onlyIfUnseen = false}) async {
     final appConfig = await fetchAppConfig();
     if (!appConfig.sdk.features.changelog) return null;
 
@@ -234,6 +268,14 @@ class FeedbackClient {
     final all = await fetchChangelog();
     final entries = all.take(limit).toList();
     if (entries.isEmpty) return null;
+
+    if (onlyIfUnseen) {
+      final latest = entries.first;
+      final versionKey = latest.versionLabel ?? latest.id;
+      if (versionKey.isNotEmpty && await hasSeenChangelog(versionKey)) {
+        return null;
+      }
+    }
 
     return (entries: entries, appearance: appConfig.sdk);
   }

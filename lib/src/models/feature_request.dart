@@ -1,31 +1,100 @@
 import 'comment.dart';
 
-/// Single feature request proposal.
+/// Single feature request proposal item on the roadmap or requests board.
+///
+/// Contains proposal details, board column status, milestone version tags,
+/// upvote status, requester info, and recent commenter avatars.
+///
+/// ### Example
+/// ```dart
+/// final item = FeatureRequestItem(
+///   id: 'fr_123',
+///   appId: 'app_abc',
+///   title: 'Add CSV export for analytics',
+///   description: 'Allow exporting daily and monthly active user metrics to CSV.',
+///   status: 'planned',
+///   columnName: 'In Progress',
+///   columnColor: '#3B82F6',
+///   versionLabel: '1.4.0',
+///   approved: true,
+///   voteCount: 42,
+///   hasVoted: true,
+///   isOwnRequest: false,
+///   createdAt: '2026-08-15T10:00:00Z',
+///   updatedAt: '2026-08-20T14:30:00Z',
+/// );
+/// ```
 class FeatureRequestItem {
+  /// Unique database identifier for this feature request.
   final String id;
+
+  /// Identifier of the parent application.
   final String appId;
+
+  /// Feature request title.
   final String title;
+
+  /// Full markdown-formatted feature description.
   final String description;
+
+  /// Internal status slug (e.g. `'backlog'`, `'in_progress'`, `'completed'`).
   final String status;
+
+  /// Associated Kanban column ID, if mapped.
   final String? columnId;
+
+  /// Slug identifier of the assigned column.
   final String? columnSlug;
+
+  /// Human-readable name of the assigned board column (e.g. `'Under Review'`).
   final String? columnName;
+
+  /// Hex color code (e.g. `'#3B82F6'`) associated with the board column.
   final String? columnColor;
+
+  /// ID of the target release milestone version, if assigned.
   final String? versionId;
+
+  /// Human-readable label of the target release milestone (e.g. `'2.1.0'`).
   final String? versionLabel;
+
+  /// Released version number if this feature has already shipped.
   final String? releasedVersion;
+
+  /// Display name of the user who proposed this feature.
   final String? requesterName;
+
+  /// Profile image URL of the proposing user.
   final String? requesterAvatarUrl;
+
+  /// Clerk authentication user ID of the author, if authenticated.
   final String? requesterClerkId;
+
+  /// Whether this request has been approved for public display by moderators.
   final bool approved;
+
+  /// Total count of upvotes received.
   final int voteCount;
+
+  /// Whether the currently active user has upvoted this request.
   final bool hasVoted;
+
+  /// Whether the currently active user created this request.
   final bool isOwnRequest;
+
+  /// List of recent commenters for displaying avatar stacks.
   final List<RecentCommenter> recentCommenters;
+
+  /// Whether there are additional commenters beyond [recentCommenters].
   final bool hasMoreCommenters;
+
+  /// ISO 8601 creation timestamp string.
   final String createdAt;
+
+  /// ISO 8601 last-update timestamp string.
   final String updatedAt;
 
+  /// Creates a [FeatureRequestItem] data object.
   const FeatureRequestItem({
     required this.id,
     required this.appId,
@@ -52,8 +121,20 @@ class FeatureRequestItem {
     required this.updatedAt,
   });
 
+  /// Stage name for display, preferring [columnName] with fallback to [status].
   String get stageName => columnName ?? status;
 
+  /// Creates a copy of this [FeatureRequestItem] with updated properties.
+  ///
+  /// Commonly used for optimistic vote toggles in UI widgets.
+  ///
+  /// ### Example
+  /// ```dart
+  /// final updated = item.copyWith(
+  ///   hasVoted: true,
+  ///   voteCount: item.voteCount + 1,
+  /// );
+  /// ```
   FeatureRequestItem copyWith({
     bool? hasVoted,
     int? voteCount,
@@ -85,6 +166,7 @@ class FeatureRequestItem {
     );
   }
 
+  /// Deserializes [FeatureRequestItem] from a JSON map.
   factory FeatureRequestItem.fromJson(Map<String, dynamic> json) {
     final commentersRaw = json['recentCommenters'] as List<dynamic>? ?? [];
     final commenters = commentersRaw
@@ -119,18 +201,34 @@ class FeatureRequestItem {
   }
 }
 
-/// Draft for proposing a feature request.
+/// Draft proposal for creating a new feature request.
+///
+/// ### Example
+/// ```dart
+/// final draft = FeatureRequestDraft(
+///   title: 'Dark Mode Theme',
+///   description: 'Add system-wide OLED dark mode option.',
+///   requesterName: 'Alex',
+/// );
+/// ```
 class FeatureRequestDraft {
+  /// Feature request title.
   final String title;
+
+  /// Detailed description or use case explanation.
   final String description;
+
+  /// Proposing user's self-declared name.
   final String? requesterName;
 
+  /// Creates a [FeatureRequestDraft] proposal.
   const FeatureRequestDraft({
     required this.title,
     required this.description,
     this.requesterName,
   });
 
+  /// Serializes [FeatureRequestDraft] to JSON for `POST /api/v1/feature-requests`.
   Map<String, dynamic> toJson({required String appKey, required String requesterToken}) {
     return {
       'appKey': appKey,
@@ -143,16 +241,31 @@ class FeatureRequestDraft {
   }
 }
 
-/// Result of submitting a feature request.
+/// Result returned after submitting a new feature request.
+///
+/// Indicates whether the proposal is immediately visible or [pending] moderation review.
+///
+/// ### Example
+/// ```dart
+/// final result = await client.submitFeatureRequest(draft, userToken: token);
+/// if (result.pending) {
+///   print('Proposal submitted and waiting for moderation.');
+/// }
+/// ```
 class FeatureRequestSubmissionResult {
+  /// Database ID of the newly submitted feature request.
   final String featureRequestId;
+
+  /// Whether the request is pending moderator approval before public display.
   final bool pending;
 
+  /// Creates a [FeatureRequestSubmissionResult] record.
   const FeatureRequestSubmissionResult({
     required this.featureRequestId,
     required this.pending,
   });
 
+  /// Deserializes [FeatureRequestSubmissionResult] from a server JSON response.
   factory FeatureRequestSubmissionResult.fromJson(Map<String, dynamic> json) {
     return FeatureRequestSubmissionResult(
       featureRequestId: json['featureRequestId'] as String? ?? json['id'] as String? ?? '',
@@ -161,16 +274,29 @@ class FeatureRequestSubmissionResult {
   }
 }
 
-/// Result of toggling an upvote.
+/// Result of toggling an upvote on a feature request.
+///
+/// Returned by `POST /api/v1/feature-requests/:id/vote`.
+///
+/// ### Example
+/// ```dart
+/// final result = await client.toggleVote('fr_123', userToken: token);
+/// print('Voted: ${result.voted}, Total count: ${result.voteCount}');
+/// ```
 class VoteResult {
+  /// Whether the user has an active upvote after toggling.
   final bool voted;
+
+  /// Updated total upvote count after the change.
   final int voteCount;
 
+  /// Creates a [VoteResult] record.
   const VoteResult({
     required this.voted,
     required this.voteCount,
   });
 
+  /// Deserializes [VoteResult] from a server JSON response.
   factory VoteResult.fromJson(Map<String, dynamic> json) {
     return VoteResult(
       voted: json['voted'] as bool? ?? false,
@@ -179,16 +305,29 @@ class VoteResult {
   }
 }
 
-/// Paged list of feature requests.
+/// Paginated list response for feature requests.
+///
+/// Returned by `GET /api/v1/feature-requests`.
+///
+/// ### Example
+/// ```dart
+/// final result = await client.fetchFeatureRequests(userToken: token);
+/// print('Showing ${result.requests.length} of ${result.total} requests.');
+/// ```
 class ListFeatureRequestsResult {
+  /// List of feature request items returned for the current page.
   final List<FeatureRequestItem> requests;
+
+  /// Total count of matching feature requests across all pages.
   final int total;
 
+  /// Creates a [ListFeatureRequestsResult] page container.
   const ListFeatureRequestsResult({
     required this.requests,
     required this.total,
   });
 
+  /// Deserializes [ListFeatureRequestsResult] from a JSON map.
   factory ListFeatureRequestsResult.fromJson(Map<String, dynamic> json) {
     final list = (json['requests'] as List<dynamic>? ?? [])
         .map((r) => FeatureRequestItem.fromJson(r as Map<String, dynamic>))
