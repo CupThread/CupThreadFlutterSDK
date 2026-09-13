@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 
@@ -139,7 +140,11 @@ class _FeatureRequestComposeSheetState extends State<FeatureRequestComposeSheet>
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString();
+          if (e is TurnstileRequiredException) {
+            _errorMessage = strings.verificationRequired;
+          } else {
+            _errorMessage = e.toString();
+          }
         });
       }
     }

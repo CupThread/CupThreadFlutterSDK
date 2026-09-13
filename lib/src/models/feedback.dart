@@ -150,6 +150,9 @@ class FeedbackDraft {
   /// List of uploaded screenshot or log attachments.
   final List<FeedbackAttachment> attachments;
 
+  /// Optional Cloudflare Turnstile verification token.
+  final String? turnstileToken;
+
   /// Creates a [FeedbackDraft] ready for submission.
   const FeedbackDraft({
     required this.title,
@@ -161,6 +164,7 @@ class FeedbackDraft {
     this.buildNumber,
     this.metadata = const {},
     this.attachments = const [],
+    this.turnstileToken,
   });
 
   /// Serializes [FeedbackDraft] to a JSON payload ready for `POST /api/v1/feedback`.
@@ -187,6 +191,8 @@ class FeedbackDraft {
         'buildNumber': buildNumber!.trim(),
       'metadata': meta,
       'attachments': attachments.map((a) => a.toJson()).toList(),
+      if (turnstileToken != null && turnstileToken!.trim().isNotEmpty)
+        'turnstileToken': turnstileToken!.trim(),
     };
   }
 }

@@ -221,11 +221,15 @@ class FeatureRequestDraft {
   /// Proposing user's self-declared name.
   final String? requesterName;
 
+  /// Optional Cloudflare Turnstile verification token.
+  final String? turnstileToken;
+
   /// Creates a [FeatureRequestDraft] proposal.
   const FeatureRequestDraft({
     required this.title,
     required this.description,
     this.requesterName,
+    this.turnstileToken,
   });
 
   /// Serializes [FeatureRequestDraft] to JSON for `POST /api/v1/feature-requests`.
@@ -237,6 +241,8 @@ class FeatureRequestDraft {
       if (requesterName != null && requesterName!.trim().isNotEmpty)
         'requesterName': requesterName!.trim(),
       'requesterToken': requesterToken,
+      if (turnstileToken != null && turnstileToken!.trim().isNotEmpty)
+        'turnstileToken': turnstileToken!.trim(),
     };
   }
 }
