@@ -88,6 +88,7 @@ void main() {
     FeedbackClientConfig(
       baseUrl: 'https://api.cupthread.com',
       appKey: 'app_xxx', // from your CupThread Developer Console
+      sdkSigningSecret: 'sec_xxx', // Optional: required for reporting payment attributes (isPaying, mrr, plan)
     ),
   );
 
@@ -169,7 +170,7 @@ FeedbackComposer.showModal(
 | `fetchChangelog()` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch published release notes |
 | `subscribeToChangelog(email, userToken)` | `POST /api/v1/public/apps/{appKey}/changelog/subscribe` | Subscribe email to changelog |
 | `unsubscribeFromChangelog(email)` | `POST /api/v1/public/apps/{appKey}/changelog/unsubscribe` | Unsubscribe email from changelog |
-| `updateUserAttributes(...)` | `PUT /api/v1/public/apps/{appKey}/user` | Report user attributes (paying, plan, MRR) |
+| `updateUserAttributes(...)` | `PUT /api/v1/public/apps/{appKey}/user` | Report user attributes (paying, plan, MRR with HMAC signing) |
 | `fetchUserProfile(userId)` | `GET /api/v1/users/{userId}/profile` | Fetch public user profile |
 
 ---
