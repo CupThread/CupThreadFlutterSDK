@@ -26,6 +26,12 @@ class ChangelogOverlay extends StatelessWidget {
     bool onlyIfUnseen = false,
     bool autoMarkSeen = true,
   }) async {
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.changelog,
+    );
+    if (!isEnabled) return;
+
     final client = CupThreadTheme.clientOf(context);
     final data = await client.prepareChangelogOverlay(onlyIfUnseen: onlyIfUnseen);
     if (data == null || data.entries.isEmpty) return;
@@ -33,6 +39,8 @@ class ChangelogOverlay extends StatelessWidget {
     if (!context.mounted) return;
 
     final token = CupThreadTheme.userTokenOf(context);
+    final config = CupThreadTheme.configOf(context, listen: false);
+    final failClosed = CupThreadTheme.failClosedOf(context);
 
     await showModalBottomSheet(
       context: context,
@@ -41,6 +49,8 @@ class ChangelogOverlay extends StatelessWidget {
       builder: (ctx) => CupThreadTheme(
         client: client,
         userToken: token,
+        config: config,
+        failClosed: failClosed,
         child: DraggableScrollableSheet(
           initialChildSize: 0.75,
           minChildSize: 0.5,

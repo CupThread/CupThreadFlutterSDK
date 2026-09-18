@@ -28,11 +28,35 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  PublicAppConfig? _lastConfig;
+  bool _hasAttemptedLoad = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadData();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAndLoad();
+  }
+
+  void _checkAndLoad() {
+    final isConfigLoading = CupThreadTheme.isConfigLoading(context);
+    final configError = CupThreadTheme.configErrorOf(context);
+    final appConfig = CupThreadTheme.configOf(context);
+
+    if (isConfigLoading && appConfig == null) return;
+
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.featureRequests,
+    );
+
+    if (configError != null && appConfig == null && !isEnabled) return;
+    if (!isEnabled) return;
+
+    if (!_hasAttemptedLoad || _lastConfig != appConfig) {
+      _lastConfig = appConfig;
+      _hasAttemptedLoad = true;
+      _loadData();
+    }
   }
 
   @override
@@ -42,6 +66,16 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   }
 
   Future<void> _loadData() async {
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.featureRequests,
+      listen: false,
+    );
+    if (!isEnabled) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
 
@@ -72,6 +106,17 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
   Future<void> _handleToggleVote(FeatureRequestItem target) async {
     if (target.isOwnRequest) return;
+    if (!CupThreadTheme.isFeatureEnabled(context, (f) => f.featureRequests, listen: false)) {
+      return;
+    }
+    final config = CupThreadTheme.configOf(context, listen: false);
+    final isAnon = CupThreadTheme.isAnonymous(context);
+    if (config != null && !config.allowAnonymousVote && isAnon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign-in is required to vote on feature requests.')),
+      );
+      return;
+    }
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
@@ -111,6 +156,114 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
     final strings = CupThreadTheme.stringsOf(context);
+    final isConfigLoading = CupThreadTheme.isConfigLoading(context);
+    final configError = CupThreadTheme.configErrorOf(context);
+    final appConfig = CupThreadTheme.configOf(context);
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.featureRequests,
+    );
+
+    if (isConfigLoading && appConfig == null) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.featureRequests,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(child: CircularProgressIndicator(color: colors.primary)),
+      );
+    }
+
+    if (configError != null && appConfig == null && !isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.featureRequests,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_off, size: 48, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 12),
+                Text(
+                  strings.configLoadFailed,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => CupThreadTheme.retryConfig(context),
+                  child: Text(strings.retry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.featureRequests,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.block, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.featureRequestsDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: colors.background,

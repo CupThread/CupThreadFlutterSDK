@@ -39,3 +39,21 @@ class UnreadableUploadResponseException extends FeedbackException {
     super.message = 'Attachment upload completed but server response could not be parsed.',
   ]);
 }
+
+/// Thrown when an SDK surface or action is disabled by remote feature flags.
+class FeatureDisabledException extends FeedbackException {
+  final String feature;
+
+  const FeatureDisabledException(this.feature, [String? message])
+      : super(message ?? 'Feature "$feature" is disabled by remote configuration.');
+}
+
+/// Thrown when an uploaded attachment exceeds the maximum allowed byte size.
+class AttachmentTooLargeException extends FeedbackException {
+  final int actualBytes;
+  final int maxBytes;
+
+  const AttachmentTooLargeException(this.actualBytes, this.maxBytes)
+      : super('Attachment size ($actualBytes bytes) exceeds allowed limit of $maxBytes bytes.');
+}
+

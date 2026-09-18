@@ -21,6 +21,9 @@ void main() {
             headers: {'content-type': 'application/json'},
           );
         }
+        if (request.url.path.contains('/public/config/')) {
+          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        }
         return http.Response('{"error":"not found"}', 404);
       });
 
@@ -49,6 +52,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // Verify fields exist
       expect(find.byType(TextField), findsNWidgets(3));
@@ -140,11 +144,16 @@ void main() {
         size: 204800,
       );
 
+      final mockHttpClient = MockClient((request) async {
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      });
+
       final client = FeedbackClient(
         FeedbackClientConfig(
           baseUrl: 'https://api.cupthread.com',
           appKey: 'app_test_123',
         ),
+        httpClient: mockHttpClient,
       );
 
       await tester.pumpWidget(
@@ -162,6 +171,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Attachments'), findsOneWidget);
       expect(find.text('Add Attachment'), findsOneWidget);
