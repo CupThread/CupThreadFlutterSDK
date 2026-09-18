@@ -3,20 +3,32 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import '../utils/formatters.dart';
 import 'feedback_exception.dart';
+import 'sdk_attribute_signer.dart';
 import 'user_token_store.dart';
 
 /// Configuration for FeedbackClient.
 class FeedbackClientConfig {
   final String baseUrl;
   final String appKey;
+
+  /// Per-app secret used to HMAC-SHA256 sign end-user payment attributes
+  /// (isPaying, mrr, plan) on `PUT /api/v1/public/apps/:appKey/user`.
+  final String? sdkSigningSecret;
+
   final FeedbackPlatform defaultPlatform;
 
   FeedbackClientConfig({
     required String baseUrl,
     required this.appKey,
+    String? sdkSigningSecret,
+    String? signingSecret,
     FeedbackPlatform? defaultPlatform,
-  })  : baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
+  })  : sdkSigningSecret = sdkSigningSecret ?? signingSecret,
+        baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
         defaultPlatform = defaultPlatform ?? FeedbackPlatform.current;
+
+  /// Alias for [sdkSigningSecret].
+  String? get signingSecret => sdkSigningSecret;
 }
 
 /// Primary API client for CupThread platform.
@@ -307,18 +319,56 @@ class FeedbackClient {
   }
 
   /// Reports self-declared user attributes.
+  ///
+  /// Calls that report payment attributes ([isPaying], [plan], or [mrr])
+  /// must carry an HMAC-SHA256 signature produced with the app's SDK signing secret
+  /// (cpt-user-attrs-v1).
+  ///
+  /// If [signature] is provided, it and [timestamp] are sent directly.
+  /// Otherwise, if a signing secret is configured in [signingSecret] or
+  /// [FeedbackClientConfig.sdkSigningSecret], the SDK automatically signs the payload.
+  /// Requests without payment attributes (identity or [currency] only) remain unsigned.
   Future<UserAttributesUpdateResult> updateUserAttributes({
     required String userToken,
     bool? isPaying,
     String? plan,
     double? mrr,
     String? currency,
+    String? signingSecret,
+    String? signature,
+    int? timestamp,
   }) async {
-    final body = <String, dynamic>{};
+    final body = <String, dynamic>{
+      'userToken': userToken,
+    };
     if (isPaying != null) body['isPaying'] = isPaying;
     if (plan != null && plan.isNotEmpty) body['plan'] = plan.trim();
     if (mrr != null) body['mrr'] = mrr;
     if (currency != null && currency.isNotEmpty) body['currency'] = currency.trim();
+
+    final assertsPayment =
+        body.containsKey('isPaying') || body.containsKey('plan') || body.containsKey('mrr');
+
+    if (signature != null && signature.isNotEmpty) {
+      body['signature'] = signature;
+      body['timestamp'] =
+          timestamp ?? (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000);
+    } else if (assertsPayment) {
+      final secret = signingSecret ?? config.sdkSigningSecret;
+      if (secret != null && secret.isNotEmpty) {
+        final ts =
+            timestamp ?? (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000);
+        final sig = SdkAttributeSigner.sign(
+          secret: secret,
+          appKey: config.appKey,
+          userToken: userToken,
+          raw: body,
+          timestamp: ts,
+        );
+        body['timestamp'] = ts;
+        body['signature'] = sig;
+      }
+    }
 
     final json = await _sendJson(
       method: 'PUT',
