@@ -25,11 +25,35 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   bool _isSubscribing = false;
 
   final TextEditingController _emailController = TextEditingController();
+  PublicAppConfig? _lastConfig;
+  bool _hasAttemptedLoad = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadData();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAndLoad();
+  }
+
+  void _checkAndLoad() {
+    final isConfigLoading = CupThreadTheme.isConfigLoading(context);
+    final configError = CupThreadTheme.configErrorOf(context);
+    final appConfig = CupThreadTheme.configOf(context);
+
+    if (isConfigLoading && appConfig == null) return;
+
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.changelog,
+    );
+
+    if (configError != null && appConfig == null && !isEnabled) return;
+    if (!isEnabled) return;
+
+    if (!_hasAttemptedLoad || _lastConfig != appConfig) {
+      _lastConfig = appConfig;
+      _hasAttemptedLoad = true;
+      _loadData();
+    }
   }
 
   @override
@@ -39,6 +63,16 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   }
 
   Future<void> _loadData() async {
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.changelog,
+      listen: false,
+    );
+    if (!isEnabled) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     final client = CupThreadTheme.clientOf(context);
     try {
       final list = await client.fetchChangelog();
@@ -54,6 +88,10 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   }
 
   Future<void> _handleSubscribe() async {
+    if (!CupThreadTheme.isFeatureEnabled(context, (f) => f.changelog, listen: false)) {
+      return;
+    }
+
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,6 +130,114 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
     final strings = CupThreadTheme.stringsOf(context);
+    final isConfigLoading = CupThreadTheme.isConfigLoading(context);
+    final configError = CupThreadTheme.configErrorOf(context);
+    final appConfig = CupThreadTheme.configOf(context);
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.changelog,
+    );
+
+    if (isConfigLoading && appConfig == null) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.whatsNew,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(child: CircularProgressIndicator(color: colors.primary)),
+      );
+    }
+
+    if (configError != null && appConfig == null && !isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.whatsNew,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_off, size: 48, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 12),
+                Text(
+                  strings.configLoadFailed,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => CupThreadTheme.retryConfig(context),
+                  child: Text(strings.retry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.whatsNew,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.block, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.changelogDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: colors.background,

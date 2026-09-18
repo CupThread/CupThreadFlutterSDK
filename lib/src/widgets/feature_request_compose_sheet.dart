@@ -16,8 +16,16 @@ class FeatureRequestComposeSheet extends StatefulWidget {
     BuildContext context, {
     ValueChanged<FeatureRequestSubmissionResult>? onSubmitSuccess,
   }) {
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.featureRequests,
+    );
+    if (!isEnabled) return Future.value(null);
+
     final client = CupThreadTheme.clientOf(context);
     final token = CupThreadTheme.userTokenOf(context);
+    final config = CupThreadTheme.configOf(context, listen: false);
+    final failClosed = CupThreadTheme.failClosedOf(context);
 
     return showModalBottomSheet<FeatureRequestSubmissionResult>(
       context: context,
@@ -26,6 +34,8 @@ class FeatureRequestComposeSheet extends StatefulWidget {
       builder: (ctx) => CupThreadTheme(
         client: client,
         userToken: token,
+        config: config,
+        failClosed: failClosed,
         child: DraggableScrollableSheet(
           initialChildSize: 0.85,
           minChildSize: 0.5,
@@ -79,6 +89,11 @@ class _FeatureRequestComposeSheetState extends State<FeatureRequestComposeSheet>
 
   Future<void> _handleSubmit() async {
     final strings = CupThreadTheme.stringsOf(context);
+    if (!CupThreadTheme.isFeatureEnabled(context, (f) => f.featureRequests, listen: false)) {
+      setState(() => _errorMessage = strings.featureRequestsDisabled);
+      return;
+    }
+
     final title = _titleController.text.trim();
     final desc = _descController.text.trim();
     final name = _nameController.text.trim();
@@ -134,6 +149,132 @@ class _FeatureRequestComposeSheetState extends State<FeatureRequestComposeSheet>
   Widget build(BuildContext context) {
     final colors = CupThreadTheme.of(context);
     final strings = CupThreadTheme.stringsOf(context);
+    final isConfigLoading = CupThreadTheme.isConfigLoading(context);
+    final configError = CupThreadTheme.configErrorOf(context);
+    final appConfig = CupThreadTheme.configOf(context);
+    final isEnabled = CupThreadTheme.isFeatureEnabled(
+      context,
+      (f) => f.featureRequests,
+    );
+
+    if (isConfigLoading && appConfig == null) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            strings.newFeatureRequest,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.close, color: colors.textSecondary),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
+        body: Center(child: CircularProgressIndicator(color: colors.primary)),
+      );
+    }
+
+    if (configError != null && appConfig == null && !isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            strings.newFeatureRequest,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.close, color: colors.textSecondary),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_off, size: 48, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 12),
+                Text(
+                  strings.configLoadFailed,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => CupThreadTheme.retryConfig(context),
+                  child: Text(strings.retry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!isEnabled) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            strings.newFeatureRequest,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.close, color: colors.textSecondary),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.block, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.featureRequestsDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: colors.background,

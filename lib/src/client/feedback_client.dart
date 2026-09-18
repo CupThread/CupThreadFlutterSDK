@@ -36,13 +36,19 @@ class FeedbackClient {
   final FeedbackClientConfig config;
   final http.Client _httpClient;
   final TokenStorageAdapter _storage;
+  PublicAppConfig? _cachedAppConfig;
 
   FeedbackClient(
     this.config, {
     http.Client? httpClient,
     TokenStorageAdapter? storage,
+    PublicAppConfig? initialConfig,
   })  : _httpClient = httpClient ?? http.Client(),
-        _storage = storage ?? MemoryTokenStorage();
+        _storage = storage ?? MemoryTokenStorage(),
+        _cachedAppConfig = initialConfig;
+
+  /// Returns cached app configuration if already fetched or provided, or null.
+  PublicAppConfig? get cachedAppConfig => _cachedAppConfig;
 
   /// Submits user feedback draft.
   Future<FeedbackSubmissionResult> submit(
@@ -71,7 +77,13 @@ class FeedbackClient {
     required String filename,
     required String mimeType,
     AttachmentKind? preferredKind,
+    int? maxBytes,
   }) async {
+    final effectiveMax = maxBytes ?? _cachedAppConfig?.maxAttachmentBytes;
+    if (effectiveMax != null && bytes.length > effectiveMax) {
+      throw AttachmentTooLargeException(bytes.length, effectiveMax);
+    }
+
     final kind = preferredKind ??
         (mimeType.startsWith('image/') ? AttachmentKind.image : AttachmentKind.r2);
     final path = kind == AttachmentKind.image
@@ -106,12 +118,17 @@ class FeedbackClient {
   }
 
   /// Fetches public app configuration.
-  Future<PublicAppConfig> fetchAppConfig() async {
+  Future<PublicAppConfig> fetchAppConfig({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedAppConfig != null) {
+      return _cachedAppConfig!;
+    }
     final json = await _sendJson(
       method: 'GET',
       path: '/api/v1/public/config/${config.appKey}',
     );
-    return PublicAppConfig.fromJson(json);
+    final appConfig = PublicAppConfig.fromJson(json);
+    _cachedAppConfig = appConfig;
+    return appConfig;
   }
 
   /// Fetches Kanban board columns.
@@ -273,23 +290,27 @@ class FeedbackClient {
   /// If [onlyIfUnseen] is true, returns null if the latest entry has already been marked seen.
   Future<({List<ChangelogEntry> entries, SdkAppearance appearance})?>
       prepareChangelogOverlay({bool onlyIfUnseen = false}) async {
-    final appConfig = await fetchAppConfig();
-    if (!appConfig.sdk.features.changelog) return null;
+    try {
+      final appConfig = await fetchAppConfig();
+      if (!appConfig.sdk.features.changelog) return null;
 
-    final limit = appConfig.sdk.changelogOverlay.clampedEntryCount;
-    final all = await fetchChangelog();
-    final entries = all.take(limit).toList();
-    if (entries.isEmpty) return null;
+      final limit = appConfig.sdk.changelogOverlay.clampedEntryCount;
+      final all = await fetchChangelog();
+      final entries = all.take(limit).toList();
+      if (entries.isEmpty) return null;
 
-    if (onlyIfUnseen) {
-      final latest = entries.first;
-      final versionKey = latest.versionLabel ?? latest.id;
-      if (versionKey.isNotEmpty && await hasSeenChangelog(versionKey)) {
-        return null;
+      if (onlyIfUnseen) {
+        final latest = entries.first;
+        final versionKey = latest.versionLabel ?? latest.id;
+        if (versionKey.isNotEmpty && await hasSeenChangelog(versionKey)) {
+          return null;
+        }
       }
-    }
 
-    return (entries: entries, appearance: appConfig.sdk);
+      return (entries: entries, appearance: appConfig.sdk);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Subscribes an email to changelog notifications.

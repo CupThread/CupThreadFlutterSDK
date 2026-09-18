@@ -78,6 +78,15 @@ class CupThreadStrings {
   final String payingCustomer;
   final String freeTier;
 
+  // Feature Kill-switches & Remote Config
+  final String featureUnavailable;
+  final String featureRequestsDisabled;
+  final String roadmapDisabled;
+  final String feedbackDisabled;
+  final String changelogDisabled;
+  final String configLoadFailed;
+  final String attachmentTooLarge;
+
   const CupThreadStrings({
     this.retry = 'Retry',
     this.cancel = 'Cancel',
@@ -147,6 +156,14 @@ class CupThreadStrings {
     this.userProfile = 'User Profile',
     this.payingCustomer = 'Paying Customer',
     this.freeTier = 'Free Tier',
+
+    this.featureUnavailable = 'This feature is currently unavailable.',
+    this.featureRequestsDisabled = 'Feature requests are currently disabled.',
+    this.roadmapDisabled = 'Roadmap is currently disabled.',
+    this.feedbackDisabled = 'Feedback submission is currently disabled.',
+    this.changelogDisabled = 'Changelog is currently disabled.',
+    this.configLoadFailed = 'Failed to load configuration.',
+    this.attachmentTooLarge = 'Attachment exceeds the maximum allowed size.',
   });
 
   /// Built-in English strings.
