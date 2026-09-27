@@ -76,6 +76,9 @@ class FeatureRequestItem {
   /// Total count of upvotes received.
   final int voteCount;
 
+  /// Historical votes imported from the source provider, when available.
+  final int? importedVotes;
+
   /// Whether the currently active user has upvoted this request.
   final bool hasVoted;
 
@@ -113,6 +116,7 @@ class FeatureRequestItem {
     this.requesterClerkId,
     required this.approved,
     required this.voteCount,
+    this.importedVotes,
     required this.hasVoted,
     required this.isOwnRequest,
     this.recentCommenters = const [],
@@ -157,6 +161,7 @@ class FeatureRequestItem {
       requesterClerkId: requesterClerkId,
       approved: approved,
       voteCount: voteCount ?? this.voteCount,
+      importedVotes: importedVotes,
       hasVoted: hasVoted ?? this.hasVoted,
       isOwnRequest: isOwnRequest,
       recentCommenters: recentCommenters,
@@ -191,6 +196,7 @@ class FeatureRequestItem {
       requesterClerkId: json['requesterClerkId'] as String?,
       approved: json['approved'] as bool? ?? true,
       voteCount: (json['voteCount'] as num?)?.toInt() ?? 0,
+      importedVotes: (json['importedVotes'] as num?)?.toInt(),
       hasVoted: json['hasVoted'] as bool? ?? false,
       isOwnRequest: json['isOwnRequest'] as bool? ?? false,
       recentCommenters: commenters,
