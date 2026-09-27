@@ -224,6 +224,9 @@ class FeedbackSubmissionResult {
   /// Optional non-fatal warning message from the server.
   final String? warning;
 
+  /// Optional machine-readable warning code from the server.
+  final String? warningCode;
+
   /// Creates a [FeedbackSubmissionResult] record.
   const FeedbackSubmissionResult({
     required this.submissionId,
@@ -231,6 +234,7 @@ class FeedbackSubmissionResult {
     this.githubDiscussionId,
     this.githubDiscussionUrl,
     this.warning,
+    this.warningCode,
   });
 
   /// Deserializes [FeedbackSubmissionResult] from a server JSON response.
@@ -241,6 +245,7 @@ class FeedbackSubmissionResult {
       githubDiscussionId: json['githubDiscussionId'] as String?,
       githubDiscussionUrl: json['githubDiscussionUrl'] as String?,
       warning: json['warning'] as String?,
+      warningCode: json['warningCode'] as String?,
     );
   }
 }

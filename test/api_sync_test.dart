@@ -9,6 +9,37 @@ import 'package:cupthread_feedback/cupthread_feedback.dart';
 void main() {
   const turnstileBody = 'Human verification (Turnstile) is required';
 
+  test('submit decodes the optional warningCode', () async {
+    final mockClient = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'submissionId': 'sub_warning',
+          'forwardedToGithub': false,
+          'warning': 'Attachments unavailable',
+          'warningCode': 'attachment_signing_unconfigured',
+        }),
+        201,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final client = FeedbackClient(
+      FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+      ),
+      httpClient: mockClient,
+    );
+
+    final result = await client.submit(const FeedbackDraft(
+      title: 'Attachment warning',
+      description: 'The submission completed with a warning',
+      platform: FeedbackPlatform.ios,
+    ));
+
+    expect(result.warningCode, 'attachment_signing_unconfigured');
+  });
+
   group('Issue 7: Cloudflare Turnstile Intake', () {
     test('submit includes turnstileToken from draft', () async {
       http.Request? capturedRequest;
