@@ -73,6 +73,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
 
+    final previousItem = _item;
     final nextVoted = !_item.hasVoted;
     final nextCount = _item.voteCount + (nextVoted ? 1 : -1);
     final optimistic = _item.copyWith(
@@ -87,7 +88,9 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     widget.onVoteChange?.call(optimistic);
 
     try {
-      final res = await client.toggleVote(_item.id, userToken: userToken);
+      final res = previousItem.hasVoted
+          ? await client.removeVote(previousItem.id, userToken: userToken)
+          : await client.castVote(previousItem.id, userToken: userToken);
       final confirmed = _item.copyWith(
         hasVoted: res.voted,
         voteCount: res.voteCount,
@@ -102,10 +105,10 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _item = widget.item;
+          _item = previousItem;
           _isVoting = false;
         });
-        widget.onVoteChange?.call(widget.item);
+        widget.onVoteChange?.call(previousItem);
       }
     }
   }

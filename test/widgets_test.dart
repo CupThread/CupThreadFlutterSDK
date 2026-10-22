@@ -239,4 +239,242 @@ void main() {
       expect(await client.hasSeenChangelog('2.0.0'), isTrue);
     });
   });
+
+  group('Voting in UI widgets (castVote vs removeVote)', () {
+    Map<String, dynamic> createRequestJson({
+      String id = 'fr_1',
+      int voteCount = 5,
+      bool hasVoted = false,
+      String? columnId,
+    }) {
+      return {
+        'id': id,
+        'appId': 'app_123',
+        'title': 'Dark mode support',
+        'description': 'Add full dark mode theme',
+        'status': 'under_review',
+        'approved': true,
+        'voteCount': voteCount,
+        'hasVoted': hasVoted,
+        'isOwnRequest': false,
+        if (columnId != null) 'columnId': columnId,
+        'createdAt': '2026-09-01T12:00:00Z',
+        'updatedAt': '2026-09-01T12:00:00Z',
+      };
+    }
+
+    testWidgets('FeatureRequestsScreen sends POST to cast vote and DELETE to remove vote', (tester) async {
+      final voteMethods = <String>[];
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          return http.Response(
+            jsonEncode({
+              'requests': [createRequestJson(voteCount: 5, hasVoted: false)],
+              'totalCount': 1,
+              'hasMore': false,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+          voteMethods.add(request.method);
+          if (request.method == 'POST') {
+            return http.Response(
+              jsonEncode({'voted': true, 'voteCount': 6}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          } else if (request.method == 'DELETE') {
+            return http.Response(
+              jsonEncode({'voted': false, 'voteCount': 5}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+        }
+        if (request.url.path.contains('/versions')) {
+          return http.Response(jsonEncode({'versions': []}), 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const FeatureRequestsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('5'), findsOneWidget);
+
+      // First tap: casts vote via POST
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['POST']);
+      expect(find.text('6'), findsOneWidget);
+
+      // Second tap: removes vote via DELETE
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['POST', 'DELETE']);
+      expect(find.text('5'), findsOneWidget);
+    });
+
+    testWidgets('RoadmapBoardScreen sends POST to cast vote and DELETE to remove vote', (tester) async {
+      final voteMethods = <String>[];
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/columns/')) {
+          return http.Response(
+            jsonEncode({
+              'columns': [
+                {'id': 'col_1', 'name': 'Planned', 'position': 0}
+              ]
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          return http.Response(
+            jsonEncode({
+              'requests': [createRequestJson(voteCount: 10, hasVoted: true, columnId: 'col_1')],
+              'totalCount': 1,
+              'hasMore': false,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+          voteMethods.add(request.method);
+          if (request.method == 'DELETE') {
+            return http.Response(
+              jsonEncode({'voted': false, 'voteCount': 9}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          } else if (request.method == 'POST') {
+            return http.Response(
+              jsonEncode({'voted': true, 'voteCount': 10}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+        }
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const RoadmapBoardScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Starts voted (10) -> first tap removes vote via DELETE
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['DELETE']);
+      expect(find.text('9'), findsOneWidget);
+
+      // Second tap casts vote via POST
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['DELETE', 'POST']);
+      expect(find.text('10'), findsOneWidget);
+    });
+
+    testWidgets('FeatureRequestDetailSheet sends POST to cast vote and DELETE to remove vote', (tester) async {
+      final voteMethods = <String>[];
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+          voteMethods.add(request.method);
+          if (request.method == 'POST') {
+            return http.Response(
+              jsonEncode({'voted': true, 'voteCount': 8}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          } else if (request.method == 'DELETE') {
+            return http.Response(
+              jsonEncode({'voted': false, 'voteCount': 7}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+        }
+        if (request.url.path.contains('/comments')) {
+          return http.Response(jsonEncode({'comments': []}), 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final item = FeatureRequestItem.fromJson(createRequestJson(voteCount: 7, hasVoted: false));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: FeatureRequestDetailSheet(item: item),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap vote button -> POST
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['POST']);
+      expect(find.text('8'), findsOneWidget);
+
+      // Tap vote button again -> DELETE
+      await tester.tap(find.byType(VoteButton));
+      await tester.pumpAndSettle();
+
+      expect(voteMethods, ['POST', 'DELETE']);
+      expect(find.text('7'), findsOneWidget);
+    });
+  });
 }

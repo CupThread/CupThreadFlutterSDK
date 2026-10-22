@@ -133,7 +133,9 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     });
 
     try {
-      final res = await client.toggleVote(target.id, userToken: userToken);
+      final res = target.hasVoted
+          ? await client.removeVote(target.id, userToken: userToken)
+          : await client.castVote(target.id, userToken: userToken);
       if (mounted) {
         setState(() {
           _items = _items

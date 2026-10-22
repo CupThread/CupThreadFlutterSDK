@@ -274,17 +274,18 @@ class FeatureRequestSubmissionResult {
   }
 }
 
-/// Result of toggling an upvote on a feature request.
+/// Result of casting or removing an upvote on a feature request.
 ///
-/// Returned by `POST /api/v1/feature-requests/:id/vote`.
+/// Returned by `POST /api/v1/feature-requests/:id/vote` ([FeedbackClient.castVote])
+/// and `DELETE /api/v1/feature-requests/:id/vote` ([FeedbackClient.removeVote]).
 ///
 /// ### Example
 /// ```dart
-/// final result = await client.toggleVote('fr_123', userToken: token);
+/// final result = await client.castVote('fr_123', userToken: token);
 /// print('Voted: ${result.voted}, Total count: ${result.voteCount}');
 /// ```
 class VoteResult {
-  /// Whether the user has an active upvote after toggling.
+  /// Whether the user has an active upvote after the operation.
   final bool voted;
 
   /// Updated total upvote count after the change.
