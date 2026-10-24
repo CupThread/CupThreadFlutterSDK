@@ -85,6 +85,8 @@ import 'package:cupthread_feedback/cupthread_feedback.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Optional but recommended: configure one durable key-value store once,
   // before mounting CupThreadTheme. The anonymous identity AND changelog
   // "seen" state persist through this adapter; without it both are
