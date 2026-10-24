@@ -479,6 +479,10 @@ class FeedbackClient {
   /// (cpt-user-attrs-v1).
   ///
   /// If [signature] is provided, it and [timestamp] are sent directly.
+  /// [signature] must be accompanied by the [timestamp] the canonical string was
+  /// computed over — omitting [timestamp] throws [ArgumentError], because the
+  /// server verifies the signature against the timestamp sent in the request and
+  /// a freshly generated one would never match.
   /// Otherwise, if a signing secret is configured in [signingSecret] or
   /// [FeedbackClientConfig.sdkSigningSecret], the SDK automatically signs the payload.
   /// Requests without payment attributes (identity or [currency] only) remain unsigned.
@@ -504,9 +508,14 @@ class FeedbackClient {
         body.containsKey('isPaying') || body.containsKey('plan') || body.containsKey('mrr');
 
     if (signature != null && signature.isNotEmpty) {
+      if (timestamp == null) {
+        throw ArgumentError(
+          'timestamp is required when signature is provided; '
+          'pass the timestamp your signature was computed over',
+        );
+      }
       body['signature'] = signature;
-      body['timestamp'] =
-          timestamp ?? (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000);
+      body['timestamp'] = timestamp;
     } else if (assertsPayment) {
       final secret = signingSecret ?? config.sdkSigningSecret;
       if (secret != null && secret.isNotEmpty) {

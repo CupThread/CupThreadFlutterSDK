@@ -371,6 +371,93 @@ void main() {
       expect(body['timestamp'], 1700000000);
     });
 
+    test('throws ArgumentError and issues no HTTP request when signature is provided without timestamp', () async {
+      var requestCount = 0;
+      final mockClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({'ok': true, 'updatedAt': '2026-09-17T00:00:00Z'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: appKey,
+        ),
+        httpClient: mockClient,
+      );
+
+      const customSig = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      await expectLater(
+        client.updateUserAttributes(
+          userToken: userToken,
+          isPaying: true,
+          signature: customSig,
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('timestamp is required when signature is provided'),
+        )),
+      );
+
+      // ArgumentError is an Error (not an Exception); it must propagate to the
+      // caller instead of being swallowed or retried as an HTTP failure.
+      expect(requestCount, 0);
+    });
+
+    test('auto-signing path signs over its own generated timestamp and sends a matching pair', () async {
+      late http.Request capturedRequest;
+      final mockClient = MockClient((request) async {
+        capturedRequest = request;
+        return http.Response(
+          jsonEncode({'ok': true, 'updatedAt': '2026-09-17T00:00:00Z'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: appKey,
+          sdkSigningSecret: secret,
+        ),
+        httpClient: mockClient,
+      );
+
+      await client.updateUserAttributes(
+        userToken: userToken,
+        isPaying: true,
+        plan: 'pro',
+        mrr: 12,
+        currency: 'usd',
+      );
+
+      final body = jsonDecode(capturedRequest.body) as Map<String, dynamic>;
+      final sentTimestamp = body['timestamp'] as int;
+      final sentSignature = body['signature'] as String;
+      expect(sentTimestamp,
+          closeTo(DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000, 60));
+
+      // Recompute the HMAC over exactly what was sent and confirm the pair
+      // the SDK generated is internally consistent.
+      final unsignedBody = <String, dynamic>{...body}
+        ..remove('signature')
+        ..remove('timestamp');
+      final expected = SdkAttributeSigner.sign(
+        secret: secret,
+        appKey: appKey,
+        userToken: userToken,
+        raw: unsignedBody,
+        timestamp: sentTimestamp,
+      );
+      expect(sentSignature, expected);
+    });
+
     test('sends unsigned when payment attributes provided without secret (allowing server 422)', () async {
       late http.Request capturedRequest;
       final mockClient = MockClient((request) async {
