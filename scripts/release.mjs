@@ -6,7 +6,7 @@
 /// Release. Publishing to pub.dev is intentionally not part of this script
 /// yet; README documents the git-tag install path instead.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,27 @@ function run(cmd, args) {
 
 function capture(cmd, args) {
   return spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
+}
+
+// Byte-for-byte restore map so a dry run can undo whatever `flutter pub get`
+// touched (a stale tracked pubspec.lock is the usual case).
+function snapshotFiles(names) {
+  const map = new Map();
+  for (const name of names) {
+    const file = path.join(ROOT, name);
+    map.set(file, existsSync(file) ? readFileSync(file) : null);
+  }
+  return map;
+}
+
+function restoreFiles(map) {
+  for (const [file, bytes] of map) {
+    if (bytes === null) {
+      if (existsSync(file)) unlinkSync(file);
+    } else {
+      writeFileSync(file, bytes);
+    }
+  }
 }
 
 // --- CLI arguments ---
@@ -75,17 +96,35 @@ if (untrackedFiles.length > 0) {
   for (const line of untrackedFiles) console.log(`      ${line}`);
 }
 
-// --- Preflight: the tag must not already exist ---
+// --- Preflight: the tag must not already exist, locally or on origin ---
 const tagExists = capture('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`]);
 if (tagExists.status === 0) fail(`Tag ${tag} already exists; pick a new version.`);
+const remoteTag = spawnSync(
+  'git',
+  ['ls-remote', '--exit-code', '--tags', 'origin', tag],
+  { cwd: ROOT, encoding: 'utf8' },
+);
+if (remoteTag.status === 0) {
+  fail(`Tag ${tag} already exists on origin; pick a new version.`);
+} else if (remoteTag.status !== 2) {
+  fail(
+    `Could not query origin for ${tag} (git ls-remote exit ${remoteTag.status}).` +
+      (remoteTag.stderr ? `\n${remoteTag.stderr.trim()}` : ''),
+  );
+}
 
-// --- Preflight: pub get, analyze, test ---
-run('flutter', ['pub', 'get']);
-run('flutter', ['analyze']);
-if (skipTests) {
-  console.log('  ⚠ --skip-tests set: `flutter test` was NOT run for this release.');
-} else {
-  run('flutter', ['test']);
+// --- Preflight: pub get, analyze, test (dry run restores touched files) ---
+const dryRunSnapshots = dryRun ? snapshotFiles(['pubspec.yaml', 'pubspec.lock']) : null;
+try {
+  run('flutter', ['pub', 'get']);
+  run('flutter', ['analyze']);
+  if (skipTests) {
+    console.log('  ⚠ --skip-tests set: `flutter test` was NOT run for this release.');
+  } else {
+    run('flutter', ['test']);
+  }
+} finally {
+  if (dryRunSnapshots) restoreFiles(dryRunSnapshots);
 }
 
 // --- Read the current version before touching anything ---
@@ -127,11 +166,11 @@ if (written !== version) {
 }
 console.log(`  ✓ pubspec.yaml version: ${current} -> ${version}`);
 
-// --- Commit, tag, push ---
+// --- Commit, tag, push (atomic so a tag rejection cannot strand HEAD) ---
 run('git', ['add', 'pubspec.yaml', 'pubspec.lock']);
 run('git', ['commit', '-m', `release: flutter SDK ${tag}`]);
 run('git', ['tag', '-a', tag, '-m', `Release ${tag}`]);
-run('git', ['push', 'origin', 'HEAD', tag]);
+run('git', ['push', '--atomic', 'origin', 'HEAD', tag]);
 
 // --- GitHub Release ---
 console.log(`  $ gh release create ${tag} --verify-tag --generate-notes --title ${tag}`);
