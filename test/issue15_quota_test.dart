@@ -122,6 +122,10 @@ void main() {
       expect(caught, isNotNull);
       expect(caught!.reason, SubmissionQuotaReason.tierLimitSubmissions);
       expect(caught.code, 'mystery_code');
+      // The raw response-derived code stays a diagnostic property; it must
+      // never reach message or toString(), which hosts may render to users.
+      expect(caught.message, isNot(contains('mystery_code')));
+      expect(caught.toString(), isNot(contains('mystery_code')));
     });
 
     test('a 402 body without JSON falls back to the canonical code',

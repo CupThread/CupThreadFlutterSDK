@@ -84,6 +84,10 @@ class SubmissionQuotaException extends FeedbackException {
   /// Stable machine-readable error code from the API response
   /// (`tier_limit_submissions` or `subscription_inactive`). Falls back to
   /// the canonical code for [reason] when the response carries none.
+  ///
+  /// Preserved for host diagnostics and logging only; deliberately excluded
+  /// from [message] and [toString()] so rendering a caught exception can
+  /// never surface response-derived text to end users.
   final String code;
 
   /// HTTP status code returned by the server (402).
@@ -112,7 +116,7 @@ class SubmissionQuotaException extends FeedbackException {
         );
 
   @override
-  String toString() => 'SubmissionQuotaException($code): $message';
+  String toString() => 'SubmissionQuotaException($status): $message';
 }
 
 /// Thrown when response parsing or network transport fails.
