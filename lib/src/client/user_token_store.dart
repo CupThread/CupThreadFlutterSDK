@@ -28,6 +28,7 @@ class UserTokenStore {
   String? _cachedToken;
   String? _ephemeralToken;
   Future<String>? _pendingResolution;
+  Future<void>? _pendingWrite;
 
   UserTokenStore([TokenStorageAdapter? storage])
       : _storage = storage ?? MemoryTokenStorage();
@@ -44,6 +45,20 @@ class UserTokenStore {
     final pending = _pendingResolution;
     if (pending != null) return pending;
     return _pendingResolution = _resolveDurableToken();
+  }
+
+  /// Persists [token] through a single serialized write queue so the
+  /// identity installed last always wins in storage, even when a
+  /// mint-and-persist from [_resolveDurableToken] is still in flight while
+  /// [setToken]/[resetToken] install a newer identity. Write failures are
+  /// swallowed, matching the previous behavior, without breaking the queue.
+  Future<void> _persist(String token) {
+    final previous = _pendingWrite ?? Future<void>.value();
+    final guarded = previous
+        .then((_) => _storage.setItem(storageKey, token))
+        .catchError((Object _) {});
+    _pendingWrite = guarded;
+    return guarded;
   }
 
   Future<String> _resolveDurableToken() async {
@@ -70,10 +85,10 @@ class UserTokenStore {
 
     final newToken = generateUuid();
     _cachedToken = newToken;
-    try {
-      await _storage.setItem(storageKey, newToken);
-    } catch (_) {}
-    return newToken;
+    await _persist(newToken);
+    // setToken/resetToken may have installed a newer identity while the
+    // persistence write was in flight; report the current one.
+    return _cachedToken ?? newToken;
   }
 
   /// Synchronously returns the currently held identity token.
@@ -105,18 +120,14 @@ class UserTokenStore {
   /// Overrides or sets custom user token.
   Future<void> setToken(String token) async {
     _cachedToken = token;
-    try {
-      await _storage.setItem(storageKey, token);
-    } catch (_) {}
+    await _persist(token);
   }
 
   /// Resets token to a newly generated UUID.
   Future<String> resetToken() async {
     final newToken = generateUuid();
     _cachedToken = newToken;
-    try {
-      await _storage.setItem(storageKey, newToken);
-    } catch (_) {}
+    await _persist(newToken);
     return newToken;
   }
 }
