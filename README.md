@@ -153,7 +153,7 @@ FeedbackComposer.showModal(
     //   bytes: bytes,
     //   filename: file.name,
     //   mimeType: 'image/png',
-    //   userToken: CupThreadTheme.of(context).userToken,
+    //   userToken: CupThreadTheme.userTokenOf(context),
     // );
     return null;
   },

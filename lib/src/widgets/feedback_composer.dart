@@ -168,6 +168,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         buildNumber: widget.initialDraft?.buildNumber,
         metadata: widget.initialDraft?.metadata ?? {},
         attachments: _attachments,
+        turnstileToken: widget.initialDraft?.turnstileToken,
       );
 
       final result = await client.submit(draft, userToken: userToken);
