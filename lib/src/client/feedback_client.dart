@@ -420,12 +420,21 @@ class FeedbackClient {
 
   /// Loads newest release entries and appearance for the What's-New overlay.
   ///
+  /// [isAnonymous] must reflect the caller's session state and is required so
+  /// every call site states its anonymity explicitly: when true and the resolved
+  /// config disables [PublicAppConfig.allowAnonymousChangelog], returns null
+  /// before any changelog request is made.
+  ///
   /// If [onlyIfUnseen] is true, returns null if the latest entry has already been marked seen.
   Future<({List<ChangelogEntry> entries, SdkAppearance appearance})?>
-      prepareChangelogOverlay({bool onlyIfUnseen = false}) async {
+      prepareChangelogOverlay({
+    bool onlyIfUnseen = false,
+    required bool isAnonymous,
+  }) async {
     try {
       final appConfig = await fetchAppConfig();
       if (!appConfig.sdk.features.changelog) return null;
+      if (isAnonymous && !appConfig.allowAnonymousChangelog) return null;
 
       final limit = appConfig.sdk.changelogOverlay.clampedEntryCount;
       final all = await fetchChangelog();

@@ -258,6 +258,10 @@ class PublicAppConfig {
   final String? iconUrl;
 
   /// Whether public access to roadmap and feedback is permitted.
+  ///
+  /// Informational only — enforced server-side, not consumed by the SDK. A
+  /// private app's config endpoint returns 404, so any config payload the
+  /// client received implies public access was granted.
   final bool allowPublic;
 
   /// List of platforms where the SDK is authorized to run.
