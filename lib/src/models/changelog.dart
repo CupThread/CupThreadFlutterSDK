@@ -90,6 +90,52 @@ class ChangelogEntry {
   }
 }
 
+/// Paginated page of published changelog entries.
+///
+/// Returned by `GET /api/v1/public/apps/:appKey/changelog`. Follow
+/// [nextCursor] to fetch subsequent pages while [hasMore] is true.
+///
+/// ### Example
+/// ```dart
+/// var page = await client.fetchChangelogPage(limit: 100);
+/// while (page.hasMore && page.nextCursor != null) {
+///   page = await client.fetchChangelogPage(cursor: page.nextCursor);
+/// }
+/// ```
+class ChangelogPage {
+  /// Changelog entries returned for the current page.
+  final List<ChangelogEntry> entries;
+
+  /// Whether more entries are available beyond this page.
+  final bool hasMore;
+
+  /// Opaque keyset cursor for the next page, or null on the last page.
+  final String? nextCursor;
+
+  /// Creates a [ChangelogPage] container.
+  const ChangelogPage({
+    required this.entries,
+    required this.hasMore,
+    this.nextCursor,
+  });
+
+  /// Deserializes [ChangelogPage] from a server JSON response.
+  ///
+  /// Tolerates responses from servers that do not yet send pagination
+  /// metadata: [hasMore] defaults to false and [nextCursor] to null.
+  factory ChangelogPage.fromJson(Map<String, dynamic> json) {
+    final list = (json['entries'] as List<dynamic>? ?? [])
+        .map((e) => ChangelogEntry.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final cursor = json['nextCursor'] as String?;
+    return ChangelogPage(
+      entries: list,
+      hasMore: json['hasMore'] as bool? ?? false,
+      nextCursor: (cursor != null && cursor.isNotEmpty) ? cursor : null,
+    );
+  }
+}
+
 /// Confirmation result returned when subscribing an email to changelog notifications.
 ///
 /// Returned by `POST /api/v1/public/apps/:appKey/changelog/subscribe`.

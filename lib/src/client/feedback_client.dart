@@ -377,17 +377,53 @@ class FeedbackClient {
     return FeatureRequestComment.fromJson(json);
   }
 
-  /// Fetches published changelog release notes.
-  Future<List<ChangelogEntry>> fetchChangelog() async {
+  /// Maximum number of pages [fetchChangelog] will follow before giving up.
+  ///
+  /// Guards against a misbehaving server that keeps returning a non-advancing
+  /// `nextCursor`, which would otherwise loop forever.
+  static const int _changelogMaxPages = 100;
+
+  /// Fetches a single page of published changelog release notes.
+  ///
+  /// Maps to `GET /api/v1/public/apps/:appKey/changelog` with the optional
+  /// `limit` (1–100) and opaque `cursor` query parameters. The returned
+  /// [ChangelogPage] exposes `hasMore` and `nextCursor`; pass a previously
+  /// returned cursor back in to walk through entries beyond the newest 100.
+  ///
+  /// To fetch everything at once, use [fetchChangelog].
+  Future<ChangelogPage> fetchChangelogPage({int? limit, String? cursor}) async {
+    final params = <String, String>{};
+    if (limit != null) {
+      params['limit'] = limit.clamp(1, 100).toString();
+    }
+    if (cursor != null && cursor.isNotEmpty) {
+      params['cursor'] = cursor;
+    }
+    final queryString = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
     final json = await _sendJson(
       method: 'GET',
-      path: '/api/v1/public/apps/${config.appKey}/changelog',
+      path: '/api/v1/public/apps/${config.appKey}/changelog$queryString',
     );
-    final list = (json['entries'] as List<dynamic>? ?? [])
-        .map((e) => ChangelogEntry.fromJson(e as Map<String, dynamic>))
-        .toList();
-    list.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    return list;
+    return ChangelogPage.fromJson(json);
+  }
+
+  /// Fetches all published changelog release notes, newest first.
+  ///
+  /// Follows `hasMore` / `nextCursor` across pages so apps with more than
+  /// 100 published entries still see their full history. A server page cap
+  /// of [_changelogMaxPages] prevents runaway pagination.
+  Future<List<ChangelogEntry>> fetchChangelog() async {
+    final all = <ChangelogEntry>[];
+    String? cursor;
+    var hasMore = true;
+    for (var page = 0; hasMore && page < _changelogMaxPages; page++) {
+      final result = await fetchChangelogPage(cursor: cursor);
+      all.addAll(result.entries);
+      hasMore = result.hasMore;
+      cursor = result.nextCursor;
+    }
+    all.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return all;
   }
 
   /// Storage key for tracking seen changelog versions.
