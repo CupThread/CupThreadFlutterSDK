@@ -150,6 +150,9 @@ class FeedbackDraft {
   /// List of uploaded screenshot or log attachments.
   final List<FeedbackAttachment> attachments;
 
+  /// Optional Cloudflare Turnstile verification token.
+  final String? turnstileToken;
+
   /// Creates a [FeedbackDraft] ready for submission.
   const FeedbackDraft({
     required this.title,
@@ -161,6 +164,7 @@ class FeedbackDraft {
     this.buildNumber,
     this.metadata = const {},
     this.attachments = const [],
+    this.turnstileToken,
   });
 
   /// Serializes [FeedbackDraft] to a JSON payload ready for `POST /api/v1/feedback`.
@@ -187,6 +191,8 @@ class FeedbackDraft {
         'buildNumber': buildNumber!.trim(),
       'metadata': meta,
       'attachments': attachments.map((a) => a.toJson()).toList(),
+      if (turnstileToken != null && turnstileToken!.trim().isNotEmpty)
+        'turnstileToken': turnstileToken!.trim(),
     };
   }
 }
@@ -218,6 +224,9 @@ class FeedbackSubmissionResult {
   /// Optional non-fatal warning message from the server.
   final String? warning;
 
+  /// Optional machine-readable warning code from the server.
+  final String? warningCode;
+
   /// Creates a [FeedbackSubmissionResult] record.
   const FeedbackSubmissionResult({
     required this.submissionId,
@@ -225,6 +234,7 @@ class FeedbackSubmissionResult {
     this.githubDiscussionId,
     this.githubDiscussionUrl,
     this.warning,
+    this.warningCode,
   });
 
   /// Deserializes [FeedbackSubmissionResult] from a server JSON response.
@@ -235,6 +245,7 @@ class FeedbackSubmissionResult {
       githubDiscussionId: json['githubDiscussionId'] as String?,
       githubDiscussionUrl: json['githubDiscussionUrl'] as String?,
       warning: json['warning'] as String?,
+      warningCode: json['warningCode'] as String?,
     );
   }
 }

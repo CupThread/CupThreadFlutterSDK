@@ -101,6 +101,14 @@ Future<void> main() async {
       baseUrl: 'https://api.cupthread.com',
       appKey: 'app_xxx', // from your CupThread Developer Console
       sdkSigningSecret: 'sec_xxx', // Optional: required for reporting payment attributes (isPaying, mrr, plan)
+      // Optional: Turnstile token provider for production intake (or set per draft)
+      turnstileTokenProvider: () async {
+        // Obtain token via flutter_turnstile, webview, or native bridge
+        return await myTurnstileService.getToken();
+      },
+      // Optional: network timeouts (defaults: 15s request, 60s upload)
+      requestTimeout: const Duration(seconds: 15),
+      uploadTimeout: const Duration(seconds: 60),
     ),
   );
 
@@ -132,6 +140,43 @@ class SharedPreferencesTokenStorage implements TokenStorageAdapter {
   }
 }
 ```
+
+---
+
+## Persisting the Anonymous Identity (Recommended)
+
+The SDK is pure Dart and ships no storage plugin, so by default the anonymous user token lives in memory only — every app launch would mint a fresh identity, losing vote ownership, own-request highlighting, and changelog seen-state. Wire any key-value store via `UserTokenStore.configure(...)` before mounting `CupThreadTheme`:
+
+```dart
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cupthread_feedback/cupthread_feedback.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  UserTokenStore.configure(
+    SharedPreferencesTokenStorage(await SharedPreferences.getInstance()),
+  );
+
+  runApp(const MyApp());
+}
+
+/// Any key-value store works — implement TokenStorageAdapter.
+class SharedPreferencesTokenStorage implements TokenStorageAdapter {
+  SharedPreferencesTokenStorage(this._prefs);
+  final SharedPreferences _prefs;
+
+  @override
+  Future<String?> getItem(String key) async => _prefs.getString(key);
+
+  @override
+  Future<void> setItem(String key, String value) async {
+    await _prefs.setString(key, value);
+  }
+}
+```
+
+`CupThreadTheme` defers its first child build until the persisted token has been restored from storage (typically a single frame), so widgets never observe a throwaway identity while the durable one is still loading. The synchronous `UserTokenStore.token` accessor returns a stable ephemeral placeholder instead of minting-and-caching a UUID, so it can never overwrite a token that exists in storage.
 
 ---
 
@@ -172,6 +217,7 @@ FeedbackComposer.showModal(
     //   bytes: bytes,
     //   filename: file.name,
     //   mimeType: 'image/png',
+    //   userToken: CupThreadTheme.userTokenOf(context),
     // );
     return null;
   },

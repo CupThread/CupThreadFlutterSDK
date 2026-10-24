@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 
@@ -22,40 +23,36 @@ class FeatureRequestComposeSheet extends StatefulWidget {
     );
     if (!isEnabled) return Future.value(null);
 
-    final client = CupThreadTheme.clientOf(context);
-    final token = CupThreadTheme.userTokenOf(context);
-    final config = CupThreadTheme.configOf(context, listen: false);
-    final failClosed = CupThreadTheme.failClosedOf(context);
+    // Capture the host scope (theme, strings, locale, session, config,
+    // policies) before pushing the route so the sheet renders identically.
+    final sheet = CupThreadTheme.carryScope(
+      context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: CupThreadTheme.of(sheetCtx).background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: FeatureRequestComposeSheet(
+            onSubmitSuccess: (res) {
+              if (onSubmitSuccess != null) {
+                onSubmitSuccess(res);
+              }
+              Navigator.of(sheetCtx).maybePop(res);
+            },
+          ),
+        ),
+      ),
+    );
 
     return showModalBottomSheet<FeatureRequestSubmissionResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CupThreadTheme(
-        client: client,
-        userToken: token,
-        config: config,
-        failClosed: failClosed,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (sheetCtx, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: CupThreadTheme.of(sheetCtx).background,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: FeatureRequestComposeSheet(
-              onSubmitSuccess: (res) {
-                if (onSubmitSuccess != null) {
-                  onSubmitSuccess(res);
-                }
-                Navigator.of(sheetCtx).maybePop(res);
-              },
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => sheet,
     );
   }
 
@@ -139,7 +136,11 @@ class _FeatureRequestComposeSheetState extends State<FeatureRequestComposeSheet>
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString();
+          if (e is TurnstileRequiredException) {
+            _errorMessage = strings.verificationRequired;
+          } else {
+            _errorMessage = e.toString();
+          }
         });
       }
     }

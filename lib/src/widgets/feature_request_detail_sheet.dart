@@ -24,32 +24,32 @@ class FeatureRequestDetailSheet extends StatefulWidget {
     required FeatureRequestItem item,
     ValueChanged<FeatureRequestItem>? onVoteChange,
   }) {
-    final client = CupThreadTheme.clientOf(context);
-    final token = CupThreadTheme.userTokenOf(context);
+    // Capture the host scope (theme, strings, locale, session, config,
+    // policies) before pushing the route so the sheet renders identically.
+    final sheet = CupThreadTheme.carryScope(
+      context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: CupThreadTheme.of(sheetCtx).background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: FeatureRequestDetailSheet(
+            item: item,
+            onVoteChange: onVoteChange,
+          ),
+        ),
+      ),
+    );
 
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CupThreadTheme(
-        client: client,
-        userToken: token,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (sheetCtx, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: CupThreadTheme.of(sheetCtx).background,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: FeatureRequestDetailSheet(
-              item: item,
-              onVoteChange: onVoteChange,
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => sheet,
     );
   }
 

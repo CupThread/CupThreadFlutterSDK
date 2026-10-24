@@ -11,6 +11,7 @@ class CupThreadStrings {
   final String minutesAgoSuffix;
   final String hoursAgoSuffix;
   final String daysAgoSuffix;
+  final String verificationRequired;
 
   // Feature Requests & Board
   final String featureRequests;
@@ -96,6 +97,8 @@ class CupThreadStrings {
     this.minutesAgoSuffix = 'm ago',
     this.hoursAgoSuffix = 'h ago',
     this.daysAgoSuffix = 'd ago',
+    this.verificationRequired =
+        'Human verification is required to submit. Please try again after completing verification.',
 
     this.featureRequests = 'Feature Requests',
     this.proposeFeature = 'Propose Feature',
@@ -179,6 +182,7 @@ class CupThreadStrings {
     minutesAgoSuffix: '分钟前',
     hoursAgoSuffix: '小时前',
     daysAgoSuffix: '天前',
+    verificationRequired: '提交前需要完成人机验证，请在完成验证后重试。',
 
     featureRequests: '功能建议',
     proposeFeature: '提交建议',
@@ -251,6 +255,7 @@ class CupThreadStrings {
     minutesAgoSuffix: '分前',
     hoursAgoSuffix: '時間前',
     daysAgoSuffix: '日前',
+    verificationRequired: '送信には人間認証（Turnstile）が必要です。認証を完了してからもう一度お試しください。',
 
     featureRequests: '機能リクエスト',
     proposeFeature: '機能を提案',
@@ -323,6 +328,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min',
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' j',
+    verificationRequired: 'Une vérification humaine est requise pour envoyer. Merci de réessayer après avoir terminé la vérification.',
 
     featureRequests: 'Demandes de fonctionnalités',
     proposeFeature: 'Proposer une fonctionnalité',
@@ -395,6 +401,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min',
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' d',
+    verificationRequired: 'Se requiere verificación humana para enviar. Inténtalo de nuevo después de completar la verificación.',
 
     featureRequests: 'Solicitudes de funciones',
     proposeFeature: 'Proponer función',
@@ -467,6 +474,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' Min.',
     hoursAgoSuffix: ' Std.',
     daysAgoSuffix: ' T.',
+    verificationRequired: 'Zum Senden ist eine menschliche Verifizierung erforderlich. Bitte nach Abschluss der Verifizierung erneut versuchen.',
 
     featureRequests: 'Funktionswünsche',
     proposeFeature: 'Funktion vorschlagen',
@@ -539,6 +547,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min fa',
     hoursAgoSuffix: ' h fa',
     daysAgoSuffix: ' g fa',
+    verificationRequired: 'È richiesta la verifica umana per inviare. Riprova dopo aver completato la verifica.',
 
     featureRequests: 'Richieste di funzionalità',
     proposeFeature: 'Proponi una funzionalità',
@@ -611,6 +620,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min',
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' d',
+    verificationRequired: 'É necessária verificação humana para enviar. Tente novamente após concluir a verificação.',
 
     featureRequests: 'Solicitações de recursos',
     proposeFeature: 'Propor recurso',
@@ -683,6 +693,7 @@ class CupThreadStrings {
     minutesAgoSuffix: '分鐘前',
     hoursAgoSuffix: '小時前',
     daysAgoSuffix: '天前',
+    verificationRequired: '提交前需要完成人機驗證，請在完成驗證後重試。',
 
     featureRequests: '功能建議',
     proposeFeature: '提交建議',
@@ -755,6 +766,7 @@ class CupThreadStrings {
     minutesAgoSuffix: '분 전',
     hoursAgoSuffix: '시간 전',
     daysAgoSuffix: '일 전',
+    verificationRequired: '제출하려면 사용자 인증이 필요합니다. 인증을 완료한 후 다시 시도해 주세요.',
 
     featureRequests: '기능 요청',
     proposeFeature: '기능 제안하기',
@@ -827,6 +839,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min temu',
     hoursAgoSuffix: ' godz. temu',
     daysAgoSuffix: ' dni temu',
+    verificationRequired: 'Wysłanie wymaga weryfikacji człowieka. Spróbuj ponownie po jej ukończeniu.',
 
     featureRequests: 'Propozycje funkcji',
     proposeFeature: 'Zaproponuj funkcję',
@@ -899,6 +912,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' min siden',
     hoursAgoSuffix: ' t siden',
     daysAgoSuffix: ' d siden',
+    verificationRequired: 'Menneskelig verifisering kreves for å sende. Prøv igjen etter å ha fullført verifiseringen.',
 
     featureRequests: 'Funksjonsønsker',
     proposeFeature: 'Foreslå funksjon',
@@ -971,6 +985,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' dk önce',
     hoursAgoSuffix: ' sa önce',
     daysAgoSuffix: ' gün önce',
+    verificationRequired: 'Gönderim için insan doğrulaması gerekli. Doğrulamayı tamamladıktan sonra tekrar deneyin.',
 
     featureRequests: 'Özellik istekleri',
     proposeFeature: 'Özellik öner',
@@ -1043,6 +1058,7 @@ class CupThreadStrings {
     minutesAgoSuffix: ' phút trước',
     hoursAgoSuffix: ' giờ trước',
     daysAgoSuffix: ' ngày trước',
+    verificationRequired: 'Cần xác minh con người để gửi. Vui lòng thử lại sau khi hoàn tất xác minh.',
 
     featureRequests: 'Yêu cầu tính năng',
     proposeFeature: 'Đề xuất tính năng',
@@ -1214,6 +1230,7 @@ class CupThreadStrings {
     String? userProfile,
     String? payingCustomer,
     String? freeTier,
+    String? verificationRequired,
   }) {
     return CupThreadStrings(
       retry: retry ?? this.retry,
@@ -1224,6 +1241,7 @@ class CupThreadStrings {
       minutesAgoSuffix: minutesAgoSuffix ?? this.minutesAgoSuffix,
       hoursAgoSuffix: hoursAgoSuffix ?? this.hoursAgoSuffix,
       daysAgoSuffix: daysAgoSuffix ?? this.daysAgoSuffix,
+      verificationRequired: verificationRequired ?? this.verificationRequired,
       featureRequests: featureRequests ?? this.featureRequests,
       proposeFeature: proposeFeature ?? this.proposeFeature,
       proposeAnIdea: proposeAnIdea ?? this.proposeAnIdea,

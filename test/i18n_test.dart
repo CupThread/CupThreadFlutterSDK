@@ -24,6 +24,28 @@ void main() {
       expect(strings.anonymous, '匿名用户');
     });
 
+    test('all locales define non-empty verificationRequired', () {
+      final locales = [
+        CupThreadStrings.en,
+        CupThreadStrings.zhHans,
+        CupThreadStrings.ja,
+        CupThreadStrings.fr,
+        CupThreadStrings.es,
+        CupThreadStrings.de,
+        CupThreadStrings.it,
+        CupThreadStrings.pt,
+        CupThreadStrings.zhHant,
+        CupThreadStrings.ko,
+        CupThreadStrings.pl,
+        CupThreadStrings.no,
+        CupThreadStrings.tr,
+        CupThreadStrings.vi,
+      ];
+      for (final s in locales) {
+        expect(s.verificationRequired, isNotEmpty);
+      }
+    });
+
     test('fromLocale maps locales correctly', () {
       expect(
         CupThreadStrings.fromLocale(const Locale('zh', 'CN')).featureRequests,
@@ -131,6 +153,9 @@ void main() {
           ),
         ),
       );
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
 
       expect(find.text('提交建议'), findsOneWidget);
       expect(resolvedStrings.submitFeedback, '提交反馈');
