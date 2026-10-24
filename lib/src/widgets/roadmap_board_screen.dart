@@ -26,6 +26,11 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   bool _isLoadingMore = false;
   Object? _loadError;
   int _total = 0;
+
+  /// Monotonically increasing token for in-flight board requests. A response
+  /// is applied only while its captured generation still matches, so a stale
+  /// page append can never follow a refresh that replaced the list.
+  int _requestGeneration = 0;
   final Set<String> _votingIds = {};
 
   PublicAppConfig? _lastConfig;
@@ -72,6 +77,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = ++_requestGeneration;
 
     try {
       final results = await Future.wait([
@@ -83,7 +89,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
           (results[0] as List<BoardColumn>).where((c) => c.isVisible).toList();
       final reqs = (results[1] as ListFeatureRequestsResult).requests;
 
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _columns = cols;
           _requests = reqs;
@@ -92,13 +98,15 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
             _selectedColumnId = cols[0].id;
           }
           _isLoading = false;
+          _isLoadingMore = false;
           _loadError = null;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _isLoading = false;
+          _isLoadingMore = false;
           _loadError = e;
         });
       }
@@ -109,6 +117,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     if (_isLoadingMore || _requests.length >= _total) return;
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = _requestGeneration;
 
     setState(() => _isLoadingMore = true);
     try {
@@ -117,7 +126,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         limit: 100,
         offset: _requests.length,
       );
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests = [..._requests, ...res.requests];
           _total = res.total;
@@ -126,7 +135,9 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       }
     } catch (_) {
       // Keep the current page; the Load more row stays available to retry.
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 

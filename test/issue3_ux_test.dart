@@ -490,5 +490,79 @@ void main() {
       expect(find.text('Request 1'), findsOneWidget);
       expect(find.text('No items in this column'), findsNothing);
     });
+
+    testWidgets(
+        'a stale board page response is discarded when a pull-to-refresh reload applied',
+        (tester) async {
+      final loadMoreGate = Completer<void>();
+      final refreshGate = Completer<void>();
+      var dataLoads = 0;
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          return jsonResponse({
+            'columns': [columnJson()]
+          });
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          if (offset != '0') {
+            // Stale Load more page, released after the refresh lands.
+            await loadMoreGate.future;
+            return jsonResponse({
+              'requests': [frItem(1, columnId: 'col_1')],
+              'total': 2,
+            });
+          }
+          dataLoads++;
+          if (dataLoads == 1) {
+            return jsonResponse({
+              'requests': [frItem(0, columnId: 'col_1')],
+              'total': 2,
+            });
+          }
+          // Pull-to-refresh reload, released before the stale page.
+          await refreshGate.future;
+          return jsonResponse({
+            'requests': [frItem(5, columnId: 'col_1')],
+            'total': 1,
+          });
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const RoadmapBoardScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      // Start a Load more and hold its response.
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+
+      // Pull to refresh and hold the reload response too.
+      final cardsList = find.byWidgetPredicate(
+        (w) => w is ListView && w.scrollDirection == Axis.vertical,
+      );
+      await tester.fling(cardsList, const Offset(0, 300), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // The reload lands first and replaces the board…
+      refreshGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Request 5'), findsOneWidget);
+
+      // …then the stale page-2 response arrives and must be discarded
+      // instead of appending pre-refresh items and reviving the old total.
+      loadMoreGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Request 1'), findsNothing);
+      expect(find.text('Request 5'), findsOneWidget);
+    });
   });
 }
