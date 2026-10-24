@@ -221,6 +221,11 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   void didUpdateWidget(CupThreadTheme oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userToken != widget.userToken) {
+      if (widget.userToken == null) {
+        // Switched back to anonymous: re-gate until the durable identity
+        // has been restored from storage.
+        setState(() => _resolvedToken = null);
+      }
       _resolveToken();
     }
     if (widget.config != oldWidget.config) {
@@ -239,11 +244,15 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
 
   Future<void> _resolveToken() async {
     if (widget.userToken != null) {
-      setState(() => _resolvedToken = widget.userToken);
-    } else {
-      final token = await UserTokenStore.shared.getToken();
-      if (mounted) setState(() => _resolvedToken = token);
+      if (mounted) setState(() => _resolvedToken = widget.userToken);
+      return;
     }
+    final token = await UserTokenStore.shared.getToken();
+    if (!mounted) return;
+    // An explicit userToken provided while the storage read was in flight
+    // always wins over the restored anonymous identity.
+    if (widget.userToken != null) return;
+    setState(() => _resolvedToken = token);
   }
 
   Future<void> _loadConfig() async {
@@ -280,10 +289,17 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
 
   @override
   Widget build(BuildContext context) {
+    final token = _resolvedToken;
+    if (token == null) {
+      // The durable anonymous identity is still being restored from storage.
+      // Defer the child build so the first usable paint cannot capture an
+      // ephemeral token (otherwise votes, own-request highlighting, and
+      // changelog-seen state would be attributed to a throwaway identity).
+      return const SizedBox.shrink();
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveTheme = widget.theme ?? _appConfig?.sdk.theme ?? SdkTheme.system;
     final colors = CupThreadColors.resolve(effectiveTheme, isDarkMode: isDark);
-    final token = _resolvedToken ?? widget.userToken ?? UserTokenStore.shared.token;
     final effectiveLocale = widget.locale ?? Localizations.maybeLocaleOf(context);
     final effectiveStrings = widget.strings ?? CupThreadStrings.fromLocale(effectiveLocale);
 
