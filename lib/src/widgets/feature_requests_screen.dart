@@ -147,7 +147,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = [..._items, ...res.requests];
-          _total = res.total;
+          // An empty successful page means the server has no more rows even
+          // if the reported total disagrees; stop paginating at what we have
+          // or the same offset would be requested forever.
+          _total = res.requests.isEmpty ? _items.length : res.total;
           _isLoadingMore = false;
         });
       }
@@ -178,6 +181,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = _requestGeneration;
 
     final nextVoted = !target.hasVoted;
     final nextCount = target.voteCount + (nextVoted ? 1 : -1);
@@ -206,7 +210,9 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      // Roll back only while no refresh replaced the list; a refreshed list
+      // is newer server state than this vote's pre-vote snapshot.
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = _items.map((i) => i.id == target.id ? target : i).toList();
         });

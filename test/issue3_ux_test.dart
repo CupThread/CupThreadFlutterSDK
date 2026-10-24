@@ -356,7 +356,7 @@ void main() {
         if (request.url.path == '/api/v1/feature-requests') {
           final q = request.url.queryParameters['q'];
           final offset = request.url.queryParameters['offset'] ?? '0';
-          if (q != null) {
+          if (q != null && offset == '0') {
             // Search-triggered refresh, released before the stale page.
             await refreshGate.future;
             return jsonResponse({
@@ -414,6 +414,117 @@ void main() {
       expect(find.text('Request 2'), findsNothing);
       expect(find.text('Request 10'), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
+    });
+
+    testWidgets(
+        'an empty Load more page stops pagination even when total disagrees',
+        (tester) async {
+      final offsets = <String>[];
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          offsets.add(offset);
+          if (offset == '0') {
+            return jsonResponse({
+              'requests': [frItem(0), frItem(1)],
+              'total': 5,
+            });
+          }
+          // Server misreports the total: the second page is empty.
+          return jsonResponse({
+            'requests': <Map<String, dynamic>>[],
+            'total': 5,
+          });
+        }
+        if (request.url.path.contains('/versions')) {
+          return jsonResponse({'versions': []});
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const FeatureRequestsScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // The empty page ends the list at the loaded rows, and no further
+      // request with the same offset is issued.
+      expect(offsets, ['0', '2']);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('Request 0'), findsOneWidget);
+      expect(find.text('Request 1'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a failed vote does not roll back an item replaced by a newer refresh',
+        (tester) async {
+      final voteGate = Completer<void>();
+      final refreshGate = Completer<void>();
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_0/vote' &&
+            request.method == 'POST') {
+          await voteGate.future;
+          throw Exception('vote failed');
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          final q = request.url.queryParameters['q'];
+          if (q != null) {
+            // Search refresh returning newer server state for the item.
+            await refreshGate.future;
+            return jsonResponse({
+              'requests': [frItem(0, voteCount: 5)],
+              'total': 1,
+            });
+          }
+          return jsonResponse({
+            'requests': [frItem(0, voteCount: 3)],
+            'total': 1,
+          });
+        }
+        if (request.url.path.contains('/versions')) {
+          return jsonResponse({'versions': []});
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const FeatureRequestsScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('3'), findsOneWidget);
+
+      // Cast a vote and hold the request.
+      await tester.tap(find.byType(VoteButton));
+      await tester.pump();
+      // Optimistic update applied: 3 + 1 = 4.
+      expect(find.text('4'), findsOneWidget);
+
+      // Refresh replaces the list with newer server state while the vote is
+      // still in flight.
+      await tester.enterText(find.byType(TextField), 'csv');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 100));
+      refreshGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('5'), findsOneWidget);
+
+      // The vote now fails; the rollback must be skipped because the
+      // refreshed item is newer than the failed vote's snapshot.
+      voteGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('3'), findsNothing);
+      expect(find.text('4'), findsNothing);
     });
   });
 
@@ -509,6 +620,52 @@ void main() {
       expect(offsets, ['0', '1']);
       expect(find.text('Load more'), findsNothing);
       expect(find.text('Request 1'), findsOneWidget);
+    });
+
+    testWidgets(
+        'an empty board page stops pagination even when total disagrees',
+        (tester) async {
+      final offsets = <String>[];
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          return jsonResponse({
+            'columns': [columnJson()]
+          });
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          offsets.add(offset);
+          if (offset == '0') {
+            return jsonResponse({
+              'requests': [frItem(0, columnId: 'col_1')],
+              'total': 2,
+            });
+          }
+          // Server misreports the total: the second page is empty.
+          return jsonResponse({
+            'requests': <Map<String, dynamic>>[],
+            'total': 2,
+          });
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const RoadmapBoardScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // The empty page ends the board at the loaded rows, and the column
+      // now shows the empty copy instead of another Load more row.
+      expect(offsets, ['0', '1']);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('No items in this column'), findsNothing);
     });
 
     testWidgets(

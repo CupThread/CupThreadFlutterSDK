@@ -133,7 +133,10 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests = [..._requests, ...res.requests];
-          _total = res.total;
+          // An empty successful page means the server has no more rows even
+          // if the reported total disagrees; stop paginating at what we have
+          // or the same offset would be requested forever.
+          _total = res.requests.isEmpty ? _requests.length : res.total;
           _isLoadingMore = false;
         });
       }
@@ -164,6 +167,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = _requestGeneration;
 
     final nextVoted = !target.hasVoted;
     final nextCount = target.voteCount + (nextVoted ? 1 : -1);
@@ -192,7 +196,9 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      // Roll back only while no reload replaced the board; a reloaded board
+      // is newer server state than this vote's pre-vote snapshot.
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests =
               _requests.map((i) => i.id == target.id ? target : i).toList();
