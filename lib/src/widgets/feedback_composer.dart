@@ -28,37 +28,33 @@ class FeedbackComposer extends StatefulWidget {
     );
     if (!isEnabled) return Future.value(null);
 
-    final client = CupThreadTheme.clientOf(context);
-    final token = CupThreadTheme.userTokenOf(context);
-    final config = CupThreadTheme.configOf(context, listen: false);
-    final failClosed = CupThreadTheme.failClosedOf(context);
+    // Capture the host scope (theme, strings, locale, session, config,
+    // policies) before pushing the route so the sheet renders identically.
+    final sheet = CupThreadTheme.carryScope(
+      context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: CupThreadTheme.of(sheetCtx).background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: FeedbackComposer(
+            initialDraft: initialDraft,
+            onPickAttachment: onPickAttachment,
+            onSubmitSuccess: (res) => Navigator.of(sheetCtx).pop(res),
+          ),
+        ),
+      ),
+    );
 
     return showModalBottomSheet<FeedbackSubmissionResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CupThreadTheme(
-        client: client,
-        userToken: token,
-        config: config,
-        failClosed: failClosed,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (sheetCtx, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: CupThreadTheme.of(sheetCtx).background,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: FeedbackComposer(
-              initialDraft: initialDraft,
-              onPickAttachment: onPickAttachment,
-              onSubmitSuccess: (res) => Navigator.of(sheetCtx).pop(res),
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => sheet,
     );
   }
 
