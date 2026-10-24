@@ -38,36 +38,33 @@ class ChangelogOverlay extends StatelessWidget {
 
     if (!context.mounted) return;
 
-    final token = CupThreadTheme.userTokenOf(context);
-    final config = CupThreadTheme.configOf(context, listen: false);
-    final failClosed = CupThreadTheme.failClosedOf(context);
+    // Capture the host scope (theme, strings, locale, session, config,
+    // policies) before pushing the route so the sheet renders identically.
+    final sheet = CupThreadTheme.carryScope(
+      context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (sheetCtx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: CupThreadTheme.of(sheetCtx).card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ChangelogOverlay(
+            entries: data.entries,
+            config: data.appearance.changelogOverlay,
+            autoMarkSeen: autoMarkSeen,
+          ),
+        ),
+      ),
+    );
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CupThreadTheme(
-        client: client,
-        userToken: token,
-        config: config,
-        failClosed: failClosed,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          builder: (sheetCtx, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: CupThreadTheme.of(sheetCtx).card,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: ChangelogOverlay(
-              entries: data.entries,
-              config: data.appearance.changelogOverlay,
-              autoMarkSeen: autoMarkSeen,
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => sheet,
     );
 
     if (autoMarkSeen && data.entries.isNotEmpty) {

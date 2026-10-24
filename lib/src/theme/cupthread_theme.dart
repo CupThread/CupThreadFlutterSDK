@@ -14,6 +14,12 @@ class CupThreadThemeScope extends InheritedWidget {
   final String userToken;
   final CupThreadColors colors;
   final SdkTheme theme;
+
+  /// The host's explicit `theme:` override, or null when [theme] was
+  /// resolved from remote config (or defaults to system). Scope-carrying
+  /// modal routes forward this instead of [theme] so a sheet that captured
+  /// the scope before config resolved can still apply the fetched theme.
+  final SdkTheme? hostTheme;
   final PublicAppConfig? appConfig;
   final bool isConfigLoading;
   final Object? configError;
@@ -29,6 +35,7 @@ class CupThreadThemeScope extends InheritedWidget {
     required this.userToken,
     required this.colors,
     required this.theme,
+    this.hostTheme,
     this.appConfig,
     this.isConfigLoading = false,
     this.configError,
@@ -46,6 +53,7 @@ class CupThreadThemeScope extends InheritedWidget {
         userToken != oldWidget.userToken ||
         colors != oldWidget.colors ||
         theme != oldWidget.theme ||
+        hostTheme != oldWidget.hostTheme ||
         appConfig != oldWidget.appConfig ||
         isConfigLoading != oldWidget.isConfigLoading ||
         configError != oldWidget.configError ||
@@ -65,6 +73,15 @@ class CupThreadTheme extends StatefulWidget {
   final CupThreadStrings? strings;
   final PublicAppConfig? config;
   final bool failClosed;
+
+  /// Overrides anonymous-state detection for the wrapped session.
+  ///
+  /// When null (default), the session is treated as anonymous if and only if
+  /// [userToken] is null. Scope-carrying modal routes pass the outer scope's
+  /// value so sheets keep the host's authentication state even though a
+  /// resolved token is always forwarded to them.
+  final bool? isAnonymousOverride;
+
   final Widget child;
 
   const CupThreadTheme({
@@ -76,6 +93,7 @@ class CupThreadTheme extends StatefulWidget {
     this.strings,
     this.config,
     this.failClosed = true,
+    this.isAnonymousOverride,
     required this.child,
   });
 
@@ -93,6 +111,20 @@ class CupThreadTheme extends StatefulWidget {
     if (scope != null) return scope.strings;
     final locale = Localizations.maybeLocaleOf(context);
     return CupThreadStrings.fromLocale(locale);
+  }
+
+  /// Accesses the current resolved [SdkTheme] (host override, remote config
+  /// theme, or [SdkTheme.system] when no scope is present).
+  static SdkTheme themeOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<CupThreadThemeScope>();
+    return scope?.theme ?? SdkTheme.system;
+  }
+
+  /// Accesses the current locale (host override, or the ambient MaterialApp
+  /// locale when no scope is present).
+  static Locale? localeOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<CupThreadThemeScope>();
+    return scope?.locale ?? Localizations.maybeLocaleOf(context);
   }
 
   /// Accesses current FeedbackClient instance.
@@ -191,6 +223,40 @@ class CupThreadTheme extends StatefulWidget {
     return !effectiveFailClosed;
   }
 
+  /// Re-installs the ambient CupThread scope around [child] so modal routes
+  /// (bottom sheets, dialogs) present identical UI to the host application.
+  ///
+  /// Routes pushed on the Navigator are built outside the host subtree, so a
+  /// bare [CupThreadTheme] inside them would re-resolve appearance and
+  /// localization from the device, dropping host `theme:`, `strings:` and
+  /// `locale:` overrides. Call this with the context that opens the route —
+  /// before it is pushed — to capture the surrounding [CupThreadThemeScope]
+  /// and forward every field (client, user token, resolved theme, strings,
+  /// locale, app config, fail-closed policy, anonymous state) into the route.
+  ///
+  /// If the captured config has not resolved yet, the carried scope fetches it
+  /// from the shared client, mirroring a standalone [CupThreadTheme]. When no
+  /// scope is present, [child] is returned unchanged.
+  static Widget carryScope(BuildContext context, {required Widget child}) {
+    final scope = context.getInheritedWidgetOfExactType<CupThreadThemeScope>() ??
+        context.dependOnInheritedWidgetOfExactType<CupThreadThemeScope>();
+    if (scope == null) return child;
+    return CupThreadTheme(
+      client: scope.client,
+      userToken: scope.userToken,
+      // Forward only the host's explicit override; when the captured scope
+      // resolved its theme from remote config (or system), the carried scope
+      // re-resolves so a config fetched after capture still applies.
+      theme: scope.hostTheme,
+      strings: scope.strings,
+      locale: scope.locale,
+      config: scope.appConfig,
+      failClosed: scope.failClosed,
+      isAnonymousOverride: scope.isAnonymous,
+      child: child,
+    );
+  }
+
   @override
   State<CupThreadTheme> createState() => _CupThreadThemeState();
 }
@@ -221,6 +287,11 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   void didUpdateWidget(CupThreadTheme oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userToken != widget.userToken) {
+      if (widget.userToken == null) {
+        // Switched back to anonymous: re-gate until the durable identity
+        // has been restored from storage.
+        setState(() => _resolvedToken = null);
+      }
       _resolveToken();
     }
     if (widget.config != oldWidget.config) {
@@ -239,11 +310,15 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
 
   Future<void> _resolveToken() async {
     if (widget.userToken != null) {
-      setState(() => _resolvedToken = widget.userToken);
-    } else {
-      final token = await UserTokenStore.shared.getToken();
-      if (mounted) setState(() => _resolvedToken = token);
+      if (mounted) setState(() => _resolvedToken = widget.userToken);
+      return;
     }
+    final token = await UserTokenStore.shared.getToken();
+    if (!mounted) return;
+    // An explicit userToken provided while the storage read was in flight
+    // always wins over the restored anonymous identity.
+    if (widget.userToken != null) return;
+    setState(() => _resolvedToken = token);
   }
 
   Future<void> _loadConfig() async {
@@ -280,10 +355,17 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
 
   @override
   Widget build(BuildContext context) {
+    final token = _resolvedToken;
+    if (token == null) {
+      // The durable anonymous identity is still being restored from storage.
+      // Defer the child build so the first usable paint cannot capture an
+      // ephemeral token (otherwise votes, own-request highlighting, and
+      // changelog-seen state would be attributed to a throwaway identity).
+      return const SizedBox.shrink();
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveTheme = widget.theme ?? _appConfig?.sdk.theme ?? SdkTheme.system;
     final colors = CupThreadColors.resolve(effectiveTheme, isDarkMode: isDark);
-    final token = _resolvedToken ?? widget.userToken ?? UserTokenStore.shared.token;
     final effectiveLocale = widget.locale ?? Localizations.maybeLocaleOf(context);
     final effectiveStrings = widget.strings ?? CupThreadStrings.fromLocale(effectiveLocale);
 
@@ -292,12 +374,13 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
       userToken: token,
       colors: colors,
       theme: effectiveTheme,
+      hostTheme: widget.theme,
       appConfig: _appConfig,
       isConfigLoading: _isConfigLoading,
       configError: _configError,
       retryConfig: _loadConfig,
       failClosed: widget.failClosed,
-      isAnonymous: widget.userToken == null,
+      isAnonymous: widget.isAnonymousOverride ?? widget.userToken == null,
       strings: effectiveStrings,
       locale: effectiveLocale,
       child: widget.child,

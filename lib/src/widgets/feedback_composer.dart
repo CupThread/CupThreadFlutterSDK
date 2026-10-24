@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -28,37 +29,33 @@ class FeedbackComposer extends StatefulWidget {
     );
     if (!isEnabled) return Future.value(null);
 
-    final client = CupThreadTheme.clientOf(context);
-    final token = CupThreadTheme.userTokenOf(context);
-    final config = CupThreadTheme.configOf(context, listen: false);
-    final failClosed = CupThreadTheme.failClosedOf(context);
+    // Capture the host scope (theme, strings, locale, session, config,
+    // policies) before pushing the route so the sheet renders identically.
+    final sheet = CupThreadTheme.carryScope(
+      context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: CupThreadTheme.of(sheetCtx).background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: FeedbackComposer(
+            initialDraft: initialDraft,
+            onPickAttachment: onPickAttachment,
+            onSubmitSuccess: (res) => Navigator.of(sheetCtx).pop(res),
+          ),
+        ),
+      ),
+    );
 
     return showModalBottomSheet<FeedbackSubmissionResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CupThreadTheme(
-        client: client,
-        userToken: token,
-        config: config,
-        failClosed: failClosed,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (sheetCtx, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: CupThreadTheme.of(sheetCtx).background,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: FeedbackComposer(
-              initialDraft: initialDraft,
-              onPickAttachment: onPickAttachment,
-              onSubmitSuccess: (res) => Navigator.of(sheetCtx).pop(res),
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => sheet,
     );
   }
 
@@ -76,6 +73,11 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
   bool _isSubmitting = false;
   bool _isPickingAttachment = false;
   String? _errorMessage;
+
+  /// Turnstile tokens are single-use, so once a draft-supplied token was
+  /// rejected by a verification challenge it must never be resent; the
+  /// client falls back to [FeedbackClientConfig.turnstileTokenProvider].
+  bool _draftTokenRejected = false;
 
   @override
   void initState() {
@@ -167,6 +169,8 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         buildNumber: widget.initialDraft?.buildNumber,
         metadata: widget.initialDraft?.metadata ?? {},
         attachments: _attachments,
+        turnstileToken:
+            _draftTokenRejected ? null : widget.initialDraft?.turnstileToken,
       );
 
       final result = await client.submit(draft, userToken: userToken);
@@ -185,7 +189,12 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString();
+          if (e is TurnstileRequiredException) {
+            _draftTokenRejected = true;
+            _errorMessage = strings.verificationRequired;
+          } else {
+            _errorMessage = e.toString();
+          }
         });
       }
     }

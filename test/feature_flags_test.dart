@@ -271,6 +271,9 @@ void main() {
         ),
       );
 
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
       await tester.tap(find.text('Open Modal'));
       await tester.pumpAndSettle();
 
@@ -306,6 +309,9 @@ void main() {
         ),
       );
 
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
       await tester.tap(find.text('Open Proposal Sheet'));
       await tester.pumpAndSettle();
 
