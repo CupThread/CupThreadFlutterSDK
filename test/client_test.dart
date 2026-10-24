@@ -424,7 +424,7 @@ void main() {
       expect(entries.single.id, 'cl_only');
     });
 
-    test('fetchChangelog stops following a server that never advances its cursor', () async {
+    test('fetchChangelog stops early on a server that never advances its cursor', () async {
       var requestCount = 0;
 
       final mockHttpClient = MockClient((request) async {
@@ -457,8 +457,47 @@ void main() {
 
       final entries = await client.fetchChangelog();
 
-      expect(requestCount, 100);
-      expect(entries, hasLength(100));
+      // The repeated page is dropped, so no duplicate entries are appended.
+      expect(requestCount, 2);
+      expect(entries, hasLength(1));
+      expect(entries.single.id, 'cl_1');
+    });
+
+    test('fetchChangelog stops on hasMore=true with a null nextCursor', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_$requestCount',
+                'title': 'Entry $requestCount',
+                'body': 'Body',
+                'publishedAt': '2026-05-01T00:00:00.000Z',
+              }
+            ],
+            'hasMore': true,
+            'nextCursor': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      expect(requestCount, 1);
+      expect(entries, hasLength(1));
     });
   });
 }

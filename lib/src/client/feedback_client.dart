@@ -410,17 +410,31 @@ class FeedbackClient {
   /// Fetches all published changelog release notes, newest first.
   ///
   /// Follows `hasMore` / `nextCursor` across pages so apps with more than
-  /// 100 published entries still see their full history. A server page cap
-  /// of [_changelogMaxPages] prevents runaway pagination.
+  /// 100 published entries still see their full history. Stops early when
+  /// the server fails to advance the cursor (null, unchanged, or already
+  /// visited), and a page cap of [_changelogMaxPages] backstops anything else.
   Future<List<ChangelogEntry>> fetchChangelog() async {
     final all = <ChangelogEntry>[];
+    final seenCursors = <String>{};
     String? cursor;
     var hasMore = true;
     for (var page = 0; hasMore && page < _changelogMaxPages; page++) {
       final result = await fetchChangelogPage(cursor: cursor);
-      all.addAll(result.entries);
+      final next = result.nextCursor;
+
+      // While hasMore is true the server must hand back an advancing
+      // cursor; a null, unchanged, or revisited cursor would return the
+      // same page forever. Keep the first page's entries even then, but
+      // drop a repeated page so its entries are not appended twice.
+      final cannotAdvance = result.hasMore &&
+          (next == null || next == cursor || seenCursors.contains(next));
+      if (!cannotAdvance || cursor == null) {
+        all.addAll(result.entries);
+      }
+      if (next != null) seenCursors.add(next);
       hasMore = result.hasMore;
-      cursor = result.nextCursor;
+      cursor = next;
+      if (cannotAdvance) break;
     }
     all.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
     return all;
@@ -473,8 +487,12 @@ class FeedbackClient {
       if (isAnonymous && !appConfig.allowAnonymousChangelog) return null;
 
       final limit = appConfig.sdk.changelogOverlay.clampedEntryCount;
-      final all = await fetchChangelog();
-      final entries = all.take(limit).toList();
+      // The first page holds the newest entries, which is all the overlay
+      // displays — fetching later pages would only add latency and one more
+      // request that could fail and hide the overlay entirely.
+      final page = await fetchChangelogPage(limit: limit);
+      final entries = page.entries.toList()
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
       if (entries.isEmpty) return null;
 
       if (onlyIfUnseen) {
