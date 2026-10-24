@@ -471,7 +471,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
 
                     // Cards list
                     Expanded(
-                      child: columnItems.isEmpty
+                      child: (columnItems.isEmpty && !_hasMore)
                           ? Center(
                               child: Text(
                                 strings.noItemsInColumn,

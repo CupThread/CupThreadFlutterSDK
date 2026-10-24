@@ -32,6 +32,11 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   bool _isLoadingMore = false;
   Object? _loadError;
   int _total = 0;
+
+  /// Monotonically increasing token for in-flight list requests. A response
+  /// is applied only while its captured generation still matches, so a slow
+  /// refresh or append can never clobber newer results.
+  int _requestGeneration = 0;
   final Set<String> _votingIds = {};
   Timer? _searchDebounce;
   final TextEditingController _searchController = TextEditingController();
@@ -86,6 +91,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = ++_requestGeneration;
 
     try {
       final results = await Future.wait([
@@ -100,17 +106,18 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       final requestsRes = results[0] as ListFeatureRequestsResult;
       final versionsRes = results[1] as List<AppVersion>;
 
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = requestsRes.requests;
           _total = requestsRes.total;
           _versions = versionsRes;
           _isLoading = false;
+          _isLoadingMore = false;
           _loadError = null;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _isLoading = false;
           _loadError = e;
@@ -123,6 +130,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     if (_isLoadingMore || _items.length >= _total) return;
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final generation = _requestGeneration;
 
     setState(() => _isLoadingMore = true);
     try {
@@ -132,7 +140,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         query: _query.isNotEmpty ? _query : null,
         offset: _items.length,
       );
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = [..._items, ...res.requests];
           _total = res.total;
@@ -141,7 +149,9 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       }
     } catch (_) {
       // Keep the current page; the Load more row stays available to retry.
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 

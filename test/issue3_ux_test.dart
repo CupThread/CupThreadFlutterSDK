@@ -277,6 +277,75 @@ void main() {
       expect(find.text('7'), findsOneWidget);
       expect(find.text('3'), findsNothing);
     });
+
+    testWidgets(
+        'a stale Load more response is discarded after a newer refresh applied',
+        (tester) async {
+      final loadMoreGate = Completer<void>();
+      final refreshGate = Completer<void>();
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          final q = request.url.queryParameters['q'];
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          if (q == null && offset == '0') {
+            // Initial load: page 1 with more pages available.
+            return jsonResponse({
+              'requests': [frItem(0), frItem(1)],
+              'total': 5,
+            });
+          }
+          if (q == null) {
+            // Stale Load more response, released after the refresh lands.
+            await loadMoreGate.future;
+            return jsonResponse({
+              'requests': [frItem(2)],
+              'total': 5,
+            });
+          }
+          // Search-triggered refresh, released before the stale append.
+          await refreshGate.future;
+          return jsonResponse({
+            'requests': [frItem(10)],
+            'total': 1,
+          });
+        }
+        if (request.url.path.contains('/versions')) {
+          return jsonResponse({'versions': []});
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const FeatureRequestsScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      // Start a Load more and hold its response.
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+
+      // Then trigger a fresh search refresh and hold its response too.
+      await tester.enterText(find.byType(TextField), 'csv');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // The refresh lands first and replaces the list…
+      refreshGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Request 10'), findsOneWidget);
+
+      // …then the stale page-2 response arrives; it must be discarded
+      // instead of appending old-filter items to the refreshed list.
+      loadMoreGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Request 2'), findsNothing);
+      expect(find.text('Request 10'), findsOneWidget);
+    });
   });
 
   group('RoadmapBoardScreen error state and pagination', () {
@@ -371,6 +440,55 @@ void main() {
       expect(offsets, ['0', '1']);
       expect(find.text('Load more'), findsNothing);
       expect(find.text('Request 1'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a column with no items on the current page offers Load more instead of the empty copy',
+        (tester) async {
+      final offsets = <String>[];
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          return jsonResponse({
+            'columns': [columnJson()]
+          });
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          offsets.add(offset);
+          if (offset == '0') {
+            // Page 1 only contains an item from a different column.
+            return jsonResponse({
+              'requests': [frItem(0, columnId: 'col_other')],
+              'total': 2,
+            });
+          }
+          return jsonResponse({
+            'requests': [frItem(1, columnId: 'col_1')],
+            'total': 2,
+          });
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const RoadmapBoardScreen(), client));
+      await pumpInitialLoad(tester);
+
+      // The selected column is empty on this page, but more pages exist:
+      // the Load more row must stay reachable, not hidden behind the
+      // "No items in this column" placeholder.
+      expect(find.text('No items in this column'), findsNothing);
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(offsets, ['0', '1']);
+      expect(find.text('Request 1'), findsOneWidget);
+      expect(find.text('No items in this column'), findsNothing);
     });
   });
 }
