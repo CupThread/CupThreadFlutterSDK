@@ -60,20 +60,9 @@ dependencies:
       ref: v0.1.0
 ```
 
-### Option B: Via pub.dev (Once published)
+### Option B: pub.dev
 
-Add `cupthread_feedback` to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  cupthread_feedback: ^0.1.0
-```
-
-Or run:
-
-```sh
-flutter pub add cupthread_feedback
-```
+**Not available yet.** `cupthread_feedback` is currently distributed only through the git dependency above — the package has not been published to pub.dev, so `flutter pub add cupthread_feedback` will not resolve. This section will document the registry install once publishing is enabled.
 
 ---
 
@@ -267,6 +256,19 @@ scripts/capture-screenshots.sh "iPhone 16 Pro"
 # Build API documentation (the showcase is copied into the generated site)
 scripts/build-docs.sh docs-site
 ```
+
+### Releasing (maintainers)
+
+```sh
+# Preflight, bump pubspec.yaml, commit, tag vX.Y.Z, push, and create the GitHub Release
+node scripts/release.mjs --version X.Y.Z
+
+#   --dry-run     run every preflight check without writing, pushing, or tagging
+#   --yes         skip the interactive confirmation (required in non-TTY/CI runs)
+#   --skip-tests  skip `flutter test` (not recommended)
+```
+
+The script refuses a dirty worktree, fails when the tag already exists, runs `flutter pub get` / `analyze` / `test`, and asserts the pushed tag matches the `pubspec.yaml` version. Publishing to pub.dev is not part of the pipeline yet; released versions install through the git dependency above.
 
 ## License
 MIT

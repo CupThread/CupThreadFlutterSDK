@@ -8,3 +8,4 @@ build/
 docs-site/
 doc/
 .dart_tool/
+.worktrees/
