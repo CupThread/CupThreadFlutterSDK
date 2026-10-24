@@ -82,8 +82,18 @@ flutter pub add cupthread_feedback
 ```dart
 import 'package:flutter/material.dart';
 import 'package:cupthread_feedback/cupthread_feedback.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+Future<void> main() async {
+  // Optional but recommended: configure one durable key-value store once,
+  // before mounting CupThreadTheme. The anonymous identity AND changelog
+  // "seen" state persist through this adapter; without it both are
+  // in-memory and reset on every app launch. The SDK is pure Dart, so
+  // bring your own adapter (e.g. backed by shared_preferences):
+  UserTokenStore.configure(
+    SharedPreferencesTokenStorage(await SharedPreferences.getInstance()),
+  );
+
   final client = FeedbackClient(
     FeedbackClientConfig(
       baseUrl: 'https://api.cupthread.com',
@@ -104,6 +114,21 @@ void main() {
     ),
   );
 }
+
+/// Minimal shared_preferences-backed adapter (see the example app).
+class SharedPreferencesTokenStorage implements TokenStorageAdapter {
+  SharedPreferencesTokenStorage(this._prefs);
+
+  final SharedPreferences _prefs;
+
+  @override
+  Future<String?> getItem(String key) async => _prefs.getString(key);
+
+  @override
+  Future<void> setItem(String key, String value) async {
+    await _prefs.setString(key, value);
+  }
+}
 ```
 
 ---
@@ -116,7 +141,7 @@ Wrap your widget hierarchy in `CupThreadTheme(client: client)` to automatically 
 - **`FeatureRequestsScreen()`**: Searchable feature requests list with optimistic upvoting, version filter chips, and creation sheet.
 - **`FeatureRequestComposeSheet.show(context)`**: Dedicated sheet for proposing a new feature request (`POST /api/v1/feature-requests`).
 - **`WhatsNewScreen()`**: Interactive release notes / changelog with Markdown formatting and email subscription.
-- **`ChangelogOverlay.show(context, onlyIfUnseen: true)`**: In-app modal announcement sheet for the latest release notes with built-in "seen" persistence.
+- **`ChangelogOverlay.show(context, onlyIfUnseen: true)`**: In-app modal announcement sheet for the latest release notes. Seen versions persist through the adapter configured on `UserTokenStore` (in-memory by default — see Quick Start for the one-line durable setup).
 - **`FeedbackComposer()` / `FeedbackComposer.showModal(context, onPickAttachment: ...)`**: Structured feedback form with attachment uploads and host picker support.
 - **`UserProfileView(userId: ...)`**: Public user/developer profile screen.
 

@@ -36,6 +36,12 @@ class UserTokenStore {
     _shared = UserTokenStore(storage);
   }
 
+  /// The storage adapter backing this store.
+  ///
+  /// Other durable SDK state (changelog seen versions) shares this adapter
+  /// so hosts configure persistence in one place via [configure].
+  TokenStorageAdapter get adapter => _storage;
+
   void _initToken() {
     _cachedToken ??= generateUuid();
   }
