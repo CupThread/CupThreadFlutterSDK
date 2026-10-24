@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -260,6 +261,81 @@ void main() {
       );
 
       expect(identical(carried, probeChild), isTrue);
+    });
+
+    testWidgets('applies a remote theme fetched after capture when host set no override',
+        (tester) async {
+      final configGate = Completer<void>();
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: MockClient((request) async {
+          if (request.url.path.contains('/public/config/')) {
+            await configGate.future;
+            return http.Response('{"sdk":{"theme":"midnight"}}', 200,
+                headers: {'content-type': 'application/json'});
+          }
+          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        }),
+      );
+      BuildContext? carried;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            failClosed: false,
+            child: Builder(
+              builder: (ctx) => CupThreadTheme.carryScope(
+                ctx,
+                child: Builder(
+                  builder: (inner) {
+                    carried = inner;
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The scope was captured while config was still loading; the carried
+      // scope must re-resolve and pick up the remote midnight theme instead
+      // of freezing on the pre-config system default.
+      configGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(CupThreadTheme.themeOf(carried!), SdkTheme.midnight);
+    });
+
+    testWidgets('host theme override wins over the fetched config theme',
+        (tester) async {
+      final client = _mockClient(configJson: '{"sdk":{"theme":"midnight"}}');
+      BuildContext? carried;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            theme: SdkTheme.light,
+            child: Builder(
+              builder: (ctx) => CupThreadTheme.carryScope(
+                ctx,
+                child: Builder(
+                  builder: (inner) {
+                    carried = inner;
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(CupThreadTheme.themeOf(carried!), SdkTheme.light);
     });
   });
 

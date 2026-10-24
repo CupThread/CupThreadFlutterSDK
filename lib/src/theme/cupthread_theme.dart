@@ -14,6 +14,12 @@ class CupThreadThemeScope extends InheritedWidget {
   final String userToken;
   final CupThreadColors colors;
   final SdkTheme theme;
+
+  /// The host's explicit `theme:` override, or null when [theme] was
+  /// resolved from remote config (or defaults to system). Scope-carrying
+  /// modal routes forward this instead of [theme] so a sheet that captured
+  /// the scope before config resolved can still apply the fetched theme.
+  final SdkTheme? hostTheme;
   final PublicAppConfig? appConfig;
   final bool isConfigLoading;
   final Object? configError;
@@ -29,6 +35,7 @@ class CupThreadThemeScope extends InheritedWidget {
     required this.userToken,
     required this.colors,
     required this.theme,
+    this.hostTheme,
     this.appConfig,
     this.isConfigLoading = false,
     this.configError,
@@ -46,6 +53,7 @@ class CupThreadThemeScope extends InheritedWidget {
         userToken != oldWidget.userToken ||
         colors != oldWidget.colors ||
         theme != oldWidget.theme ||
+        hostTheme != oldWidget.hostTheme ||
         appConfig != oldWidget.appConfig ||
         isConfigLoading != oldWidget.isConfigLoading ||
         configError != oldWidget.configError ||
@@ -236,7 +244,10 @@ class CupThreadTheme extends StatefulWidget {
     return CupThreadTheme(
       client: scope.client,
       userToken: scope.userToken,
-      theme: scope.theme,
+      // Forward only the host's explicit override; when the captured scope
+      // resolved its theme from remote config (or system), the carried scope
+      // re-resolves so a config fetched after capture still applies.
+      theme: scope.hostTheme,
       strings: scope.strings,
       locale: scope.locale,
       config: scope.appConfig,
@@ -347,6 +358,7 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
       userToken: token,
       colors: colors,
       theme: effectiveTheme,
+      hostTheme: widget.theme,
       appConfig: _appConfig,
       isConfigLoading: _isConfigLoading,
       configError: _configError,
