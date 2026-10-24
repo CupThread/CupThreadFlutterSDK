@@ -1,5 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cupthread_feedback/cupthread_feedback.dart';
+
+/// Storage adapter that returns a fixed snapshot from [getItem] (never the
+/// value written later by [setItem]) and can gate reads, so tests can
+/// observe resolution races deterministically.
+class _InstrumentedStorage implements TokenStorageAdapter {
+  _InstrumentedStorage({this.seeded, this.gate});
+
+  final String? seeded;
+  final Completer<void>? gate;
+  final Map<String, String> written = {};
+  int readCount = 0;
+
+  @override
+  Future<String?> getItem(String key) async {
+    readCount++;
+    if (gate != null && !gate!.isCompleted) await gate!.future;
+    return seeded;
+  }
+
+  @override
+  Future<void> setItem(String key, String value) async {
+    written[key] = value;
+  }
+}
 
 void main() {
   group('UserTokenStore', () {
@@ -59,6 +85,66 @@ void main() {
       final store2 = UserTokenStore(storage);
       final token2 = await store2.getToken();
       expect(token2, equals(token1));
+    });
+
+    test('sync token accessor never overrides a token persisted in storage',
+        () async {
+      final storage = MemoryTokenStorage();
+      await storage.setItem(UserTokenStore.storageKey, 'persisted-token-abc');
+
+      final store = UserTokenStore(storage);
+      // Synchronous access happens before the storage read completes; it
+      // must NOT mint-and-cache a UUID that shadows the persisted value.
+      final syncToken = store.token;
+      expect(syncToken, isNot(equals('persisted-token-abc')));
+
+      expect(await store.getToken(), equals('persisted-token-abc'));
+      expect(store.token, equals('persisted-token-abc'));
+    });
+
+    test('sync token accessor is stable while resolution is pending', () {
+      final storage = _InstrumentedStorage(gate: Completer<void>());
+      final store = UserTokenStore(storage);
+
+      final a = store.token;
+      final b = store.token;
+      expect(a, equals(b));
+      expect(a, isNotEmpty);
+    });
+
+    test('concurrent getToken() calls share a single storage read', () async {
+      final storage = _InstrumentedStorage();
+      final store = UserTokenStore(storage);
+
+      final first = store.getToken();
+      final second = store.getToken();
+      expect(await first, equals(await second));
+      expect(storage.readCount, 1);
+    });
+
+    test('setToken during in-flight resolution wins over stored value',
+        () async {
+      final storage =
+          _InstrumentedStorage(seeded: 'stale-stored', gate: Completer<void>());
+      final store = UserTokenStore(storage);
+
+      final pending = store.getToken();
+      await store.setToken('explicit-token');
+      storage.gate!.complete();
+
+      // Storage still reports the stale value, but the explicitly set token
+      // must win the race and stay cached.
+      expect(await pending, equals('explicit-token'));
+      expect(store.token, equals('explicit-token'));
+    });
+
+    test('whitespace-only stored value is treated as absent', () async {
+      final storage = _InstrumentedStorage(seeded: '   ');
+      final store = UserTokenStore(storage);
+
+      final token = await store.getToken();
+      expect(token, isNot(equals('   ')));
+      expect(storage.written[UserTokenStore.storageKey], equals(token));
     });
   });
 }

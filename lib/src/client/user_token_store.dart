@@ -26,6 +26,8 @@ class UserTokenStore {
 
   final TokenStorageAdapter _storage;
   String? _cachedToken;
+  String? _ephemeralToken;
+  Future<String>? _pendingResolution;
 
   UserTokenStore([TokenStorageAdapter? storage])
       : _storage = storage ?? MemoryTokenStorage();
@@ -36,29 +38,34 @@ class UserTokenStore {
     _shared = UserTokenStore(storage);
   }
 
-  void _initToken() {
-    _cachedToken ??= generateUuid();
+  /// Resolves the durable identity from storage exactly once; concurrent
+  /// callers share the same in-flight [Future].
+  Future<String> _resolve() {
+    final pending = _pendingResolution;
+    if (pending != null) return pending;
+    return _pendingResolution = _resolveDurableToken();
   }
 
-  /// Synchronously returns currently held token.
-  String get token {
-    if (_cachedToken == null) _initToken();
-    return _cachedToken!;
-  }
+  Future<String> _resolveDurableToken() async {
+    final cachedAtStart = _cachedToken;
+    if (cachedAtStart != null) return cachedAtStart;
 
-  /// Asynchronously retrieves or restores token from storage.
-  Future<String> getToken() async {
-    if (_cachedToken != null) {
-      return _cachedToken!;
-    }
+    String? stored;
     try {
-      final stored = await _storage.getItem(storageKey);
-      if (stored != null && stored.trim().isNotEmpty) {
-        _cachedToken = stored.trim();
-        return _cachedToken!;
-      }
+      stored = await _storage.getItem(storageKey);
     } catch (_) {
-      // Fallback
+      // Storage read failed; fall through to minting a fresh identity.
+    }
+
+    // setToken/resetToken may have run while the storage read was in
+    // flight; an explicitly provided token always wins over storage.
+    final raced = _cachedToken;
+    if (raced != null) return raced;
+
+    final existing = stored?.trim() ?? '';
+    if (existing.isNotEmpty) {
+      _cachedToken = existing;
+      return existing;
     }
 
     final newToken = generateUuid();
@@ -67,6 +74,32 @@ class UserTokenStore {
       await _storage.setItem(storageKey, newToken);
     } catch (_) {}
     return newToken;
+  }
+
+  /// Synchronously returns the currently held identity token.
+  ///
+  /// Until the durable identity has been restored from storage (the very
+  /// first access after process start), this returns a stable ephemeral
+  /// token that is neither cached nor persisted, so it can never overwrite
+  /// a token that exists in storage. Prefer [getToken] — or mount widgets
+  /// through `CupThreadTheme`, which defers its child until resolution
+  /// completes — whenever the durable identity matters.
+  String get token {
+    final cached = _cachedToken;
+    if (cached != null) return cached;
+    // Warm the durable cache in the background; the ephemeral token
+    // deliberately stays out of [_cachedToken] until then.
+    _resolve();
+    return _ephemeralToken ??= generateUuid();
+  }
+
+  /// Asynchronously retrieves or restores token from storage, minting and
+  /// persisting a fresh UUID when storage has none. Concurrent calls share
+  /// a single storage read.
+  Future<String> getToken() async {
+    final cached = _cachedToken;
+    if (cached != null) return cached;
+    return _resolve();
   }
 
   /// Overrides or sets custom user token.

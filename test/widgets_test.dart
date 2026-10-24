@@ -228,6 +228,9 @@ void main() {
           ),
         ),
       );
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
 
       expect(find.text('Release 2.0.0'), findsOneWidget);
       expect(find.byType(ElevatedButton), findsOneWidget);

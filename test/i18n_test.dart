@@ -131,6 +131,9 @@ void main() {
           ),
         ),
       );
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
 
       expect(find.text('提交建议'), findsOneWidget);
       expect(resolvedStrings.submitFeedback, '提交反馈');

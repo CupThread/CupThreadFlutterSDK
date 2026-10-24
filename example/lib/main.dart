@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cupthread_feedback/cupthread_feedback.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'demo_http_client.dart';
+import 'token_storage.dart';
 
 const _screenshotMode = bool.fromEnvironment('CUPTHREAD_SCREENSHOT_MODE');
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Persist the anonymous identity (vote ownership, own-request
+  // highlighting, changelog seen-state) across app restarts. Without this
+  // the SDK uses in-memory storage and mints a fresh identity every launch.
+  UserTokenStore.configure(
+    SharedPreferencesTokenStorage(await SharedPreferences.getInstance()),
+  );
+
   runApp(const MyApp());
 }
 
