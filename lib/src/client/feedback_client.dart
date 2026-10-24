@@ -377,17 +377,67 @@ class FeedbackClient {
     return FeatureRequestComment.fromJson(json);
   }
 
-  /// Fetches published changelog release notes.
-  Future<List<ChangelogEntry>> fetchChangelog() async {
+  /// Maximum number of pages [fetchChangelog] will follow before giving up.
+  ///
+  /// Guards against a misbehaving server that keeps returning a non-advancing
+  /// `nextCursor`, which would otherwise loop forever.
+  static const int _changelogMaxPages = 100;
+
+  /// Fetches a single page of published changelog release notes.
+  ///
+  /// Maps to `GET /api/v1/public/apps/:appKey/changelog` with the optional
+  /// `limit` (1–100) and opaque `cursor` query parameters. The returned
+  /// [ChangelogPage] exposes `hasMore` and `nextCursor`; pass a previously
+  /// returned cursor back in to walk through entries beyond the newest 100.
+  ///
+  /// To fetch everything at once, use [fetchChangelog].
+  Future<ChangelogPage> fetchChangelogPage({int? limit, String? cursor}) async {
+    final params = <String, String>{};
+    if (limit != null) {
+      params['limit'] = limit.clamp(1, 100).toString();
+    }
+    if (cursor != null && cursor.isNotEmpty) {
+      params['cursor'] = cursor;
+    }
+    final queryString = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
     final json = await _sendJson(
       method: 'GET',
-      path: '/api/v1/public/apps/${config.appKey}/changelog',
+      path: '/api/v1/public/apps/${config.appKey}/changelog$queryString',
     );
-    final list = (json['entries'] as List<dynamic>? ?? [])
-        .map((e) => ChangelogEntry.fromJson(e as Map<String, dynamic>))
-        .toList();
-    list.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    return list;
+    return ChangelogPage.fromJson(json);
+  }
+
+  /// Fetches all published changelog release notes, newest first.
+  ///
+  /// Follows `hasMore` / `nextCursor` across pages so apps with more than
+  /// 100 published entries still see their full history. Stops early when
+  /// the server fails to advance the cursor (null, unchanged, or already
+  /// visited), and a page cap of [_changelogMaxPages] backstops anything else.
+  Future<List<ChangelogEntry>> fetchChangelog() async {
+    final all = <ChangelogEntry>[];
+    final seenCursors = <String>{};
+    String? cursor;
+    var hasMore = true;
+    for (var page = 0; hasMore && page < _changelogMaxPages; page++) {
+      final result = await fetchChangelogPage(cursor: cursor);
+      final next = result.nextCursor;
+
+      // While hasMore is true the server must hand back an advancing
+      // cursor; a null, unchanged, or revisited cursor would return the
+      // same page forever. Keep the first page's entries even then, but
+      // drop a repeated page so its entries are not appended twice.
+      final cannotAdvance = result.hasMore &&
+          (next == null || next == cursor || seenCursors.contains(next));
+      if (!cannotAdvance || cursor == null) {
+        all.addAll(result.entries);
+      }
+      if (next != null) seenCursors.add(next);
+      hasMore = result.hasMore;
+      cursor = next;
+      if (cannotAdvance) break;
+    }
+    all.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return all;
   }
 
   /// Storage key for tracking seen changelog versions.
@@ -437,8 +487,12 @@ class FeedbackClient {
       if (isAnonymous && !appConfig.allowAnonymousChangelog) return null;
 
       final limit = appConfig.sdk.changelogOverlay.clampedEntryCount;
-      final all = await fetchChangelog();
-      final entries = all.take(limit).toList();
+      // The first page holds the newest entries, which is all the overlay
+      // displays — fetching later pages would only add latency and one more
+      // request that could fail and hide the overlay entirely.
+      final page = await fetchChangelogPage(limit: limit);
+      final entries = page.entries.toList()
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
       if (entries.isEmpty) return null;
 
       if (onlyIfUnseen) {

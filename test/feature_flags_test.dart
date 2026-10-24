@@ -997,5 +997,57 @@ void main() {
       expect(overlayData, isNotNull);
       expect(overlayData!.entries.first.title, 'Release 1.2.0');
     });
+
+    testWidgets('prepareChangelogOverlay requests a single page sized to the overlay limit', (tester) async {
+      final config = createMockConfig();
+      final changelogUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          changelogUrls.add(request.url);
+          return http.Response(
+            jsonEncode({
+              'entries': [
+                {
+                  'id': 'cl_1',
+                  'title': 'Release 1.2.0',
+                  'body': 'Shipped a new feature.',
+                  'versionLabel': '1.2.0',
+                  'publishedAt': '2026-09-01T12:00:00Z',
+                  'linkedRequests': [],
+                },
+              ],
+              'hasMore': true,
+              'nextCursor': 'page-2',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      final overlayData = await client.prepareChangelogOverlay(
+        onlyIfUnseen: true,
+        isAnonymous: false,
+      );
+
+      // Only the first page is needed: never follow nextCursor even when
+      // the server advertises more pages.
+      expect(changelogUrls, hasLength(1));
+      expect(changelogUrls.single.queryParameters['limit'], '3');
+      expect(changelogUrls.single.queryParameters.containsKey('cursor'), isFalse);
+      expect(overlayData, isNotNull);
+      expect(overlayData!.entries.first.title, 'Release 1.2.0');
+    });
   });
 }

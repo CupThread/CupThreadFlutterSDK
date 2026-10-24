@@ -260,5 +260,244 @@ void main() {
       expect(first.voted, isTrue);
       expect(second.voted, isTrue);
     });
+
+    test('fetchChangelogPage sends limit/cursor params and parses hasMore/nextCursor', () async {
+      final capturedUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        capturedUrls.add(request.url);
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_1',
+                'title': 'v1.2.0 Release',
+                'body': 'Highlights',
+                'versionLabel': '1.2.0',
+                'publishedAt': '2026-09-18T12:00:00.000Z',
+              }
+            ],
+            'hasMore': true,
+            'nextCursor': 'MjAyNi0w',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final page = await client.fetchChangelogPage(limit: 50, cursor: 'abc');
+
+      expect(capturedUrls, hasLength(1));
+      expect(capturedUrls.single.path, '/api/v1/public/apps/app_test_123/changelog');
+      expect(capturedUrls.single.queryParameters['limit'], '50');
+      expect(capturedUrls.single.queryParameters['cursor'], 'abc');
+      expect(page.entries, hasLength(1));
+      expect(page.entries.single.id, 'cl_1');
+      expect(page.hasMore, isTrue);
+      expect(page.nextCursor, 'MjAyNi0w');
+    });
+
+    test('fetchChangelogPage clamps limit to the documented 1..100 range', () async {
+      final capturedUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        capturedUrls.add(request.url);
+        return http.Response(
+          jsonEncode({'entries': [], 'hasMore': false, 'nextCursor': null}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await client.fetchChangelogPage(limit: 500);
+      await client.fetchChangelogPage(limit: 0);
+
+      expect(capturedUrls[0].queryParameters['limit'], '100');
+      expect(capturedUrls[1].queryParameters['limit'], '1');
+    });
+
+    test('fetchChangelog follows all pages, merges and sorts newest first', () async {
+      final cursorsSeen = <String?>[];
+      final newEntries = List.generate(
+        2,
+        (i) => {
+          'id': 'cl_new_$i',
+          'title': 'New $i',
+          'body': 'Body',
+          'publishedAt': '2026-10-0${i + 1}T00:00:00.000Z',
+        },
+      );
+      final oldEntries = List.generate(
+        2,
+        (i) => {
+          'id': 'cl_old_$i',
+          'title': 'Old $i',
+          'body': 'Body',
+          'publishedAt': '2026-01-0${i + 1}T00:00:00.000Z',
+        },
+      );
+
+      final mockHttpClient = MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        cursorsSeen.add(cursor);
+        if (cursor == null) {
+          return http.Response(
+            jsonEncode({'entries': newEntries, 'hasMore': true, 'nextCursor': 'page-2'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          jsonEncode({'entries': oldEntries, 'hasMore': false, 'nextCursor': null}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      expect(cursorsSeen, [null, 'page-2']);
+      expect(entries, hasLength(4));
+      expect(
+        entries.map((e) => e.id).toList(),
+        ['cl_new_1', 'cl_new_0', 'cl_old_1', 'cl_old_0'],
+      );
+    });
+
+    test('fetchChangelog stays compatible with a legacy single-page response', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_only',
+                'title': 'Only page',
+                'body': 'Body',
+                'publishedAt': '2026-05-01T00:00:00.000Z',
+              }
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      expect(requestCount, 1);
+      expect(entries, hasLength(1));
+      expect(entries.single.id, 'cl_only');
+    });
+
+    test('fetchChangelog stops early on a server that never advances its cursor', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_$requestCount',
+                'title': 'Entry $requestCount',
+                'body': 'Body',
+                'publishedAt': '2026-05-01T00:00:00.000Z',
+              }
+            ],
+            'hasMore': true,
+            'nextCursor': 'same-cursor',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      // The repeated page is dropped, so no duplicate entries are appended.
+      expect(requestCount, 2);
+      expect(entries, hasLength(1));
+      expect(entries.single.id, 'cl_1');
+    });
+
+    test('fetchChangelog stops on hasMore=true with a null nextCursor', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_$requestCount',
+                'title': 'Entry $requestCount',
+                'body': 'Body',
+                'publishedAt': '2026-05-01T00:00:00.000Z',
+              }
+            ],
+            'hasMore': true,
+            'nextCursor': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      expect(requestCount, 1);
+      expect(entries, hasLength(1));
+    });
   });
 }
