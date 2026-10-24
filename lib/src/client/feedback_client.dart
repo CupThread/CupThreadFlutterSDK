@@ -220,11 +220,20 @@ class FeedbackClient {
   ///
   /// The config endpoint returns HTTP 404 (with an "App not found" body)
   /// for private apps (`allowPublic = false`) exactly as it does for
-  /// unknown apps; it never returns a 200 body for a private app. Callers
-  /// should therefore treat any non-200 outcome from this method — surfaced
-  /// as an [UnexpectedStatusException] (or another [FeedbackException] for
-  /// transport failures) — as "app not found or not public" and fail closed.
-  /// A failed fetch is never cached, so a later retry hits the network again.
+  /// unknown apps; it never returns a 200 body for a private app. A 404 is
+  /// therefore surfaced as an [UnexpectedStatusException] with
+  /// [UnexpectedStatusException.status] 404 and means "app not found or
+  /// not public". Other non-200 outcomes have unrelated causes (401 →
+  /// [AuthenticationRequiredException], 5xx → generic
+  /// [UnexpectedStatusException], transport failures →
+  /// [InvalidResponseException]) and callers should apply the same
+  /// fail-closed handling to all of them rather than interpreting them as
+  /// "not public".
+  ///
+  /// Failures never add to the cache, but they also do not evict an
+  /// existing cached config: after a failed `forceRefresh: true` call, a
+  /// subsequent default call returns the previously cached config without
+  /// a network request.
   Future<PublicAppConfig> fetchAppConfig({bool forceRefresh = false}) async {
     if (!forceRefresh && _cachedAppConfig != null) {
       return _cachedAppConfig!;
