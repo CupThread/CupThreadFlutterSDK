@@ -487,7 +487,8 @@ void main() {
         initialConfig: createMockConfig(changelog: false),
       );
 
-      final overlayData = await client.prepareChangelogOverlay();
+      final overlayData =
+          await client.prepareChangelogOverlay(isAnonymous: false);
       expect(overlayData, isNull);
     });
 
@@ -504,7 +505,8 @@ void main() {
         httpClient: mockHttpClient,
       );
 
-      final overlayData = await client.prepareChangelogOverlay();
+      final overlayData =
+          await client.prepareChangelogOverlay(isAnonymous: false);
       expect(overlayData, isNull);
     });
   });
@@ -917,6 +919,83 @@ void main() {
 
       expect(changelogApiCalled, isTrue);
       expect(find.text('Release 1.2.0'), findsOneWidget);
+    });
+
+    testWidgets('prepareChangelogOverlay returns null and never fetches changelog for a gated anonymous session', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool changelogApiCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          changelogApiCalled = true;
+          return http.Response('{"entries":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      // Direct client call — no widget gate in front of it.
+      final overlayData = await client.prepareChangelogOverlay(
+        onlyIfUnseen: true,
+        isAnonymous: true,
+      );
+
+      expect(overlayData, isNull);
+      expect(changelogApiCalled, isFalse);
+    });
+
+    testWidgets('prepareChangelogOverlay fetches entries for authenticated callers when allowAnonymousChangelog = false', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool changelogApiCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          changelogApiCalled = true;
+          return http.Response(
+            jsonEncode({
+              'entries': [
+                {
+                  'id': 'cl_1',
+                  'title': 'Release 1.2.0',
+                  'body': 'Shipped a new feature.',
+                  'versionLabel': '1.2.0',
+                  'publishedAt': '2026-09-01T12:00:00Z',
+                  'linkedRequests': [],
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      final overlayData = await client.prepareChangelogOverlay(
+        onlyIfUnseen: true,
+        isAnonymous: false,
+      );
+
+      expect(changelogApiCalled, isTrue);
+      expect(overlayData, isNotNull);
+      expect(overlayData!.entries.first.title, 'Release 1.2.0');
     });
   });
 }

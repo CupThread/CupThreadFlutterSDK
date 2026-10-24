@@ -226,7 +226,7 @@ with a localized sign-in state instead of a guaranteed-to-fail network call):
 | `allowAnonymousRoadmap` | `RoadmapBoardScreen` | Sign-in-required state; no board/columns fetch |
 | `allowAnonymousVote` | `FeatureRequestsScreen`, `RoadmapBoardScreen` | Vote tap shows a snackbar; no vote call |
 | `allowAnonymousFeedback` | `FeedbackComposer` | Submit shows a snackbar; no feedback call |
-| `allowAnonymousChangelog` | `WhatsNewScreen`, `ChangelogOverlay.show` | Sign-in-required state / overlay never presents; no changelog fetch |
+| `allowAnonymousChangelog` | `WhatsNewScreen`, `ChangelogOverlay.show`, `FeedbackClient.prepareChangelogOverlay` | Sign-in-required state / overlay never presents; no changelog fetch |
 
 `allowPublic` on `PublicAppConfig` is informational only: the server enforces
 it (a private app's config endpoint returns 404), so the SDK does not consume

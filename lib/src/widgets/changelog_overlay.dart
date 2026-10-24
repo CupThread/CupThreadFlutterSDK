@@ -43,7 +43,10 @@ class ChangelogOverlay extends StatelessWidget {
     }
 
     final client = CupThreadTheme.clientOf(context);
-    final data = await client.prepareChangelogOverlay(onlyIfUnseen: onlyIfUnseen);
+    final data = await client.prepareChangelogOverlay(
+      onlyIfUnseen: onlyIfUnseen,
+      isAnonymous: CupThreadTheme.isAnonymous(context),
+    );
     if (data == null || data.entries.isEmpty) return;
 
     if (!context.mounted) return;
