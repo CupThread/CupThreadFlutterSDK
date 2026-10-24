@@ -61,6 +61,64 @@ class TurnstileRequiredException extends FeedbackException {
   String toString() => 'TurnstileRequiredException($status): $message';
 }
 
+/// Why an intake endpoint rejected a submission with HTTP 402 Payment
+/// Required.
+enum SubmissionQuotaReason {
+  /// The workspace reached its monthly submission quota
+  /// (API error code `tier_limit_submissions`).
+  tierLimitSubmissions,
+
+  /// The workspace subscription is inactive or canceled
+  /// (API error code `subscription_inactive`).
+  subscriptionInactive,
+}
+
+/// Thrown when an intake endpoint (`POST /api/v1/feedback`,
+/// `POST /api/v1/feature-requests`) rejects a submission with HTTP 402
+/// Payment Required because the workspace reached its monthly submission
+/// quota or its subscription is inactive.
+class SubmissionQuotaException extends FeedbackException {
+  /// Which quota condition the server reported.
+  final SubmissionQuotaReason reason;
+
+  /// Stable machine-readable error code from the API response
+  /// (`tier_limit_submissions` or `subscription_inactive`). Falls back to
+  /// the canonical code for [reason] when the response carries none.
+  ///
+  /// Preserved for host diagnostics and logging only; deliberately excluded
+  /// from [message] and [toString()] so rendering a caught exception can
+  /// never surface response-derived text to end users.
+  final String code;
+
+  /// HTTP status code returned by the server (402).
+  final int status;
+
+  /// Raw response body for host diagnostics and logging.
+  ///
+  /// Deliberately excluded from [message] and [toString()] so rendering a
+  /// caught exception can never surface internal payloads to end users.
+  final String responseBody;
+
+  SubmissionQuotaException({
+    required this.reason,
+    String? code,
+    this.status = 402,
+    this.responseBody = '',
+  })  : code = code != null && code.isNotEmpty
+            ? code
+            : (reason == SubmissionQuotaReason.subscriptionInactive
+                ? 'subscription_inactive'
+                : 'tier_limit_submissions'),
+        super(
+          reason == SubmissionQuotaReason.subscriptionInactive
+              ? 'CupThread workspace subscription is inactive; the submission was rejected (HTTP 402).'
+              : 'CupThread workspace reached its monthly submission quota (HTTP 402).',
+        );
+
+  @override
+  String toString() => 'SubmissionQuotaException($status): $message';
+}
+
 /// Thrown when response parsing or network transport fails.
 class InvalidResponseException extends FeedbackException {
   final Object? cause;
