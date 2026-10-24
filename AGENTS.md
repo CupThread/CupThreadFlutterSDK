@@ -30,6 +30,9 @@ This repository is optimized for autonomous agents and LLM pair programmers. AI 
   - `POST /api/v1/feedback` — Submit feedback draft with attachments.
   - `POST /api/v1/uploads/images` & `POST /api/v1/uploads/r2` — Media and log attachment uploads.
 
+## Releasing
+Maintainers cut a release with `node scripts/release.mjs --version X.Y.Z` (run `--dry-run` first; pass `--yes` in non-interactive runs). The script refuses a dirty worktree, runs `flutter pub get` / `analyze` / `test`, asserts the tagged version matches `pubspec.yaml`, pushes the `vX.Y.Z` tag, and creates the GitHub Release. pub.dev publishing is not enabled yet — releases install via the git-tag dependency documented in README.
+
 ## Quality Rules
 1. Zero native binary dependencies — pure Dart and Flutter widgets.
 2. Cross-platform support (iOS, Android, macOS, Windows, Linux, Web).
