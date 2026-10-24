@@ -394,17 +394,17 @@ class FeedbackClient {
           'be attached to a submission',
         );
       }
-      final downloadUrl = (json['downloadUrl'] as String?)?.trim() ?? '';
       final responseMime = (json['contentType'] as String?)?.trim() ?? '';
       final resolvedMime = responseMime.isNotEmpty ? responseMime : mimeType;
 
+      // key/url deliberately stay empty: the stored attachment is reachable
+      // only through the authorized download endpoint, and the submission
+      // must reference it by uploadId alone.
       return FeedbackAttachment(
         kind: resolvedMime.startsWith('image/')
             ? AttachmentKind.image
             : AttachmentKind.r2,
         uploadId: resolvedUploadId,
-        key: resolvedUploadId,
-        url: downloadUrl,
         filename: (json['filename'] as String?)?.trim().isNotEmpty == true
             ? json['filename'] as String
             : filename,

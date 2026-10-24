@@ -156,6 +156,23 @@ void main() {
       expect(json.containsKey('uploadId'), isFalse);
     });
 
+    test('normalizes uploadId in the serialized attachment entry', () {
+      expect(
+        const FeedbackAttachment(
+          kind: AttachmentKind.image,
+          uploadId: '  upl_ws  ',
+        ).toJson()['uploadId'],
+        'upl_ws',
+        reason: 'the entry must match the trimmed top-level uploadIds value',
+      );
+      expect(
+        const FeedbackAttachment(kind: AttachmentKind.image, uploadId: '   ')
+            .toJson()
+            .containsKey('uploadId'),
+        isFalse,
+      );
+    });
+
     test('toJson emits uploadId and omits empty key/url', () {
       final attachment = FeedbackAttachment.fromJson(imageUploadResponse());
 
@@ -301,6 +318,10 @@ void main() {
 
       expect(attachment.uploadId, 'upl_slot_1');
       expect(attachment.kind, AttachmentKind.image);
+      expect(attachment.key, '', reason: 'session uploads reference by uploadId only');
+      expect(attachment.url, '');
+      expect(attachment.toJson().containsKey('key'), isFalse,
+          reason: 'the submission must not send a legacy storage identifier');
       expect(
         requests.map((r) => r.url.path),
         ['/api/v1/uploads/sessions', '/api/v1/uploads/upl_slot_1'],

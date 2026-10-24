@@ -127,17 +127,22 @@ class FeedbackAttachment {
 
   /// Serializes [FeedbackAttachment] to a JSON map.
   ///
-  /// Empty [key]/[url] values are omitted rather than sent as `''`, which the
-  /// API's `AttachmentInput.url` (`format: uri`) would reject.
-  Map<String, dynamic> toJson() => {
-    'kind': kind.wireValue,
-    if (uploadId != null && uploadId!.isNotEmpty) 'uploadId': uploadId,
-    if (key.isNotEmpty) 'key': key,
-    if (url.isNotEmpty) 'url': url,
-    if (filename != null) 'filename': filename,
-    if (mimeType != null) 'mimeType': mimeType,
-    if (size != null) 'size': size,
-  };
+  /// [uploadId] is trimmed so the serialized attachment reference matches the
+  /// normalized IDs collected by [FeedbackDraft.toJson]; empty [key]/[url]
+  /// values are omitted rather than sent as `''`, which the API's
+  /// `AttachmentInput.url` (`format: uri`) would reject.
+  Map<String, dynamic> toJson() {
+    final normalizedUploadId = uploadId?.trim() ?? '';
+    return {
+      'kind': kind.wireValue,
+      if (normalizedUploadId.isNotEmpty) 'uploadId': normalizedUploadId,
+      if (key.isNotEmpty) 'key': key,
+      if (url.isNotEmpty) 'url': url,
+      if (filename != null) 'filename': filename,
+      if (mimeType != null) 'mimeType': mimeType,
+      if (size != null) 'size': size,
+    };
+  }
 }
 
 /// Data payload for submitting user feedback, bug reports, and suggestions.

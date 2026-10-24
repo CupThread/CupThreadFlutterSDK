@@ -100,6 +100,16 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
 
   Future<void> _handlePickAttachment() async {
     if (widget.onPickAttachment == null) return;
+    // The documented picker callback may upload the file before it returns,
+    // so refuse a full list before invoking it. The post-pick check below
+    // still protects the cap if overlapping calls complete concurrently.
+    if (_attachments.length >= FeedbackDraft.maxUploadIds) {
+      setState(
+        () => _errorMessage =
+            CupThreadTheme.stringsOf(context).tooManyAttachments,
+      );
+      return;
+    }
     setState(() => _isPickingAttachment = true);
     try {
       final attachment = await widget.onPickAttachment!();
