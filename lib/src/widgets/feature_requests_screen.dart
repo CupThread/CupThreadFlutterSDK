@@ -114,6 +114,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
           _isLoading = false;
           _isLoadingMore = false;
           _loadError = null;
+          // A page request started while this refresh was pending captured
+          // the same generation; invalidate it so its stale offset cannot
+          // append pre-refresh items onto the replaced list.
+          _requestGeneration++;
         });
       }
     } catch (e) {

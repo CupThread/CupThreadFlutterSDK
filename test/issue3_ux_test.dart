@@ -346,6 +346,75 @@ void main() {
       expect(find.text('Request 2'), findsNothing);
       expect(find.text('Request 10'), findsOneWidget);
     });
+
+    testWidgets(
+        'a Load more started during a pending search refresh is discarded once the refresh applied',
+        (tester) async {
+      final loadMoreGate = Completer<void>();
+      final refreshGate = Completer<void>();
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          final q = request.url.queryParameters['q'];
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          if (q != null) {
+            // Search-triggered refresh, released before the stale page.
+            await refreshGate.future;
+            return jsonResponse({
+              'requests': [frItem(10)],
+              'total': 1,
+            });
+          }
+          if (offset == '0') {
+            return jsonResponse({
+              'requests': [frItem(0), frItem(1)],
+              'total': 5,
+            });
+          }
+          // Page started while the refresh was pending, released after it.
+          await loadMoreGate.future;
+          return jsonResponse({
+            'requests': [frItem(2)],
+            'total': 5,
+          });
+        }
+        if (request.url.path.contains('/versions')) {
+          return jsonResponse({'versions': []});
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const FeatureRequestsScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      // Trigger a search refresh and hold its response.
+      await tester.enterText(find.byType(TextField), 'csv');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Start a Load more while the refresh is still pending.
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+
+      // The refresh lands first and replaces the list…
+      refreshGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Request 10'), findsOneWidget);
+
+      // …then the stale page response arrives; it must be discarded
+      // instead of reviving pre-refresh items and the old total.
+      loadMoreGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Request 2'), findsNothing);
+      expect(find.text('Request 10'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+    });
   });
 
   group('RoadmapBoardScreen error state and pagination', () {
@@ -563,6 +632,80 @@ void main() {
 
       expect(find.text('Request 1'), findsNothing);
       expect(find.text('Request 5'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a board page started during a pending refresh is discarded once the refresh applied',
+        (tester) async {
+      final loadMoreGate = Completer<void>();
+      final refreshGate = Completer<void>();
+      var dataLoads = 0;
+      final client = buildClient(MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          return jsonResponse({
+            'columns': [columnJson()]
+          });
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          final offset = request.url.queryParameters['offset'] ?? '0';
+          if (offset != '0') {
+            // Page started while the refresh was pending, released after it.
+            await loadMoreGate.future;
+            return jsonResponse({
+              'requests': [frItem(1, columnId: 'col_1')],
+              'total': 2,
+            });
+          }
+          dataLoads++;
+          if (dataLoads == 1) {
+            return jsonResponse({
+              'requests': [frItem(0, columnId: 'col_1')],
+              'total': 2,
+            });
+          }
+          // Pull-to-refresh reload, released before the stale page.
+          await refreshGate.future;
+          return jsonResponse({
+            'requests': [frItem(5, columnId: 'col_1')],
+            'total': 1,
+          });
+        }
+        if (request.url.path.contains('/public/config/')) {
+          return jsonResponse({});
+        }
+        return jsonResponse({'error': 'not found'}, 404);
+      }));
+
+      await tester.pumpWidget(wrap(const RoadmapBoardScreen(), client));
+      await pumpInitialLoad(tester);
+      expect(find.text('Load more'), findsOneWidget);
+
+      // Start a pull-to-refresh and hold its response.
+      final cardsList = find.byWidgetPredicate(
+        (w) => w is ListView && w.scrollDirection == Axis.vertical,
+      );
+      await tester.fling(cardsList, const Offset(0, 300), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Tap Load more while the refresh is still pending.
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+
+      // The refresh lands first and replaces the board…
+      refreshGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Request 5'), findsOneWidget);
+
+      // …then the stale page response arrives and must be discarded.
+      loadMoreGate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Request 1'), findsNothing);
+      expect(find.text('Request 5'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
     });
   });
 }
