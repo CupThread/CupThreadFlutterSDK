@@ -54,9 +54,9 @@ class CupThreadColors {
     required this.chipBg,
     required this.chipText,
     required this.divider,
-    required this.danger,
-    required this.dangerBg,
-    required this.dangerBorder,
+    this.danger = const Color(0xFFB91C1C),
+    this.dangerBg = const Color(0xFFFEF2F2),
+    this.dangerBorder = const Color(0xFFFCA5A5),
   });
 
   static const light = CupThreadColors(
