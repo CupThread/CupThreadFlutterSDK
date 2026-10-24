@@ -215,6 +215,25 @@ FeedbackComposer.showModal(
 
 ---
 
+## Anonymous Access Policies
+
+The Developer Console exposes four per-app anonymous policies that the SDK
+enforces client-side (the server enforces them too, but the SDK fails fast
+with a localized sign-in state instead of a guaranteed-to-fail network call):
+
+| Policy | Enforced by | Anonymous behavior when disabled |
+| ------ | ----------- | -------------------------------- |
+| `allowAnonymousRoadmap` | `RoadmapBoardScreen` | Sign-in-required state; no board/columns fetch |
+| `allowAnonymousVote` | `FeatureRequestsScreen`, `RoadmapBoardScreen` | Vote tap shows a snackbar; no vote call |
+| `allowAnonymousFeedback` | `FeedbackComposer` | Submit shows a snackbar; no feedback call |
+| `allowAnonymousChangelog` | `WhatsNewScreen`, `ChangelogOverlay.show` | Sign-in-required state / overlay never presents; no changelog fetch |
+
+`allowPublic` on `PublicAppConfig` is informational only: the server enforces
+it (a private app's config endpoint returns 404), so the SDK does not consume
+it.
+
+---
+
 ## API Client Surface
 
 | Method | Endpoint | Description |

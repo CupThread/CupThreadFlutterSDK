@@ -15,6 +15,7 @@ void main() {
     bool allowAnonymousVote = true,
     bool allowAnonymousFeedback = true,
     bool allowAnonymousRoadmap = true,
+    bool allowAnonymousChangelog = true,
   }) {
     return PublicAppConfig(
       appId: 'app_123',
@@ -27,7 +28,7 @@ void main() {
       allowAnonymousRoadmap: allowAnonymousRoadmap,
       allowAnonymousVote: allowAnonymousVote,
       allowAnonymousFeedback: allowAnonymousFeedback,
-      allowAnonymousChangelog: true,
+      allowAnonymousChangelog: allowAnonymousChangelog,
       sdk: SdkAppearance(
         features: SdkFeatures(
           feedback: feedback,
@@ -627,6 +628,295 @@ void main() {
 
       expect(submitCalled, isFalse);
       expect(find.text('Sign-in is required to submit feedback.'), findsOneWidget);
+    });
+
+    testWidgets('RoadmapBoardScreen blocks anonymous browsing when allowAnonymousRoadmap = false', (tester) async {
+      final config = createMockConfig(allowAnonymousRoadmap: false);
+      bool fetchColumnsCalled = false;
+      bool fetchRequestsCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          fetchColumnsCalled = true;
+          return http.Response('{"columns":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          fetchRequestsCalled = true;
+          return http.Response(
+            jsonEncode({'requests': [], 'totalCount': 0, 'hasMore': false}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: null, // anonymous user
+            child: const RoadmapBoardScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // APIs should NEVER be called for a gated anonymous session
+      expect(fetchColumnsCalled, isFalse);
+      expect(fetchRequestsCalled, isFalse);
+
+      // Localized sign-in-required state instead of the board
+      expect(find.text('Sign-in is required.'), findsOneWidget);
+      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      expect(find.byType(VoteButton), findsNothing);
+    });
+
+    testWidgets('RoadmapBoardScreen loads normally when authenticated and allowAnonymousRoadmap = false', (tester) async {
+      final config = createMockConfig(allowAnonymousRoadmap: false);
+      bool fetchColumnsCalled = false;
+      bool fetchRequestsCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/public/columns/')) {
+          fetchColumnsCalled = true;
+          return http.Response('{"columns":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          fetchRequestsCalled = true;
+          return http.Response(
+            jsonEncode({'requests': [], 'totalCount': 0, 'hasMore': false}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: 'test-token', // authenticated control
+            child: const RoadmapBoardScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(fetchColumnsCalled, isTrue);
+      expect(fetchRequestsCalled, isTrue);
+      expect(find.text('Sign-in is required.'), findsNothing);
+    });
+
+    testWidgets('WhatsNewScreen blocks anonymous browsing when allowAnonymousChangelog = false', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool fetchChangelogCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          fetchChangelogCalled = true;
+          return http.Response('{"entries":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: null, // anonymous user
+            child: const WhatsNewScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(fetchChangelogCalled, isFalse);
+      expect(find.text('Sign-in is required.'), findsOneWidget);
+      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      expect(find.text('Stay updated on new releases'), findsNothing);
+    });
+
+    testWidgets('WhatsNewScreen loads normally when authenticated and allowAnonymousChangelog = false', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool fetchChangelogCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          fetchChangelogCalled = true;
+          return http.Response('{"entries":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: 'test-token', // authenticated control
+            child: const WhatsNewScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(fetchChangelogCalled, isTrue);
+      expect(find.text('Sign-in is required.'), findsNothing);
+      expect(find.text('Stay updated on new releases'), findsOneWidget);
+    });
+
+    testWidgets('ChangelogOverlay.show does nothing for anonymous users when allowAnonymousChangelog = false', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool changelogApiCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          changelogApiCalled = true;
+          return http.Response('{"entries":[]}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: null, // anonymous user
+            child: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () => ChangelogOverlay.show(ctx),
+                child: const Text('Show Overlay'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
+      await tester.tap(find.text('Show Overlay'));
+      await tester.pumpAndSettle();
+
+      expect(changelogApiCalled, isFalse);
+      expect(find.byType(ChangelogOverlay), findsNothing);
+    });
+
+    testWidgets('ChangelogOverlay.show presents for authenticated users when allowAnonymousChangelog = false', (tester) async {
+      final config = createMockConfig(allowAnonymousChangelog: false);
+      bool changelogApiCalled = false;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path.contains('/changelog')) {
+          changelogApiCalled = true;
+          return http.Response(
+            jsonEncode({
+              'entries': [
+                {
+                  'id': 'cl_1',
+                  'title': 'Release 1.2.0',
+                  'body': 'Shipped a new feature.',
+                  'versionLabel': '1.2.0',
+                  'publishedAt': '2026-09-01T12:00:00Z',
+                  'linkedRequests': [],
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: 'test-token', // authenticated control
+            child: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () => ChangelogOverlay.show(ctx),
+                child: const Text('Show Overlay'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
+      await tester.tap(find.text('Show Overlay'));
+      await tester.pumpAndSettle();
+
+      expect(changelogApiCalled, isTrue);
+      expect(find.text('Release 1.2.0'), findsOneWidget);
     });
   });
 }

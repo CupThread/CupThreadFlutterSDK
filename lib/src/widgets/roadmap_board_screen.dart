@@ -56,12 +56,22 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
 
     if (configError != null && appConfig == null && !isEnabled) return;
     if (!isEnabled) return;
+    if (_isAnonymousViewGated()) return;
 
     if (!_hasAttemptedLoad || _lastConfig != appConfig) {
       _lastConfig = appConfig;
       _hasAttemptedLoad = true;
       _loadData();
     }
+  }
+
+  /// Whether the anonymous roadmap-view policy gates this screen: with config
+  /// resolved, anonymous sessions may not load the board at all.
+  bool _isAnonymousViewGated({bool listen = true}) {
+    final config = CupThreadTheme.configOf(context, listen: listen);
+    return config != null &&
+        !config.allowAnonymousRoadmap &&
+        CupThreadTheme.isAnonymous(context);
   }
 
   Future<void> _loadData() async {
@@ -71,6 +81,10 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       listen: false,
     );
     if (!isEnabled) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    if (_isAnonymousViewGated(listen: false)) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -375,6 +389,45 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                 const SizedBox(height: 16),
                 Text(
                   strings.roadmapDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isAnonymousViewGated()) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.roadmap,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.signInRequired,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textSecondary,

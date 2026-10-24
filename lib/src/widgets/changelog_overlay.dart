@@ -21,6 +21,9 @@ class ChangelogOverlay extends StatelessWidget {
   ///
   /// If [onlyIfUnseen] is true, suppresses presentation if the latest release has already been seen.
   /// If [autoMarkSeen] is true, automatically records the latest release as seen upon presentation/dismissal.
+  ///
+  /// Does nothing when the anonymous changelog-view policy gates the caller:
+  /// with config resolved, anonymous sessions never fetch or present entries.
   static Future<void> show(
     BuildContext context, {
     bool onlyIfUnseen = false,
@@ -31,6 +34,13 @@ class ChangelogOverlay extends StatelessWidget {
       (f) => f.changelog,
     );
     if (!isEnabled) return;
+
+    final config = CupThreadTheme.configOf(context);
+    if (config != null &&
+        !config.allowAnonymousChangelog &&
+        CupThreadTheme.isAnonymous(context)) {
+      return;
+    }
 
     final client = CupThreadTheme.clientOf(context);
     final data = await client.prepareChangelogOverlay(onlyIfUnseen: onlyIfUnseen);
