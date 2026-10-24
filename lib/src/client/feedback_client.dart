@@ -90,10 +90,37 @@ class FeedbackClient {
     return RegExp(r'turnstile', caseSensitive: false).hasMatch(responseBody);
   }
 
+  /// Detects the intake endpoints' HTTP 402 Payment Required quota
+  /// rejection and maps its `code` field to a typed exception
+  /// (`tier_limit_submissions` / `subscription_inactive`). Returns null for
+  /// any other status or an unparseable body, which callers surface as a
+  /// generic unexpected-status error.
+  static SubmissionQuotaException? _quotaRejection(
+    int status,
+    String responseBody,
+  ) {
+    if (status != 402) return null;
+    String? code;
+    try {
+      final parsed = jsonDecode(responseBody);
+      if (parsed is Map<String, dynamic>) {
+        final c = parsed['code'];
+        if (c is String && c.isNotEmpty) code = c;
+      }
+    } catch (_) {}
+    return SubmissionQuotaException(
+      reason: code == 'subscription_inactive'
+          ? SubmissionQuotaReason.subscriptionInactive
+          : SubmissionQuotaReason.tierLimitSubmissions,
+      code: code,
+      status: status,
+      responseBody: responseBody,
+    );
+  }
+
   /// Resolves the Turnstile token to attach to an intake submission:
   /// draft-level token wins over the configured provider.
-  Future<String?> _resolveTurnstileToken(String? explicit) async {
-    final trimmed = explicit?.trim();
+  Future<String?> _resolveTurnstileToken(String? explicit) async {    final trimmed = explicit?.trim();
     if (trimmed != null && trimmed.isNotEmpty) return trimmed;
     final provider = config.turnstileTokenProvider;
     if (provider == null) return null;
@@ -672,6 +699,10 @@ class FeedbackClient {
       }
       if (_isTurnstileChallenge(response.statusCode, response.body)) {
         throw TurnstileRequiredException(response.statusCode, response.body);
+      }
+      final quota = _quotaRejection(response.statusCode, response.body);
+      if (quota != null) {
+        throw quota;
       }
       throw UnexpectedStatusException(response.statusCode, response.body);
     }

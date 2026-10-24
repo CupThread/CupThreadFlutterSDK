@@ -90,6 +90,8 @@ class CupThreadStrings {
   final String changelogDisabled;
   final String configLoadFailed;
   final String attachmentTooLarge;
+  final String submissionQuotaExceeded;
+  final String subscriptionInactive;
 
   // Errors, Sign-in & Profile Sections
   final String reply;
@@ -188,6 +190,10 @@ class CupThreadStrings {
     this.changelogDisabled = 'Changelog is currently disabled.',
     this.configLoadFailed = 'Failed to load configuration.',
     this.attachmentTooLarge = 'Attachment exceeds the maximum allowed size.',
+    this.submissionQuotaExceeded =
+        'The monthly submission limit has been reached. Please try again later.',
+    this.subscriptionInactive =
+        'Submissions are temporarily unavailable. Please try again later.',
     this.reply = 'Reply',
     this.replyingTo = 'Replying to {name}',
     this.emailInvalid = 'Please enter a valid email address.',
@@ -218,6 +224,8 @@ class CupThreadStrings {
     hoursAgoSuffix: '小时前',
     daysAgoSuffix: '天前',
     verificationRequired: '提交前需要完成人机验证，请在完成验证后重试。',
+    submissionQuotaExceeded: '本月提交数量已达上限，请稍后再试。',
+    subscriptionInactive: '提交功能暂时不可用，请稍后再试。',
 
     featureRequests: '功能建议',
     proposeFeature: '提交建议',
@@ -301,6 +309,8 @@ class CupThreadStrings {
     hoursAgoSuffix: '時間前',
     daysAgoSuffix: '日前',
     verificationRequired: '送信には人間認証（Turnstile）が必要です。認証を完了してからもう一度お試しください。',
+    submissionQuotaExceeded: '今月の送信上限に達しました。後でもう一度お試しください。',
+    subscriptionInactive: '送信は現在ご利用いただけません。後でもう一度お試しください。',
 
     featureRequests: '機能リクエスト',
     proposeFeature: '機能を提案',
@@ -384,6 +394,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' j',
     verificationRequired: 'Une vérification humaine est requise pour envoyer. Merci de réessayer après avoir terminé la vérification.',
+    submissionQuotaExceeded: 'La limite mensuelle de soumissions a été atteinte. Merci de réessayer plus tard.',
+    subscriptionInactive: 'Les soumissions sont momentanément indisponibles. Merci de réessayer plus tard.',
 
     featureRequests: 'Demandes de fonctionnalités',
     proposeFeature: 'Proposer une fonctionnalité',
@@ -468,6 +480,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' d',
     verificationRequired: 'Se requiere verificación humana para enviar. Inténtalo de nuevo después de completar la verificación.',
+    submissionQuotaExceeded: 'Se ha alcanzado el límite mensual de envíos. Inténtalo de nuevo más tarde.',
+    subscriptionInactive: 'Los envíos no están disponibles temporalmente. Inténtalo de nuevo más tarde.',
 
     featureRequests: 'Solicitudes de funciones',
     proposeFeature: 'Proponer función',
@@ -551,6 +565,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' Std.',
     daysAgoSuffix: ' T.',
     verificationRequired: 'Zum Senden ist eine menschliche Verifizierung erforderlich. Bitte nach Abschluss der Verifizierung erneut versuchen.',
+    submissionQuotaExceeded: 'Das monatliche Limit für Einsendungen ist erreicht. Bitte versuchen Sie es später erneut.',
+    subscriptionInactive: 'Einsendungen sind derzeit nicht möglich. Bitte versuchen Sie es später erneut.',
 
     featureRequests: 'Funktionswünsche',
     proposeFeature: 'Funktion vorschlagen',
@@ -636,6 +652,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' h fa',
     daysAgoSuffix: ' g fa',
     verificationRequired: 'È richiesta la verifica umana per inviare. Riprova dopo aver completato la verifica.',
+    submissionQuotaExceeded: 'Il limite mensile di invii è stato raggiunto. Riprova più tardi.',
+    subscriptionInactive: 'Gli invii non sono al momento disponibili. Riprova più tardi.',
 
     featureRequests: 'Richieste di funzionalità',
     proposeFeature: 'Proponi una funzionalità',
@@ -719,6 +737,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' h',
     daysAgoSuffix: ' d',
     verificationRequired: 'É necessária verificação humana para enviar. Tente novamente após concluir a verificação.',
+    submissionQuotaExceeded: 'O limite mensal de envios foi atingido. Tente novamente mais tarde.',
+    subscriptionInactive: 'Os envios estão temporariamente indisponíveis. Tente novamente mais tarde.',
 
     featureRequests: 'Solicitações de recursos',
     proposeFeature: 'Propor recurso',
@@ -802,6 +822,8 @@ class CupThreadStrings {
     hoursAgoSuffix: '小時前',
     daysAgoSuffix: '天前',
     verificationRequired: '提交前需要完成人機驗證，請在完成驗證後重試。',
+    submissionQuotaExceeded: '本月提交數量已達上限，請稍後再試。',
+    subscriptionInactive: '提交功能暫時無法使用，請稍後再試。',
 
     featureRequests: '功能建議',
     proposeFeature: '提交建議',
@@ -885,6 +907,8 @@ class CupThreadStrings {
     hoursAgoSuffix: '시간 전',
     daysAgoSuffix: '일 전',
     verificationRequired: '제출하려면 사용자 인증이 필요합니다. 인증을 완료한 후 다시 시도해 주세요.',
+    submissionQuotaExceeded: '이번 달 제출 한도에 도달했습니다. 나중에 다시 시도해 주세요.',
+    subscriptionInactive: '제출 기능을 현재 사용할 수 없습니다. 나중에 다시 시도해 주세요.',
 
     featureRequests: '기능 요청',
     proposeFeature: '기능 제안하기',
@@ -968,6 +992,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' godz. temu',
     daysAgoSuffix: ' dni temu',
     verificationRequired: 'Wysłanie wymaga weryfikacji człowieka. Spróbuj ponownie po jej ukończeniu.',
+    submissionQuotaExceeded: 'Osiągnięto miesięczny limit zgłoszeń. Spróbuj ponownie później.',
+    subscriptionInactive: 'Zgłoszenia są obecnie niedostępne. Spróbuj ponownie później.',
 
     featureRequests: 'Propozycje funkcji',
     proposeFeature: 'Zaproponuj funkcję',
@@ -1051,6 +1077,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' t siden',
     daysAgoSuffix: ' d siden',
     verificationRequired: 'Menneskelig verifisering kreves for å sende. Prøv igjen etter å ha fullført verifiseringen.',
+    submissionQuotaExceeded: 'Månedsgrensen for innsendinger er nådd. Prøv igjen senere.',
+    subscriptionInactive: 'Innsendinger er midlertidig utilgjengelige. Prøv igjen senere.',
 
     featureRequests: 'Funksjonsønsker',
     proposeFeature: 'Foreslå funksjon',
@@ -1134,6 +1162,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' sa önce',
     daysAgoSuffix: ' gün önce',
     verificationRequired: 'Gönderim için insan doğrulaması gerekli. Doğrulamayı tamamladıktan sonra tekrar deneyin.',
+    submissionQuotaExceeded: 'Aylık gönderim limitine ulaşıldı. Lütfen daha sonra tekrar deneyin.',
+    subscriptionInactive: 'Gönderimler şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
 
     featureRequests: 'Özellik istekleri',
     proposeFeature: 'Özellik öner',
@@ -1217,6 +1247,8 @@ class CupThreadStrings {
     hoursAgoSuffix: ' giờ trước',
     daysAgoSuffix: ' ngày trước',
     verificationRequired: 'Cần xác minh con người để gửi. Vui lòng thử lại sau khi hoàn tất xác minh.',
+    submissionQuotaExceeded: 'Đã đạt giới hạn gửi hàng tháng. Vui lòng thử lại sau.',
+    subscriptionInactive: 'Tính năng gửi hiện không khả dụng. Vui lòng thử lại sau.',
 
     featureRequests: 'Yêu cầu tính năng',
     proposeFeature: 'Đề xuất tính năng',
@@ -1345,6 +1377,11 @@ class CupThreadStrings {
   /// `toString()` output (including API response bodies) never reaches users.
   String localizedErrorMessage(Object error) {
     if (error is TurnstileRequiredException) return verificationRequired;
+    if (error is SubmissionQuotaException) {
+      return error.reason == SubmissionQuotaReason.subscriptionInactive
+          ? subscriptionInactive
+          : submissionQuotaExceeded;
+    }
     if (error is AttachmentTooLargeException) return attachmentTooLarge;
     if (error is FeatureDisabledException) return featureUnavailable;
     if (error is AuthenticationRequiredException) return signInRequired;
@@ -1416,6 +1453,8 @@ class CupThreadStrings {
     String? userProfile,
     String? payingCustomer,
     String? freeTier,
+    String? submissionQuotaExceeded,
+    String? subscriptionInactive,
     String? verificationRequired,
     String? reply,
     String? replyingTo,
@@ -1503,6 +1542,9 @@ class CupThreadStrings {
       userProfile: userProfile ?? this.userProfile,
       payingCustomer: payingCustomer ?? this.payingCustomer,
       freeTier: freeTier ?? this.freeTier,
+      submissionQuotaExceeded:
+          submissionQuotaExceeded ?? this.submissionQuotaExceeded,
+      subscriptionInactive: subscriptionInactive ?? this.subscriptionInactive,
       reply: reply ?? this.reply,
       replyingTo: replyingTo ?? this.replyingTo,
       emailInvalid: emailInvalid ?? this.emailInvalid,
