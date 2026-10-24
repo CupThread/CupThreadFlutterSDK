@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -92,10 +93,11 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
       return;
     }
 
+    final strings = CupThreadTheme.stringsOf(context);
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address.')),
+        SnackBar(content: Text(strings.emailInvalid)),
       );
       return;
     }
@@ -113,14 +115,18 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
           _isSubscribing = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Subscribed! You'll receive email updates.")),
+          SnackBar(content: Text(strings.subscribedToUpdates)),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubscribing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Subscription failed: $e')),
+          SnackBar(
+            content: Text(e is TurnstileRequiredException
+                ? strings.verificationRequired
+                : strings.subscriptionFailed),
+          ),
         );
       }
     }

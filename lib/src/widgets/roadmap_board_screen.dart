@@ -159,8 +159,9 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     final isAnon = CupThreadTheme.isAnonymous(context);
     if (config != null && !config.allowAnonymousVote && isAnon) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Sign-in is required to vote on feature requests.')),
+        SnackBar(
+            content:
+                Text(CupThreadTheme.stringsOf(context).signInRequiredToVote)),
       );
       return;
     }

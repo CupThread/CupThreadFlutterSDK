@@ -20,7 +20,7 @@ class UserProfileView extends StatefulWidget {
 class _UserProfileViewState extends State<UserProfileView> {
   PublicUserProfileResult? _data;
   bool _isLoading = true;
-  String? _error;
+  Object? _error;
 
   @override
   void initState() {
@@ -41,7 +41,7 @@ class _UserProfileViewState extends State<UserProfileView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = e;
           _isLoading = false;
         });
       }
@@ -72,7 +72,9 @@ class _UserProfileViewState extends State<UserProfileView> {
           : _error != null || _data == null
               ? Center(
                   child: Text(
-                    _error ?? 'User not found',
+                    _error != null
+                        ? strings.localizedErrorMessage(_error!)
+                        : strings.userNotFound,
                     style: TextStyle(color: colors.textPrimary),
                   ),
                 )
@@ -122,7 +124,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'Apps (${_data!.apps.length})',
+                            '${strings.appsSection} (${_data!.apps.length})',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -170,7 +172,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'Recent Comments',
+                            strings.recentComments,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -192,7 +194,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'on ${c.featureRequestTitle}',
+                                  strings.commentOnLabel(c.featureRequestTitle),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -210,7 +212,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${formatRelativeDate(c.createdAt)} · ${c.appName}',
+                                  '${formatRelativeDate(c.createdAt, strings: strings)} · ${c.appName}',
                                   style: TextStyle(fontSize: 11, color: colors.textMuted),
                                 ),
                               ],

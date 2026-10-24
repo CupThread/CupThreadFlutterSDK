@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -93,7 +94,11 @@ class _CommentsViewState extends State<CommentsView> {
       if (mounted) {
         setState(() => _isPosting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to post comment: $e')),
+          SnackBar(
+            content: Text(e is TurnstileRequiredException
+                ? CupThreadTheme.stringsOf(context).verificationRequired
+                : CupThreadTheme.stringsOf(context).commentPostFailed),
+          ),
         );
       }
     }
@@ -192,7 +197,7 @@ class _CommentsViewState extends State<CommentsView> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                'Replying to @${comment.replyToAuthorName}',
+                strings.replyingToLabel('@${comment.replyToAuthorName}'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -206,7 +211,7 @@ class _CommentsViewState extends State<CommentsView> {
           GestureDetector(
             onTap: () => setState(() => _replyingTo = comment),
             child: Text(
-              'Reply',
+              strings.reply,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -242,7 +247,7 @@ class _CommentsViewState extends State<CommentsView> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Replying to ${_replyingTo!.authorName ?? strings.anonymous}',
+                      strings.replyingToLabel(_replyingTo!.authorName ?? strings.anonymous),
                       style: TextStyle(fontSize: 12, color: colors.textSecondary),
                     ),
                   ),

@@ -46,6 +46,114 @@ void main() {
       }
     });
 
+    test('all locales define non-empty issue #6 keys', () {
+      final locales = [
+        CupThreadStrings.en,
+        CupThreadStrings.zhHans,
+        CupThreadStrings.ja,
+        CupThreadStrings.fr,
+        CupThreadStrings.es,
+        CupThreadStrings.de,
+        CupThreadStrings.it,
+        CupThreadStrings.pt,
+        CupThreadStrings.zhHant,
+        CupThreadStrings.ko,
+        CupThreadStrings.pl,
+        CupThreadStrings.no,
+        CupThreadStrings.tr,
+        CupThreadStrings.vi,
+      ];
+      for (final s in locales) {
+        expect(s.reply, isNotEmpty, reason: 'reply missing');
+        expect(s.replyingTo, isNotEmpty, reason: 'replyingTo missing');
+        expect(s.emailInvalid, isNotEmpty, reason: 'emailInvalid missing');
+        expect(s.subscribedToUpdates, isNotEmpty,
+            reason: 'subscribedToUpdates missing');
+        expect(s.subscriptionFailed, isNotEmpty,
+            reason: 'subscriptionFailed missing');
+        expect(s.commentPostFailed, isNotEmpty,
+            reason: 'commentPostFailed missing');
+        expect(s.userNotFound, isNotEmpty, reason: 'userNotFound missing');
+        expect(s.appsSection, isNotEmpty, reason: 'appsSection missing');
+        expect(s.recentComments, isNotEmpty, reason: 'recentComments missing');
+        expect(s.commentOn, isNotEmpty, reason: 'commentOn missing');
+        expect(s.signInRequired, isNotEmpty, reason: 'signInRequired missing');
+        expect(s.signInRequiredToVote, isNotEmpty,
+            reason: 'signInRequiredToVote missing');
+        expect(s.signInRequiredToSubmitFeedback, isNotEmpty,
+            reason: 'signInRequiredToSubmitFeedback missing');
+        expect(s.unexpectedError, isNotEmpty,
+            reason: 'unexpectedError missing');
+      }
+    });
+
+    test('label templates keep their placeholders in every locale', () {
+      final locales = [
+        CupThreadStrings.en,
+        CupThreadStrings.zhHans,
+        CupThreadStrings.ja,
+        CupThreadStrings.fr,
+        CupThreadStrings.es,
+        CupThreadStrings.de,
+        CupThreadStrings.it,
+        CupThreadStrings.pt,
+        CupThreadStrings.zhHant,
+        CupThreadStrings.ko,
+        CupThreadStrings.pl,
+        CupThreadStrings.no,
+        CupThreadStrings.tr,
+        CupThreadStrings.vi,
+      ];
+      for (final s in locales) {
+        expect(s.replyingTo.contains('{name}'), isTrue,
+            reason: 'replyingTo lost the {name} placeholder');
+        expect(s.commentOn.contains('{title}'), isTrue,
+            reason: 'commentOn lost the {title} placeholder');
+      }
+    });
+
+    test('label helpers interpolate the placeholder values', () {
+      const strings = CupThreadStrings.en;
+      expect(strings.replyingToLabel('@Alice'), 'Replying to @Alice');
+      expect(strings.commentOnLabel('Export CSV'), 'on Export CSV');
+      const ja = CupThreadStrings.ja;
+      expect(ja.replyingToLabel('太郎'), '太郎 に返信');
+      expect(ja.commentOnLabel('CSV 書き出し'), 'CSV 書き出し について');
+    });
+
+    test('localizedErrorMessage maps known exceptions to short messages', () {
+      const strings = CupThreadStrings.en;
+      expect(
+        strings.localizedErrorMessage(const TurnstileRequiredException()),
+        strings.verificationRequired,
+      );
+      expect(
+        strings
+            .localizedErrorMessage(const AttachmentTooLargeException(200, 100)),
+        strings.attachmentTooLarge,
+      );
+      expect(
+        strings
+            .localizedErrorMessage(const FeatureDisabledException('feedback')),
+        strings.featureUnavailable,
+      );
+      expect(
+        strings.localizedErrorMessage(const AuthenticationRequiredException()),
+        strings.signInRequired,
+      );
+      // Raw errors (incl. UnexpectedStatusException with response bodies)
+      // never leak to users.
+      expect(
+        strings.localizedErrorMessage(
+            const UnexpectedStatusException(500, 'internal stack trace')),
+        strings.unexpectedError,
+      );
+      expect(
+        strings.localizedErrorMessage(Exception('random')),
+        strings.unexpectedError,
+      );
+    });
+
     test('fromLocale maps locales correctly', () {
       expect(
         CupThreadStrings.fromLocale(const Locale('zh', 'CN')).featureRequests,
@@ -129,7 +237,8 @@ void main() {
       expect(custom.featureRequests, 'Feature Requests');
     });
 
-    testWidgets('CupThreadTheme provides localized strings to context', (tester) async {
+    testWidgets('CupThreadTheme provides localized strings to context',
+        (tester) async {
       final client = FeedbackClient(
         FeedbackClientConfig(
           baseUrl: 'https://api.cupthread.com',

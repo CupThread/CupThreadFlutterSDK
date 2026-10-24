@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../client/feedback_exception.dart';
+
 /// Localized strings configuration for CupThread SDK widgets.
 class CupThreadStrings {
   // Common
@@ -89,6 +91,27 @@ class CupThreadStrings {
   final String configLoadFailed;
   final String attachmentTooLarge;
 
+  // Errors, Sign-in & Profile Sections
+  final String reply;
+
+  /// "Replying to" label template; `{name}` is replaced with the author name.
+  final String replyingTo;
+  final String emailInvalid;
+  final String subscribedToUpdates;
+  final String subscriptionFailed;
+  final String commentPostFailed;
+  final String userNotFound;
+  final String appsSection;
+  final String recentComments;
+
+  /// "on <request title>" label template; `{title}` is replaced with the
+  /// feature request title a comment was written on.
+  final String commentOn;
+  final String signInRequired;
+  final String signInRequiredToVote;
+  final String signInRequiredToSubmitFeedback;
+  final String unexpectedError;
+
   const CupThreadStrings({
     this.retry = 'Retry',
     this.cancel = 'Cancel',
@@ -165,6 +188,20 @@ class CupThreadStrings {
     this.changelogDisabled = 'Changelog is currently disabled.',
     this.configLoadFailed = 'Failed to load configuration.',
     this.attachmentTooLarge = 'Attachment exceeds the maximum allowed size.',
+    this.reply = 'Reply',
+    this.replyingTo = 'Replying to {name}',
+    this.emailInvalid = 'Please enter a valid email address.',
+    this.subscribedToUpdates = "Subscribed! You'll receive email updates.",
+    this.subscriptionFailed = 'Subscription failed. Please try again.',
+    this.commentPostFailed = 'Failed to post comment. Please try again.',
+    this.userNotFound = 'User not found.',
+    this.appsSection = 'Apps',
+    this.recentComments = 'Recent Comments',
+    this.commentOn = 'on {title}',
+    this.signInRequired = 'Sign-in is required.',
+    this.signInRequiredToVote = 'Sign-in is required to vote.',
+    this.signInRequiredToSubmitFeedback = 'Sign-in is required to submit feedback.',
+    this.unexpectedError = 'Something went wrong. Please try again.',
   });
 
   /// Built-in English strings.
@@ -237,6 +274,20 @@ class CupThreadStrings {
     userProfile: '用户资料',
     payingCustomer: '付费用户',
     freeTier: '免费版',
+    reply: '回复',
+    replyingTo: '回复 {name}',
+    emailInvalid: '请输入有效的邮箱地址。',
+    subscribedToUpdates: '已订阅！你将收到邮件更新。',
+    subscriptionFailed: '订阅失败，请重试。',
+    commentPostFailed: '评论发送失败，请重试。',
+    userNotFound: '未找到该用户。',
+    appsSection: '应用',
+    recentComments: '最近评论',
+    commentOn: '关于「{title}」',
+    signInRequired: '需要登录。',
+    signInRequiredToVote: '投票前需要登录。',
+    signInRequiredToSubmitFeedback: '提交反馈前需要登录。',
+    unexpectedError: '出错了，请重试。',
   );
 
   /// Built-in Japanese strings.
@@ -306,6 +357,20 @@ class CupThreadStrings {
     userProfile: 'ユーザープロフィール',
     payingCustomer: '有料ユーザー',
     freeTier: '無料プラン',
+    reply: '返信',
+    replyingTo: '{name} に返信',
+    emailInvalid: '有効なメールアドレスを入力してください。',
+    subscribedToUpdates: '購読しました！メールで更新をお届けします。',
+    subscriptionFailed: '購読に失敗しました。もう一度お試しください。',
+    commentPostFailed: 'コメントの投稿に失敗しました。もう一度お試しください。',
+    userNotFound: 'ユーザーが見つかりません。',
+    appsSection: 'アプリ',
+    recentComments: '最近のコメント',
+    commentOn: '{title} について',
+    signInRequired: 'サインインが必要です。',
+    signInRequiredToVote: '投票にはサインインが必要です。',
+    signInRequiredToSubmitFeedback: 'フィードバックの送信にはサインインが必要です。',
+    unexpectedError: '問題が発生しました。もう一度お試しください。',
   );
 
   /// Built-in French strings.
@@ -376,6 +441,20 @@ class CupThreadStrings {
     userProfile: 'Profil utilisateur',
     payingCustomer: 'Client payant',
     freeTier: 'Offre gratuite',
+    reply: 'Répondre',
+    replyingTo: 'Réponse à {name}',
+    emailInvalid: 'Veuillez saisir une adresse e-mail valide.',
+    subscribedToUpdates: 'Abonné ! Vous recevrez les mises à jour par e-mail.',
+    subscriptionFailed: "Échec de l'abonnement. Merci de réessayer.",
+    commentPostFailed: 'Échec de la publication du commentaire. Merci de réessayer.',
+    userNotFound: 'Utilisateur introuvable.',
+    appsSection: 'Applications',
+    recentComments: 'Commentaires récents',
+    commentOn: 'sur {title}',
+    signInRequired: 'Connexion requise.',
+    signInRequiredToVote: 'Connexion requise pour voter.',
+    signInRequiredToSubmitFeedback: 'Connexion requise pour envoyer un retour.',
+    unexpectedError: 'Une erreur est survenue. Merci de réessayer.',
   );
 
   /// Built-in Spanish strings.
@@ -445,6 +524,20 @@ class CupThreadStrings {
     userProfile: 'Perfil de usuario',
     payingCustomer: 'Cliente de pago',
     freeTier: 'Plan gratuito',
+    reply: 'Responder',
+    replyingTo: 'Respondiendo a {name}',
+    emailInvalid: 'Introduce una dirección de correo válida.',
+    subscribedToUpdates: '¡Suscrito! Recibirás las novedades por correo.',
+    subscriptionFailed: 'No se pudo completar la suscripción. Inténtalo de nuevo.',
+    commentPostFailed: 'No se pudo publicar el comentario. Inténtalo de nuevo.',
+    userNotFound: 'Usuario no encontrado.',
+    appsSection: 'Aplicaciones',
+    recentComments: 'Comentarios recientes',
+    commentOn: 'sobre {title}',
+    signInRequired: 'Se requiere iniciar sesión.',
+    signInRequiredToVote: 'Se requiere iniciar sesión para votar.',
+    signInRequiredToSubmitFeedback: 'Se requiere iniciar sesión para enviar comentarios.',
+    unexpectedError: 'Algo salió mal. Inténtalo de nuevo.',
   );
 
   /// Built-in German strings.
@@ -516,6 +609,20 @@ class CupThreadStrings {
     userProfile: 'Benutzerprofil',
     payingCustomer: 'Zahlender Kunde',
     freeTier: 'Gratis-Tarif',
+    reply: 'Antworten',
+    replyingTo: 'Antwort an {name}',
+    emailInvalid: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
+    subscribedToUpdates: 'Abonniert! Sie erhalten Updates per E-Mail.',
+    subscriptionFailed: 'Abonnement fehlgeschlagen. Bitte versuchen Sie es erneut.',
+    commentPostFailed: 'Kommentar konnte nicht gepostet werden. Bitte versuchen Sie es erneut.',
+    userNotFound: 'Benutzer nicht gefunden.',
+    appsSection: 'Apps',
+    recentComments: 'Letzte Kommentare',
+    commentOn: 'zu {title}',
+    signInRequired: 'Anmeldung erforderlich.',
+    signInRequiredToVote: 'Zum Abstimmen ist eine Anmeldung erforderlich.',
+    signInRequiredToSubmitFeedback: 'Zum Senden von Feedback ist eine Anmeldung erforderlich.',
+    unexpectedError: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.',
   );
 
   /// Built-in Italian strings.
@@ -585,6 +692,20 @@ class CupThreadStrings {
     userProfile: 'Profilo utente',
     payingCustomer: 'Cliente pagante',
     freeTier: 'Piano gratuito',
+    reply: 'Rispondi',
+    replyingTo: 'In risposta a {name}',
+    emailInvalid: 'Inserisci un indirizzo e-mail valido.',
+    subscribedToUpdates: 'Iscritto! Riceverai gli aggiornamenti via e-mail.',
+    subscriptionFailed: 'Iscrizione non riuscita. Riprova.',
+    commentPostFailed: 'Pubblicazione del commento non riuscita. Riprova.',
+    userNotFound: 'Utente non trovato.',
+    appsSection: 'App',
+    recentComments: 'Commenti recenti',
+    commentOn: 'su {title}',
+    signInRequired: 'Accesso richiesto.',
+    signInRequiredToVote: 'È necessario accedere per votare.',
+    signInRequiredToSubmitFeedback: 'È necessario accedere per inviare un feedback.',
+    unexpectedError: 'Si è verificato un errore. Riprova.',
   );
 
   /// Built-in Portuguese strings.
@@ -654,6 +775,20 @@ class CupThreadStrings {
     userProfile: 'Perfil do usuário',
     payingCustomer: 'Cliente pagante',
     freeTier: 'Plano gratuito',
+    reply: 'Responder',
+    replyingTo: 'Respondendo a {name}',
+    emailInvalid: 'Insira um endereço de e-mail válido.',
+    subscribedToUpdates: 'Inscrito! Você receberá novidades por e-mail.',
+    subscriptionFailed: 'Falha na assinatura. Tente novamente.',
+    commentPostFailed: 'Falha ao publicar comentário. Tente novamente.',
+    userNotFound: 'Usuário não encontrado.',
+    appsSection: 'Apps',
+    recentComments: 'Comentários recentes',
+    commentOn: 'sobre {title}',
+    signInRequired: 'É necessário entrar.',
+    signInRequiredToVote: 'É necessário entrar para votar.',
+    signInRequiredToSubmitFeedback: 'É necessário entrar para enviar feedback.',
+    unexpectedError: 'Algo deu errado. Tente novamente.',
   );
 
   /// Built-in Traditional Chinese strings.
@@ -723,6 +858,20 @@ class CupThreadStrings {
     userProfile: '使用者資料',
     payingCustomer: '付費用戶',
     freeTier: '免費版',
+    reply: '回覆',
+    replyingTo: '回覆 {name}',
+    emailInvalid: '請輸入有效的電子郵件地址。',
+    subscribedToUpdates: '已訂閱！您將收到電子郵件更新。',
+    subscriptionFailed: '訂閱失敗，請重試。',
+    commentPostFailed: '留言發送失敗，請重試。',
+    userNotFound: '找不到該使用者。',
+    appsSection: '應用程式',
+    recentComments: '最新留言',
+    commentOn: '關於「{title}」',
+    signInRequired: '需要登入。',
+    signInRequiredToVote: '投票前需要登入。',
+    signInRequiredToSubmitFeedback: '提交回饋前需要登入。',
+    unexpectedError: '發生錯誤，請重試。',
   );
 
   /// Built-in Korean strings.
@@ -792,6 +941,20 @@ class CupThreadStrings {
     userProfile: '사용자 프로필',
     payingCustomer: '유료 사용자',
     freeTier: '무료 플랜',
+    reply: '답글',
+    replyingTo: '{name}님에게 답글 작성 중',
+    emailInvalid: '유효한 이메일 주소를 입력해 주세요.',
+    subscribedToUpdates: '구독 완료! 이메일로 업데이트를 받으실 수 있습니다.',
+    subscriptionFailed: '구독에 실패했습니다. 다시 시도해 주세요.',
+    commentPostFailed: '댓글 게시에 실패했습니다. 다시 시도해 주세요.',
+    userNotFound: '사용자를 찾을 수 없습니다.',
+    appsSection: '앱',
+    recentComments: '최근 댓글',
+    commentOn: '{title}에 대한 댓글',
+    signInRequired: '로그인이 필요합니다.',
+    signInRequiredToVote: '투표하려면 로그인이 필요합니다.',
+    signInRequiredToSubmitFeedback: '피드백을 제출하려면 로그인이 필요합니다.',
+    unexpectedError: '문제가 발생했습니다. 다시 시도해 주세요.',
   );
 
   /// Built-in Polish strings.
@@ -861,6 +1024,20 @@ class CupThreadStrings {
     userProfile: 'Profil użytkownika',
     payingCustomer: 'Płacący klient',
     freeTier: 'Plan darmowy',
+    reply: 'Odpowiedz',
+    replyingTo: 'Odpowiedź do {name}',
+    emailInvalid: 'Podaj prawidłowy adres e-mail.',
+    subscribedToUpdates: 'Zasubskrybowano! Aktualizacje otrzymasz e-mailem.',
+    subscriptionFailed: 'Subskrypcja nie powiodła się. Spróbuj ponownie.',
+    commentPostFailed: 'Nie udało się dodać komentarza. Spróbuj ponownie.',
+    userNotFound: 'Nie znaleziono użytkownika.',
+    appsSection: 'Aplikacje',
+    recentComments: 'Ostatnie komentarze',
+    commentOn: 'dotyczy: {title}',
+    signInRequired: 'Wymagane zalogowanie.',
+    signInRequiredToVote: 'Aby zagłosować, musisz się zalogować.',
+    signInRequiredToSubmitFeedback: 'Aby wysłać opinię, musisz się zalogować.',
+    unexpectedError: 'Coś poszło nie tak. Spróbuj ponownie.',
   );
 
   /// Built-in Norwegian (Bokmål) strings.
@@ -930,6 +1107,20 @@ class CupThreadStrings {
     userProfile: 'Brukerprofil',
     payingCustomer: 'Betalende kunde',
     freeTier: 'Gratisplan',
+    reply: 'Svar',
+    replyingTo: 'Svar til {name}',
+    emailInvalid: 'Skriv inn en gyldig e-postadresse.',
+    subscribedToUpdates: 'Abonnert! Du mottar nyheter på e-post.',
+    subscriptionFailed: 'Abonnering mislyktes. Prøv igjen.',
+    commentPostFailed: 'Kunne ikke publisere kommentaren. Prøv igjen.',
+    userNotFound: 'Brukeren ble ikke funnet.',
+    appsSection: 'Apper',
+    recentComments: 'Nylige kommentarer',
+    commentOn: 'om {title}',
+    signInRequired: 'Innlogging kreves.',
+    signInRequiredToVote: 'Innlogging kreves for å stemme.',
+    signInRequiredToSubmitFeedback: 'Innlogging kreves for å gi tilbakemelding.',
+    unexpectedError: 'Noe gikk galt. Prøv igjen.',
   );
 
   /// Built-in Turkish strings.
@@ -999,6 +1190,20 @@ class CupThreadStrings {
     userProfile: 'Kullanıcı profili',
     payingCustomer: 'Ücretli müşteri',
     freeTier: 'Ücretsiz plan',
+    reply: 'Yanıtla',
+    replyingTo: '{name} kişisine yanıt',
+    emailInvalid: 'Geçerli bir e-posta adresi girin.',
+    subscribedToUpdates: 'Abone olundu! Güncellemeleri e-postayla alacaksınız.',
+    subscriptionFailed: 'Abonelik başarısız oldu. Tekrar deneyin.',
+    commentPostFailed: 'Yorum gönderilemedi. Tekrar deneyin.',
+    userNotFound: 'Kullanıcı bulunamadı.',
+    appsSection: 'Uygulamalar',
+    recentComments: 'Son Yorumlar',
+    commentOn: '{title} üzerine',
+    signInRequired: 'Oturum açmanız gerekiyor.',
+    signInRequiredToVote: 'Oy vermek için oturum açmanız gerekiyor.',
+    signInRequiredToSubmitFeedback: 'Geri bildirim göndermek için oturum açmanız gerekiyor.',
+    unexpectedError: 'Bir şeyler ters gitti. Tekrar deneyin.',
   );
 
   /// Built-in Vietnamese strings.
@@ -1068,6 +1273,20 @@ class CupThreadStrings {
     userProfile: 'Hồ sơ người dùng',
     payingCustomer: 'Khách hàng trả phí',
     freeTier: 'Gói miễn phí',
+    reply: 'Trả lời',
+    replyingTo: 'Đang trả lời {name}',
+    emailInvalid: 'Vui lòng nhập địa chỉ email hợp lệ.',
+    subscribedToUpdates: 'Đã đăng ký! Bạn sẽ nhận thông báo cập nhật qua email.',
+    subscriptionFailed: 'Đăng ký thất bại. Vui lòng thử lại.',
+    commentPostFailed: 'Đăng bình luận thất bại. Vui lòng thử lại.',
+    userNotFound: 'Không tìm thấy người dùng.',
+    appsSection: 'Ứng dụng',
+    recentComments: 'Bình luận gần đây',
+    commentOn: 'về {title}',
+    signInRequired: 'Cần đăng nhập.',
+    signInRequiredToVote: 'Cần đăng nhập để bình chọn.',
+    signInRequiredToSubmitFeedback: 'Cần đăng nhập để gửi phản hồi.',
+    unexpectedError: 'Đã xảy ra lỗi. Vui lòng thử lại.',
   );
 
   /// Resolves the appropriate strings based on the given locale.
@@ -1113,6 +1332,23 @@ class CupThreadStrings {
       default:
         return en;
     }
+  }
+
+  /// Renders [name] into the localized "replying to" label.
+  String replyingToLabel(String name) => replyingTo.replaceFirst('{name}', name);
+
+  /// Renders [title] into the localized "on <request title>" label.
+  String commentOnLabel(String title) => commentOn.replaceFirst('{title}', title);
+
+  /// Maps a known [FeedbackException] type to a short localized message.
+  /// Unknown errors and bare exceptions fall back to [unexpectedError] so raw
+  /// `toString()` output (including API response bodies) never reaches users.
+  String localizedErrorMessage(Object error) {
+    if (error is TurnstileRequiredException) return verificationRequired;
+    if (error is AttachmentTooLargeException) return attachmentTooLarge;
+    if (error is FeatureDisabledException) return featureUnavailable;
+    if (error is AuthenticationRequiredException) return signInRequired;
+    return unexpectedError;
   }
 
   /// Copies existing strings while overriding specified values.
@@ -1181,6 +1417,20 @@ class CupThreadStrings {
     String? payingCustomer,
     String? freeTier,
     String? verificationRequired,
+    String? reply,
+    String? replyingTo,
+    String? emailInvalid,
+    String? subscribedToUpdates,
+    String? subscriptionFailed,
+    String? commentPostFailed,
+    String? userNotFound,
+    String? appsSection,
+    String? recentComments,
+    String? commentOn,
+    String? signInRequired,
+    String? signInRequiredToVote,
+    String? signInRequiredToSubmitFeedback,
+    String? unexpectedError,
   }) {
     return CupThreadStrings(
       retry: retry ?? this.retry,
@@ -1253,6 +1503,21 @@ class CupThreadStrings {
       userProfile: userProfile ?? this.userProfile,
       payingCustomer: payingCustomer ?? this.payingCustomer,
       freeTier: freeTier ?? this.freeTier,
+      reply: reply ?? this.reply,
+      replyingTo: replyingTo ?? this.replyingTo,
+      emailInvalid: emailInvalid ?? this.emailInvalid,
+      subscribedToUpdates: subscribedToUpdates ?? this.subscribedToUpdates,
+      subscriptionFailed: subscriptionFailed ?? this.subscriptionFailed,
+      commentPostFailed: commentPostFailed ?? this.commentPostFailed,
+      userNotFound: userNotFound ?? this.userNotFound,
+      appsSection: appsSection ?? this.appsSection,
+      recentComments: recentComments ?? this.recentComments,
+      commentOn: commentOn ?? this.commentOn,
+      signInRequired: signInRequired ?? this.signInRequired,
+      signInRequiredToVote: signInRequiredToVote ?? this.signInRequiredToVote,
+      signInRequiredToSubmitFeedback:
+          signInRequiredToSubmitFeedback ?? this.signInRequiredToSubmitFeedback,
+      unexpectedError: unexpectedError ?? this.unexpectedError,
     );
   }
 }
