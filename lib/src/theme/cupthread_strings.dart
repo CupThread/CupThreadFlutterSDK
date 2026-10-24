@@ -26,6 +26,7 @@ class CupThreadStrings {
   final String noFeatureRequestsFound;
   final String beTheFirstToSuggest;
   final String failedToLoadRequests;
+  final String loadMore;
   final String roadmap;
   final String noItemsInColumn;
 
@@ -112,9 +113,9 @@ class CupThreadStrings {
     this.noFeatureRequestsFound = 'No feature requests found',
     this.beTheFirstToSuggest = 'Be the first to suggest an idea!',
     this.failedToLoadRequests = 'Failed to load requests',
+    this.loadMore = 'Load more',
     this.roadmap = 'Roadmap',
     this.noItemsInColumn = 'No items in this column',
-
     this.newFeatureRequest = 'Propose a Feature',
     this.titleLabel = 'Title *',
     this.titleHint = 'What should we add or improve?',
@@ -125,9 +126,10 @@ class CupThreadStrings {
     this.submitRequest = 'Submit Request',
     this.submitting = 'Submitting...',
     this.featureRequestSubmitted = 'Feature request submitted!',
-    this.titleValidationMin3 = 'Please provide a title with at least 3 characters.',
-    this.detailsValidationMin5 = 'Please provide details with at least 5 characters.',
-
+    this.titleValidationMin3 =
+        'Please provide a title with at least 3 characters.',
+    this.detailsValidationMin5 =
+        'Please provide details with at least 5 characters.',
     this.comments = 'Comments',
     this.writeAComment = 'Write a comment...',
     this.send = 'Send',
@@ -135,7 +137,6 @@ class CupThreadStrings {
     this.noCommentsYet = 'No comments yet. Start the conversation!',
     this.vote = 'Vote',
     this.voted = 'Voted',
-
     this.sendFeedback = 'Send Feedback',
     this.submitFeedback = 'Submit Feedback',
     this.feedbackSummaryHint = 'Brief summary...',
@@ -147,7 +148,6 @@ class CupThreadStrings {
     this.addAttachment = 'Add Attachment',
     this.remove = 'Remove',
     this.attachmentDefaultName = 'Attachment',
-
     this.whatsNew = "What's New",
     this.subscribeToUpdates = 'Stay updated on new releases',
     this.enterYourEmail = 'Enter your email',
@@ -155,11 +155,9 @@ class CupThreadStrings {
     this.subscribed = 'Subscribed!',
     this.gotIt = 'Got it',
     this.version = 'Version',
-
     this.userProfile = 'User Profile',
     this.payingCustomer = 'Paying Customer',
     this.freeTier = 'Free Tier',
-
     this.featureUnavailable = 'This feature is currently unavailable.',
     this.featureRequestsDisabled = 'Feature requests are currently disabled.',
     this.roadmapDisabled = 'Roadmap is currently disabled.',
@@ -196,9 +194,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: '暂无相关功能建议',
     beTheFirstToSuggest: '成为第一个提出建议的人吧！',
     failedToLoadRequests: '加载功能建议失败',
+    loadMore: '加载更多',
     roadmap: '产品路线图',
     noItemsInColumn: '该阶段暂无内容',
-
     newFeatureRequest: '新建功能建议',
     titleLabel: '标题 *',
     titleHint: '希望增加或改进什么？',
@@ -211,7 +209,6 @@ class CupThreadStrings {
     featureRequestSubmitted: '建议提交成功！',
     titleValidationMin3: '标题至少需要 3 个字符。',
     detailsValidationMin5: '详情至少需要 5 个字符。',
-
     comments: '讨论',
     writeAComment: '写下您的看法...',
     send: '发送',
@@ -219,7 +216,6 @@ class CupThreadStrings {
     noCommentsYet: '暂无讨论，快来发表第一条观点吧！',
     vote: '投票',
     voted: '已投票',
-
     sendFeedback: '问题与反馈',
     submitFeedback: '提交反馈',
     feedbackSummaryHint: '简要概述...',
@@ -231,7 +227,6 @@ class CupThreadStrings {
     addAttachment: '添加附件',
     remove: '删除',
     attachmentDefaultName: '附件',
-
     whatsNew: '新版特性',
     subscribeToUpdates: '订阅最新版本动态',
     enterYourEmail: '输入您的邮箱',
@@ -239,7 +234,6 @@ class CupThreadStrings {
     subscribed: '已订阅！',
     gotIt: '我知道了',
     version: '版本',
-
     userProfile: '用户资料',
     payingCustomer: '付费用户',
     freeTier: '免费版',
@@ -269,9 +263,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: '機能リクエストが見つかりません',
     beTheFirstToSuggest: '最初にアイデアを提案しましょう！',
     failedToLoadRequests: 'リクエストの読み込みに失敗しました',
+    loadMore: 'もっと読み込む',
     roadmap: 'ロードマップ',
     noItemsInColumn: 'このステージにはアイテムがありません',
-
     newFeatureRequest: '機能を提案する',
     titleLabel: 'タイトル *',
     titleHint: '追加・改善してほしいことは？',
@@ -284,7 +278,6 @@ class CupThreadStrings {
     featureRequestSubmitted: '機能リクエストを送信しました！',
     titleValidationMin3: 'タイトルは3文字以上で入力してください。',
     detailsValidationMin5: '詳細は5文字以上で入力してください。',
-
     comments: 'コメント',
     writeAComment: 'コメントを書く...',
     send: '送信',
@@ -292,7 +285,6 @@ class CupThreadStrings {
     noCommentsYet: 'まだコメントがありません。最初のコメントを投稿しましょう！',
     vote: '投票する',
     voted: '投票済み',
-
     sendFeedback: 'フィードバックを送る',
     submitFeedback: 'フィードバックを送信',
     feedbackSummaryHint: '概要を簡潔に...',
@@ -304,7 +296,6 @@ class CupThreadStrings {
     addAttachment: '添付ファイルを追加',
     remove: '削除',
     attachmentDefaultName: '添付ファイル',
-
     whatsNew: '新機能',
     subscribeToUpdates: '新リリースの最新情報を受け取る',
     enterYourEmail: 'メールアドレスを入力',
@@ -312,7 +303,6 @@ class CupThreadStrings {
     subscribed: '購読しました！',
     gotIt: '了解',
     version: 'バージョン',
-
     userProfile: 'ユーザープロフィール',
     payingCustomer: '有料ユーザー',
     freeTier: '無料プラン',
@@ -342,9 +332,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Aucune demande trouvée',
     beTheFirstToSuggest: 'Soyez le premier à proposer une idée !',
     failedToLoadRequests: 'Échec du chargement des demandes',
+    loadMore: 'Charger plus',
     roadmap: 'Feuille de route',
     noItemsInColumn: 'Aucun élément dans cette colonne',
-
     newFeatureRequest: 'Proposer une fonctionnalité',
     titleLabel: 'Titre *',
     titleHint: 'Que devrions-nous ajouter ou améliorer ?',
@@ -356,8 +346,8 @@ class CupThreadStrings {
     submitting: 'Envoi en cours...',
     featureRequestSubmitted: 'Demande envoyée !',
     titleValidationMin3: "Veuillez saisir un titre d'au moins 3 caractères.",
-    detailsValidationMin5: "Veuillez saisir des détails d'au moins 5 caractères.",
-
+    detailsValidationMin5:
+        "Veuillez saisir des détails d'au moins 5 caractères.",
     comments: 'Commentaires',
     writeAComment: 'Écrivez un commentaire...',
     send: 'Envoyer',
@@ -365,7 +355,6 @@ class CupThreadStrings {
     noCommentsYet: 'Aucun commentaire. Lancez la discussion !',
     vote: 'Voter',
     voted: 'Voté',
-
     sendFeedback: 'Envoyer un retour',
     submitFeedback: 'Envoyer le retour',
     feedbackSummaryHint: 'Résumé bref...',
@@ -377,7 +366,6 @@ class CupThreadStrings {
     addAttachment: 'Ajouter une pièce jointe',
     remove: 'Supprimer',
     attachmentDefaultName: 'Pièce jointe',
-
     whatsNew: 'Nouveautés',
     subscribeToUpdates: 'Restez informé des nouveautés',
     enterYourEmail: 'Saisissez votre e-mail',
@@ -385,7 +373,6 @@ class CupThreadStrings {
     subscribed: 'Abonné !',
     gotIt: 'Compris',
     version: 'Version',
-
     userProfile: 'Profil utilisateur',
     payingCustomer: 'Client payant',
     freeTier: 'Offre gratuite',
@@ -415,9 +402,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'No se encontraron solicitudes',
     beTheFirstToSuggest: '¡Sé el primero en sugerir una idea!',
     failedToLoadRequests: 'No se pudieron cargar las solicitudes',
+    loadMore: 'Cargar más',
     roadmap: 'Hoja de ruta',
     noItemsInColumn: 'No hay elementos en esta columna',
-
     newFeatureRequest: 'Proponer una función',
     titleLabel: 'Título *',
     titleHint: '¿Qué deberíamos añadir o mejorar?',
@@ -430,7 +417,6 @@ class CupThreadStrings {
     featureRequestSubmitted: '¡Solicitud enviada!',
     titleValidationMin3: 'El título debe tener al menos 3 caracteres.',
     detailsValidationMin5: 'Los detalles deben tener al menos 5 caracteres.',
-
     comments: 'Comentarios',
     writeAComment: 'Escribe un comentario...',
     send: 'Enviar',
@@ -438,7 +424,6 @@ class CupThreadStrings {
     noCommentsYet: 'Aún no hay comentarios. ¡Inicia la conversación!',
     vote: 'Votar',
     voted: 'Votado',
-
     sendFeedback: 'Enviar comentarios',
     submitFeedback: 'Enviar comentarios',
     feedbackSummaryHint: 'Resumen breve...',
@@ -450,7 +435,6 @@ class CupThreadStrings {
     addAttachment: 'Añadir adjunto',
     remove: 'Eliminar',
     attachmentDefaultName: 'Adjunto',
-
     whatsNew: 'Novedades',
     subscribeToUpdates: 'Mantente al día de las novedades',
     enterYourEmail: 'Introduce tu correo',
@@ -458,7 +442,6 @@ class CupThreadStrings {
     subscribed: '¡Suscrito!',
     gotIt: 'Entendido',
     version: 'Versión',
-
     userProfile: 'Perfil de usuario',
     payingCustomer: 'Cliente de pago',
     freeTier: 'Plan gratuito',
@@ -488,9 +471,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Keine Funktionswünsche gefunden',
     beTheFirstToSuggest: 'Seien Sie der Erste mit einer Idee!',
     failedToLoadRequests: 'Anfragen konnten nicht geladen werden',
+    loadMore: 'Mehr laden',
     roadmap: 'Roadmap',
     noItemsInColumn: 'Keine Einträge in dieser Spalte',
-
     newFeatureRequest: 'Funktion vorschlagen',
     titleLabel: 'Titel *',
     titleHint: 'Was sollen wir hinzufügen oder verbessern?',
@@ -501,9 +484,10 @@ class CupThreadStrings {
     submitRequest: 'Anfrage senden',
     submitting: 'Wird gesendet...',
     featureRequestSubmitted: 'Funktionswunsch gesendet!',
-    titleValidationMin3: 'Bitte geben Sie einen Titel mit mindestens 3 Zeichen ein.',
-    detailsValidationMin5: 'Bitte geben Sie Details mit mindestens 5 Zeichen ein.',
-
+    titleValidationMin3:
+        'Bitte geben Sie einen Titel mit mindestens 3 Zeichen ein.',
+    detailsValidationMin5:
+        'Bitte geben Sie Details mit mindestens 5 Zeichen ein.',
     comments: 'Kommentare',
     writeAComment: 'Kommentar schreiben...',
     send: 'Senden',
@@ -511,7 +495,6 @@ class CupThreadStrings {
     noCommentsYet: 'Noch keine Kommentare. Starten Sie die Diskussion!',
     vote: 'Abstimmen',
     voted: 'Abgestimmt',
-
     sendFeedback: 'Feedback geben',
     submitFeedback: 'Feedback senden',
     feedbackSummaryHint: 'Kurze Zusammenfassung...',
@@ -523,7 +506,6 @@ class CupThreadStrings {
     addAttachment: 'Anhang hinzufügen',
     remove: 'Entfernen',
     attachmentDefaultName: 'Anhang',
-
     whatsNew: 'Neuigkeiten',
     subscribeToUpdates: 'Bleiben Sie über Neuigkeiten informiert',
     enterYourEmail: 'E-Mail eingeben',
@@ -531,7 +513,6 @@ class CupThreadStrings {
     subscribed: 'Abonniert!',
     gotIt: 'Verstanden',
     version: 'Version',
-
     userProfile: 'Benutzerprofil',
     payingCustomer: 'Zahlender Kunde',
     freeTier: 'Gratis-Tarif',
@@ -561,9 +542,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Nessuna richiesta trovata',
     beTheFirstToSuggest: "Sii il primo a proporre un'idea!",
     failedToLoadRequests: 'Impossibile caricare le richieste',
+    loadMore: 'Carica altro',
     roadmap: 'Roadmap',
     noItemsInColumn: 'Nessun elemento in questa colonna',
-
     newFeatureRequest: 'Proponi una funzionalità',
     titleLabel: 'Titolo *',
     titleHint: 'Cosa dovremmo aggiungere o migliorare?',
@@ -576,7 +557,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Richiesta inviata!',
     titleValidationMin3: 'Inserisci un titolo di almeno 3 caratteri.',
     detailsValidationMin5: 'Inserisci dettagli di almeno 5 caratteri.',
-
     comments: 'Commenti',
     writeAComment: 'Scrivi un commento...',
     send: 'Invia',
@@ -584,7 +564,6 @@ class CupThreadStrings {
     noCommentsYet: 'Ancora nessun commento. Avvia la conversazione!',
     vote: 'Vota',
     voted: 'Votato',
-
     sendFeedback: 'Invia un feedback',
     submitFeedback: 'Invia il feedback',
     feedbackSummaryHint: 'Breve riepilogo...',
@@ -596,7 +575,6 @@ class CupThreadStrings {
     addAttachment: 'Aggiungi allegato',
     remove: 'Rimuovi',
     attachmentDefaultName: 'Allegato',
-
     whatsNew: 'Novità',
     subscribeToUpdates: 'Resta aggiornato sulle novità',
     enterYourEmail: 'Inserisci la tua e-mail',
@@ -604,7 +582,6 @@ class CupThreadStrings {
     subscribed: 'Iscritto!',
     gotIt: 'Ho capito',
     version: 'Versione',
-
     userProfile: 'Profilo utente',
     payingCustomer: 'Cliente pagante',
     freeTier: 'Piano gratuito',
@@ -634,9 +611,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Nenhuma solicitação encontrada',
     beTheFirstToSuggest: 'Seja o primeiro a sugerir uma ideia!',
     failedToLoadRequests: 'Falha ao carregar solicitações',
+    loadMore: 'Carregar mais',
     roadmap: 'Roadmap',
     noItemsInColumn: 'Nenhum item nesta coluna',
-
     newFeatureRequest: 'Propor um recurso',
     titleLabel: 'Título *',
     titleHint: 'O que devemos adicionar ou melhorar?',
@@ -649,7 +626,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Solicitação enviada!',
     titleValidationMin3: 'Informe um título com pelo menos 3 caracteres.',
     detailsValidationMin5: 'Informe detalhes com pelo menos 5 caracteres.',
-
     comments: 'Comentários',
     writeAComment: 'Escreva um comentário...',
     send: 'Enviar',
@@ -657,7 +633,6 @@ class CupThreadStrings {
     noCommentsYet: 'Ainda sem comentários. Inicie a conversa!',
     vote: 'Votar',
     voted: 'Votado',
-
     sendFeedback: 'Enviar um feedback',
     submitFeedback: 'Enviar o feedback',
     feedbackSummaryHint: 'Resumo breve...',
@@ -669,7 +644,6 @@ class CupThreadStrings {
     addAttachment: 'Adicionar anexo',
     remove: 'Remover',
     attachmentDefaultName: 'Anexo',
-
     whatsNew: 'Novidades',
     subscribeToUpdates: 'Fique por dentro das novidades',
     enterYourEmail: 'Digite seu e-mail',
@@ -677,7 +651,6 @@ class CupThreadStrings {
     subscribed: 'Inscrito!',
     gotIt: 'Entendi',
     version: 'Versão',
-
     userProfile: 'Perfil do usuário',
     payingCustomer: 'Cliente pagante',
     freeTier: 'Plano gratuito',
@@ -707,9 +680,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: '暫無相關功能建議',
     beTheFirstToSuggest: '成為第一個提出建議的人吧！',
     failedToLoadRequests: '載入功能建議失敗',
+    loadMore: '載入更多',
     roadmap: '產品路線圖',
     noItemsInColumn: '該階段暫無內容',
-
     newFeatureRequest: '新增功能建議',
     titleLabel: '標題 *',
     titleHint: '希望增加或改進什麼？',
@@ -722,7 +695,6 @@ class CupThreadStrings {
     featureRequestSubmitted: '建議提交成功！',
     titleValidationMin3: '標題至少需要 3 個字元。',
     detailsValidationMin5: '詳情至少需要 5 個字元。',
-
     comments: '討論',
     writeAComment: '寫下您的看法...',
     send: '傳送',
@@ -730,7 +702,6 @@ class CupThreadStrings {
     noCommentsYet: '暫無討論，快來發表第一條觀點吧！',
     vote: '投票',
     voted: '已投票',
-
     sendFeedback: '問題與回饋',
     submitFeedback: '提交回饋',
     feedbackSummaryHint: '簡要概述...',
@@ -742,7 +713,6 @@ class CupThreadStrings {
     addAttachment: '新增附件',
     remove: '刪除',
     attachmentDefaultName: '附件',
-
     whatsNew: '新功能',
     subscribeToUpdates: '訂閱最新版本動態',
     enterYourEmail: '輸入您的信箱',
@@ -750,7 +720,6 @@ class CupThreadStrings {
     subscribed: '已訂閱！',
     gotIt: '我知道了',
     version: '版本',
-
     userProfile: '使用者資料',
     payingCustomer: '付費用戶',
     freeTier: '免費版',
@@ -780,9 +749,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: '기능 요청을 찾을 수 없습니다',
     beTheFirstToSuggest: '첫 아이디어를 제안해 보세요!',
     failedToLoadRequests: '요청을 불러오지 못했습니다',
+    loadMore: '더 불러오기',
     roadmap: '로드맵',
     noItemsInColumn: '이 단계에 항목이 없습니다',
-
     newFeatureRequest: '기능 제안하기',
     titleLabel: '제목 *',
     titleHint: '추가하거나 개선했으면 하는 점은 무엇인가요?',
@@ -795,7 +764,6 @@ class CupThreadStrings {
     featureRequestSubmitted: '기능 요청이 제출되었습니다!',
     titleValidationMin3: '제목은 3자 이상 입력해 주세요.',
     detailsValidationMin5: '세부 내용은 5자 이상 입력해 주세요.',
-
     comments: '댓글',
     writeAComment: '댓글 작성...',
     send: '보내기',
@@ -803,7 +771,6 @@ class CupThreadStrings {
     noCommentsYet: '아직 댓글이 없습니다. 첫 댓글을 남겨 보세요!',
     vote: '투표하기',
     voted: '투표함',
-
     sendFeedback: '피드백 보내기',
     submitFeedback: '피드백 제출',
     feedbackSummaryHint: '간단한 요약...',
@@ -815,7 +782,6 @@ class CupThreadStrings {
     addAttachment: '첨부파일 추가',
     remove: '삭제',
     attachmentDefaultName: '첨부파일',
-
     whatsNew: '새로운 기능',
     subscribeToUpdates: '새 릴리스 소식을 받아보세요',
     enterYourEmail: '이메일 입력',
@@ -823,7 +789,6 @@ class CupThreadStrings {
     subscribed: '구독됨!',
     gotIt: '알겠습니다',
     version: '버전',
-
     userProfile: '사용자 프로필',
     payingCustomer: '유료 사용자',
     freeTier: '무료 플랜',
@@ -853,9 +818,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Nie znaleziono propozycji',
     beTheFirstToSuggest: 'Bądź pierwszą osobą, która zaproponuje pomysł!',
     failedToLoadRequests: 'Nie udało się wczytać próśb',
+    loadMore: 'Wczytaj więcej',
     roadmap: 'Roadmap',
     noItemsInColumn: 'Brak elementów na tym etapie',
-
     newFeatureRequest: 'Zaproponuj funkcję',
     titleLabel: 'Tytuł *',
     titleHint: 'Co powinniśmy dodać lub ulepszyć?',
@@ -868,7 +833,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Prośba wysłana!',
     titleValidationMin3: 'Podaj tytuł o długości co najmniej 3 znaków.',
     detailsValidationMin5: 'Podaj szczegóły o długości co najmniej 5 znaków.',
-
     comments: 'Komentarze',
     writeAComment: 'Napisz komentarz...',
     send: 'Wyślij',
@@ -876,7 +840,6 @@ class CupThreadStrings {
     noCommentsYet: 'Brak komentarzy. Rozpocznij dyskusję!',
     vote: 'Głosuj',
     voted: 'Zagłosowano',
-
     sendFeedback: 'Wyślij opinię',
     submitFeedback: 'Prześlij opinię',
     feedbackSummaryHint: 'Krótkie podsumowanie...',
@@ -888,7 +851,6 @@ class CupThreadStrings {
     addAttachment: 'Dodaj załącznik',
     remove: 'Usuń',
     attachmentDefaultName: 'Załącznik',
-
     whatsNew: 'Co nowego',
     subscribeToUpdates: 'Bądź na bieżąco z nowościami',
     enterYourEmail: 'Wpisz swój e-mail',
@@ -896,7 +858,6 @@ class CupThreadStrings {
     subscribed: 'Zasubskrybowano!',
     gotIt: 'Rozumiem',
     version: 'Wersja',
-
     userProfile: 'Profil użytkownika',
     payingCustomer: 'Płacący klient',
     freeTier: 'Plan darmowy',
@@ -926,9 +887,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Ingen ønsker funnet',
     beTheFirstToSuggest: 'Vær den første til å foreslå en idé!',
     failedToLoadRequests: 'Kunne ikke laste ønsker',
+    loadMore: 'Last mer',
     roadmap: 'Veikart',
     noItemsInColumn: 'Ingen elementer på dette steget',
-
     newFeatureRequest: 'Foreslå en funksjon',
     titleLabel: 'Tittel *',
     titleHint: 'Hva bør vi legge til eller forbedre?',
@@ -941,7 +902,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Ønsket er sendt!',
     titleValidationMin3: 'Oppgi en tittel med minst 3 tegn.',
     detailsValidationMin5: 'Oppgi detaljer med minst 5 tegn.',
-
     comments: 'Kommentarer',
     writeAComment: 'Skriv en kommentar...',
     send: 'Send',
@@ -949,7 +909,6 @@ class CupThreadStrings {
     noCommentsYet: 'Ingen kommentarer ennå. Start samtalen!',
     vote: 'Stem',
     voted: 'Stemt',
-
     sendFeedback: 'Gi tilbakemelding',
     submitFeedback: 'Send tilbakemelding',
     feedbackSummaryHint: 'Kort sammendrag...',
@@ -961,7 +920,6 @@ class CupThreadStrings {
     addAttachment: 'Legg til vedlegg',
     remove: 'Fjern',
     attachmentDefaultName: 'Vedlegg',
-
     whatsNew: 'Nyheter',
     subscribeToUpdates: 'Hold deg oppdatert på nyheter',
     enterYourEmail: 'Skriv inn e-posten din',
@@ -969,7 +927,6 @@ class CupThreadStrings {
     subscribed: 'Abonnert!',
     gotIt: 'Skjønner',
     version: 'Versjon',
-
     userProfile: 'Brukerprofil',
     payingCustomer: 'Betalende kunde',
     freeTier: 'Gratisplan',
@@ -999,9 +956,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Özellik isteği bulunamadı',
     beTheFirstToSuggest: 'Fikrini öneren ilk kişi ol!',
     failedToLoadRequests: 'İstekler yüklenemedi',
+    loadMore: 'Daha fazla yükle',
     roadmap: 'Yol haritası',
     noItemsInColumn: 'Bu aşamada öğe yok',
-
     newFeatureRequest: 'Özellik öner',
     titleLabel: 'Başlık *',
     titleHint: 'Ne eklemeli veya iyileştirmeliyiz?',
@@ -1014,7 +971,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Özellik isteği gönderildi!',
     titleValidationMin3: 'En az 3 karakterlik bir başlık gir.',
     detailsValidationMin5: 'En az 5 karakterlik ayrıntı gir.',
-
     comments: 'Yorumlar',
     writeAComment: 'Yorum yaz...',
     send: 'Gönder',
@@ -1022,7 +978,6 @@ class CupThreadStrings {
     noCommentsYet: 'Henüz yorum yok. Sohbeti başlat!',
     vote: 'Oy ver',
     voted: 'Oy verildi',
-
     sendFeedback: 'Geri bildirim gönder',
     submitFeedback: 'Geri bildirimi gönder',
     feedbackSummaryHint: 'Kısa özet...',
@@ -1034,7 +989,6 @@ class CupThreadStrings {
     addAttachment: 'Ek ekle',
     remove: 'Kaldır',
     attachmentDefaultName: 'Ek',
-
     whatsNew: 'Yenilikler',
     subscribeToUpdates: 'Yeni sürümlerden haberdar ol',
     enterYourEmail: 'E-postanı gir',
@@ -1042,7 +996,6 @@ class CupThreadStrings {
     subscribed: 'Abone olundu!',
     gotIt: 'Anladım',
     version: 'Sürüm',
-
     userProfile: 'Kullanıcı profili',
     payingCustomer: 'Ücretli müşteri',
     freeTier: 'Ücretsiz plan',
@@ -1072,9 +1025,9 @@ class CupThreadStrings {
     noFeatureRequestsFound: 'Không tìm thấy yêu cầu nào',
     beTheFirstToSuggest: 'Hãy là người đầu tiên đề xuất ý tưởng!',
     failedToLoadRequests: 'Không tải được yêu cầu',
+    loadMore: 'Tải thêm',
     roadmap: 'Lộ trình',
     noItemsInColumn: 'Không có mục nào trong giai đoạn này',
-
     newFeatureRequest: 'Đề xuất tính năng',
     titleLabel: 'Tiêu đề *',
     titleHint: 'Chúng tôi nên thêm hoặc cải thiện điều gì?',
@@ -1087,7 +1040,6 @@ class CupThreadStrings {
     featureRequestSubmitted: 'Đã gửi yêu cầu tính năng!',
     titleValidationMin3: 'Vui lòng nhập tiêu đề ít nhất 3 ký tự.',
     detailsValidationMin5: 'Vui lòng nhập chi tiết ít nhất 5 ký tự.',
-
     comments: 'Bình luận',
     writeAComment: 'Viết bình luận...',
     send: 'Gửi',
@@ -1095,7 +1047,6 @@ class CupThreadStrings {
     noCommentsYet: 'Chưa có bình luận. Hãy bắt đầu thảo luận!',
     vote: 'Bình chọn',
     voted: 'Đã bình chọn',
-
     sendFeedback: 'Gửi phản hồi',
     submitFeedback: 'Gửi phản hồi',
     feedbackSummaryHint: 'Tóm tắt ngắn gọn...',
@@ -1107,7 +1058,6 @@ class CupThreadStrings {
     addAttachment: 'Thêm tệp đính kèm',
     remove: 'Xóa',
     attachmentDefaultName: 'Tệp đính kèm',
-
     whatsNew: 'Có gì mới',
     subscribeToUpdates: 'Nhận tin về các bản phát hành mới',
     enterYourEmail: 'Nhập email của bạn',
@@ -1115,7 +1065,6 @@ class CupThreadStrings {
     subscribed: 'Đã đăng ký!',
     gotIt: 'Đã hiểu',
     version: 'Phiên bản',
-
     userProfile: 'Hồ sơ người dùng',
     payingCustomer: 'Khách hàng trả phí',
     freeTier: 'Gói miễn phí',
@@ -1188,6 +1137,7 @@ class CupThreadStrings {
     String? noFeatureRequestsFound,
     String? beTheFirstToSuggest,
     String? failedToLoadRequests,
+    String? loadMore,
     String? roadmap,
     String? noItemsInColumn,
     String? newFeatureRequest,
@@ -1245,15 +1195,18 @@ class CupThreadStrings {
       featureRequests: featureRequests ?? this.featureRequests,
       proposeFeature: proposeFeature ?? this.proposeFeature,
       proposeAnIdea: proposeAnIdea ?? this.proposeAnIdea,
-      searchFeatureRequests: searchFeatureRequests ?? this.searchFeatureRequests,
+      searchFeatureRequests:
+          searchFeatureRequests ?? this.searchFeatureRequests,
       all: all ?? this.all,
       underReview: underReview ?? this.underReview,
       planned: planned ?? this.planned,
       inProgress: inProgress ?? this.inProgress,
       completed: completed ?? this.completed,
-      noFeatureRequestsFound: noFeatureRequestsFound ?? this.noFeatureRequestsFound,
+      noFeatureRequestsFound:
+          noFeatureRequestsFound ?? this.noFeatureRequestsFound,
       beTheFirstToSuggest: beTheFirstToSuggest ?? this.beTheFirstToSuggest,
       failedToLoadRequests: failedToLoadRequests ?? this.failedToLoadRequests,
+      loadMore: loadMore ?? this.loadMore,
       roadmap: roadmap ?? this.roadmap,
       noItemsInColumn: noItemsInColumn ?? this.noItemsInColumn,
       newFeatureRequest: newFeatureRequest ?? this.newFeatureRequest,
@@ -1265,9 +1218,11 @@ class CupThreadStrings {
       yourNameHint: yourNameHint ?? this.yourNameHint,
       submitRequest: submitRequest ?? this.submitRequest,
       submitting: submitting ?? this.submitting,
-      featureRequestSubmitted: featureRequestSubmitted ?? this.featureRequestSubmitted,
+      featureRequestSubmitted:
+          featureRequestSubmitted ?? this.featureRequestSubmitted,
       titleValidationMin3: titleValidationMin3 ?? this.titleValidationMin3,
-      detailsValidationMin5: detailsValidationMin5 ?? this.detailsValidationMin5,
+      detailsValidationMin5:
+          detailsValidationMin5 ?? this.detailsValidationMin5,
       comments: comments ?? this.comments,
       writeAComment: writeAComment ?? this.writeAComment,
       send: send ?? this.send,
@@ -1279,13 +1234,15 @@ class CupThreadStrings {
       submitFeedback: submitFeedback ?? this.submitFeedback,
       feedbackSummaryHint: feedbackSummaryHint ?? this.feedbackSummaryHint,
       feedbackDetailsHint: feedbackDetailsHint ?? this.feedbackDetailsHint,
-      emailForRepliesOptional: emailForRepliesOptional ?? this.emailForRepliesOptional,
+      emailForRepliesOptional:
+          emailForRepliesOptional ?? this.emailForRepliesOptional,
       emailHint: emailHint ?? this.emailHint,
       feedbackSent: feedbackSent ?? this.feedbackSent,
       attachments: attachments ?? this.attachments,
       addAttachment: addAttachment ?? this.addAttachment,
       remove: remove ?? this.remove,
-      attachmentDefaultName: attachmentDefaultName ?? this.attachmentDefaultName,
+      attachmentDefaultName:
+          attachmentDefaultName ?? this.attachmentDefaultName,
       whatsNew: whatsNew ?? this.whatsNew,
       subscribeToUpdates: subscribeToUpdates ?? this.subscribeToUpdates,
       enterYourEmail: enterYourEmail ?? this.enterYourEmail,

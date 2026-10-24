@@ -12,6 +12,11 @@ String formatRelativeDate(String? isoString, {CupThreadStrings? strings}) {
   final diff = now.difference(date.toUtc());
 
   final s = strings ?? CupThreadStrings.en;
+  if (diff.isNegative) {
+    // Future timestamp (clock skew or scheduled date): relative "ago" labels
+    // would be wrong, so fall back to the absolute date.
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
   if (diff.inSeconds < 60) return s.justNow;
   if (diff.inMinutes < 60) return '${diff.inMinutes}${s.minutesAgoSuffix}';
   if (diff.inHours < 24) return '${diff.inHours}${s.hoursAgoSuffix}';
