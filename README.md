@@ -89,6 +89,14 @@ void main() {
       baseUrl: 'https://api.cupthread.com',
       appKey: 'app_xxx', // from your CupThread Developer Console
       sdkSigningSecret: 'sec_xxx', // Optional: required for reporting payment attributes (isPaying, mrr, plan)
+      // Optional: Turnstile token provider for production intake (or set per draft)
+      turnstileTokenProvider: () async {
+        // Obtain token via flutter_turnstile, webview, or native bridge
+        return await myTurnstileService.getToken();
+      },
+      // Optional: network timeouts (defaults: 15s request, 60s upload)
+      requestTimeout: const Duration(seconds: 15),
+      uploadTimeout: const Duration(seconds: 60),
     ),
   );
 
@@ -145,6 +153,7 @@ FeedbackComposer.showModal(
     //   bytes: bytes,
     //   filename: file.name,
     //   mimeType: 'image/png',
+    //   userToken: CupThreadTheme.userTokenOf(context),
     // );
     return null;
   },

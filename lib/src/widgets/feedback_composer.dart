@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -76,6 +77,11 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
   bool _isSubmitting = false;
   bool _isPickingAttachment = false;
   String? _errorMessage;
+
+  /// Turnstile tokens are single-use, so once a draft-supplied token was
+  /// rejected by a verification challenge it must never be resent; the
+  /// client falls back to [FeedbackClientConfig.turnstileTokenProvider].
+  bool _draftTokenRejected = false;
 
   @override
   void initState() {
@@ -167,6 +173,8 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         buildNumber: widget.initialDraft?.buildNumber,
         metadata: widget.initialDraft?.metadata ?? {},
         attachments: _attachments,
+        turnstileToken:
+            _draftTokenRejected ? null : widget.initialDraft?.turnstileToken,
       );
 
       final result = await client.submit(draft, userToken: userToken);
@@ -185,7 +193,12 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString();
+          if (e is TurnstileRequiredException) {
+            _draftTokenRejected = true;
+            _errorMessage = strings.verificationRequired;
+          } else {
+            _errorMessage = e.toString();
+          }
         });
       }
     }

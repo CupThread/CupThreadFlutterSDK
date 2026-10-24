@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
@@ -5,6 +6,9 @@ import '../utils/formatters.dart';
 import 'feedback_exception.dart';
 import 'sdk_attribute_signer.dart';
 import 'user_token_store.dart';
+
+/// Optional provider function resolving a Cloudflare Turnstile token.
+typedef TurnstileTokenProvider = FutureOr<String?> Function();
 
 /// Configuration for FeedbackClient.
 class FeedbackClientConfig {
@@ -16,6 +20,9 @@ class FeedbackClientConfig {
   final String? sdkSigningSecret;
 
   final FeedbackPlatform defaultPlatform;
+  final Duration requestTimeout;
+  final Duration uploadTimeout;
+  final TurnstileTokenProvider? turnstileTokenProvider;
 
   FeedbackClientConfig({
     required String baseUrl,
@@ -23,6 +30,9 @@ class FeedbackClientConfig {
     String? sdkSigningSecret,
     String? signingSecret,
     FeedbackPlatform? defaultPlatform,
+    this.requestTimeout = const Duration(seconds: 15),
+    this.uploadTimeout = const Duration(seconds: 60),
+    this.turnstileTokenProvider,
   })  : sdkSigningSecret = sdkSigningSecret ?? signingSecret,
         baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
         defaultPlatform = defaultPlatform ?? FeedbackPlatform.current;
@@ -50,15 +60,51 @@ class FeedbackClient {
   /// Returns cached app configuration if already fetched or provided, or null.
   PublicAppConfig? get cachedAppConfig => _cachedAppConfig;
 
+  /// Detects the production API's Cloudflare Turnstile rejection on intake
+  /// endpoints (HTTP 403 with turnstile code or error body).
+  static bool _isTurnstileChallenge(int status, String responseBody) {
+    if (status != 403) return false;
+    try {
+      final parsed = jsonDecode(responseBody);
+      if (parsed is Map<String, dynamic>) {
+        final code = parsed['code'];
+        if (code is String && RegExp(r'turnstile', caseSensitive: false).hasMatch(code)) {
+          return true;
+        }
+        final error = parsed['error'];
+        if (error is String && RegExp(r'turnstile', caseSensitive: false).hasMatch(error)) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return RegExp(r'turnstile', caseSensitive: false).hasMatch(responseBody);
+  }
+
+  /// Resolves the Turnstile token to attach to an intake submission:
+  /// draft-level token wins over the configured provider.
+  Future<String?> _resolveTurnstileToken(String? explicit) async {
+    final trimmed = explicit?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    final provider = config.turnstileTokenProvider;
+    if (provider == null) return null;
+    final token = (await provider())?.trim();
+    if (token != null && token.isNotEmpty) return token;
+    return null;
+  }
+
   /// Submits user feedback draft.
   Future<FeedbackSubmissionResult> submit(
     FeedbackDraft draft, {
     String? userToken,
   }) async {
+    final turnstileToken = await _resolveTurnstileToken(draft.turnstileToken);
     final payload = draft.toJson(
       appKey: config.appKey,
       submittedAt: iso8601Now(),
     );
+    if (turnstileToken != null && turnstileToken.isNotEmpty) {
+      payload['turnstileToken'] = turnstileToken;
+    }
 
     final json = await _sendJson(
       method: 'POST',
@@ -78,6 +124,8 @@ class FeedbackClient {
     required String mimeType,
     AttachmentKind? preferredKind,
     int? maxBytes,
+    String? userToken,
+    Duration? timeout,
   }) async {
     final effectiveMax = maxBytes ?? _cachedAppConfig?.maxAttachmentBytes;
     if (effectiveMax != null && bytes.length > effectiveMax) {
@@ -93,6 +141,9 @@ class FeedbackClient {
     final uri = Uri.parse('${config.baseUrl}$path');
     final request = http.MultipartRequest('POST', uri);
     request.fields['appKey'] = config.appKey;
+    if (userToken != null && userToken.trim().isNotEmpty) {
+      request.headers['X-User-Token'] = userToken.trim();
+    }
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
@@ -101,10 +152,18 @@ class FeedbackClient {
       ),
     );
 
-    try {
-      final streamedResponse = await _httpClient.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
+    final effectiveTimeout = timeout ?? config.uploadTimeout;
 
+    try {
+      final streamedResponse = await _httpClient.send(request).timeout(effectiveTimeout);
+      final response = await http.Response.fromStream(streamedResponse).timeout(effectiveTimeout);
+
+      if (response.statusCode == 401) {
+        throw const AuthenticationRequiredException();
+      }
+      if (_isTurnstileChallenge(response.statusCode, response.body)) {
+        throw TurnstileRequiredException(response.statusCode, response.body);
+      }
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw UnexpectedStatusException(response.statusCode, response.body);
       }
@@ -113,6 +172,9 @@ class FeedbackClient {
       return FeedbackAttachment.fromJson(json);
     } catch (e) {
       if (e is FeedbackException) rethrow;
+      if (e is TimeoutException) {
+        throw InvalidResponseException('Upload timed out requesting $uri', e);
+      }
       throw UnreadableUploadResponseException(e.toString());
     }
   }
@@ -167,7 +229,6 @@ class FeedbackClient {
   }) async {
     final params = <String, String>{
       'appKey': config.appKey,
-      'userToken': userToken,
       'limit': limit.toString(),
       'offset': offset.toString(),
     };
@@ -182,6 +243,7 @@ class FeedbackClient {
     final json = await _sendJson(
       method: 'GET',
       path: '/api/v1/feature-requests?$queryString',
+      userToken: userToken,
     );
     return ListFeatureRequestsResult.fromJson(json);
   }
@@ -191,10 +253,17 @@ class FeedbackClient {
     FeatureRequestDraft draft, {
     required String userToken,
   }) async {
+    final turnstileToken = await _resolveTurnstileToken(draft.turnstileToken);
+    final body = draft.toJson(appKey: config.appKey, requesterToken: userToken);
+    if (turnstileToken != null && turnstileToken.isNotEmpty) {
+      body['turnstileToken'] = turnstileToken;
+    }
+
     final json = await _sendJson(
       method: 'POST',
       path: '/api/v1/feature-requests',
-      body: draft.toJson(appKey: config.appKey, requesterToken: userToken),
+      body: body,
+      userToken: userToken,
       acceptedStatuses: const [200, 201],
     );
     return FeatureRequestSubmissionResult.fromJson(json);
@@ -481,39 +550,46 @@ class FeedbackClient {
       headers['X-User-Token'] = userToken;
     }
 
+    final timeout = config.requestTimeout;
     http.Response response;
     try {
       if (method == 'GET') {
-        response = await _httpClient.get(uri, headers: headers);
+        response = await _httpClient.get(uri, headers: headers).timeout(timeout);
       } else if (method == 'POST') {
         response = await _httpClient.post(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        );
+        ).timeout(timeout);
       } else if (method == 'PUT') {
         response = await _httpClient.put(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        );
+        ).timeout(timeout);
       } else if (method == 'DELETE') {
         response = await _httpClient.delete(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        );
+        ).timeout(timeout);
       } else {
         throw UnsupportedError('Unsupported HTTP method: $method');
       }
     } catch (e) {
       if (e is FeedbackException) rethrow;
+      if (e is TimeoutException) {
+        throw InvalidResponseException('Request timed out requesting $uri', e);
+      }
       throw InvalidResponseException('Network failure requesting $uri', e);
     }
 
     if (!acceptedStatuses.contains(response.statusCode)) {
       if (response.statusCode == 401) {
         throw const AuthenticationRequiredException();
+      }
+      if (_isTurnstileChallenge(response.statusCode, response.body)) {
+        throw TurnstileRequiredException(response.statusCode, response.body);
       }
       throw UnexpectedStatusException(response.statusCode, response.body);
     }

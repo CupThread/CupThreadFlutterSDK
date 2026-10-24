@@ -23,6 +23,35 @@ class UnexpectedStatusException extends FeedbackException {
       : super('CupThread API responded with unexpected status HTTP $status: $responseBody');
 }
 
+/// Thrown when an intake endpoint (`POST /api/v1/feedback`,
+/// `POST /api/v1/feature-requests`) rejects the submission because Cloudflare
+/// Turnstile human verification is required or the supplied token failed.
+///
+/// Retry with a fresh token resolved through
+/// `FeedbackClientConfig.turnstileTokenProvider` or a draft-level
+/// `turnstileToken`.
+class TurnstileRequiredException extends FeedbackException {
+  /// Stable machine-readable error code.
+  final String code;
+
+  /// HTTP status code returned by the server (typically 403).
+  final int status;
+
+  /// Raw response body for host diagnostics and logging.
+  final String responseBody;
+
+  const TurnstileRequiredException([
+    this.status = 403,
+    this.responseBody = '',
+  ])  : code = 'turnstile_required',
+        super(
+          'CupThread API requires human verification (Turnstile) before accepting this submission.',
+        );
+
+  @override
+  String toString() => 'TurnstileRequiredException($status): $message';
+}
+
 /// Thrown when response parsing or network transport fails.
 class InvalidResponseException extends FeedbackException {
   final Object? cause;
