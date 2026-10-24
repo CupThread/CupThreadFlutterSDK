@@ -464,6 +464,73 @@ void main() {
           findsNothing);
     });
 
+    testWidgets('FeedbackComposer retry uses the provider token after a draft token is rejected',
+        (tester) async {
+      final bodies = <Map<String, dynamic>>[];
+      final mockClient = MockClient((request) async {
+        if (request.url.path.contains('/public/config/')) {
+          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        }
+        bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (bodies.length == 1) {
+          return http.Response(turnstileBody, 403);
+        }
+        return http.Response(
+          jsonEncode({
+            'id': 'fb_provider_retry',
+            'status': 'submitted',
+            'submissionId': 'sub_provider_retry',
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+          turnstileTokenProvider: () async => 'tok_provider_fresh',
+        ),
+        httpClient: mockClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'usr_tok_abc',
+            child: const Scaffold(
+              body: FeedbackComposer(
+                initialDraft: FeedbackDraft(
+                  title: 'Draft Title',
+                  description: 'Draft description',
+                  platform: FeedbackPlatform.ios,
+                  turnstileToken: 'tok_from_host_draft',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'Valid Feedback Title');
+      await tester.enterText(find.byType(TextField).at(1), 'Valid feedback description text');
+
+      await tester.tap(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+      expect(bodies.single['turnstileToken'], 'tok_from_host_draft');
+
+      await tester.ensureVisible(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+
+      expect(bodies, hasLength(2));
+      expect(bodies.last['turnstileToken'], 'tok_provider_fresh');
+    });
+
     testWidgets('FeatureRequestComposeSheet shows verificationRequired on Turnstile challenge', (tester) async {
       final mockClient = MockClient((request) async {
         if (request.url.path.contains('/public/config/')) {
