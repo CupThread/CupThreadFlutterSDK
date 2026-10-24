@@ -164,7 +164,8 @@ FeedbackComposer.showModal(
 | `fetchVersions()` | `GET /api/v1/public/versions/{appKey}` | Fetch release versions |
 | `fetchFeatureRequests(...)` | `GET /api/v1/feature-requests` | List and search public feature requests |
 | `submitFeatureRequest(draft, userToken)` | `POST /api/v1/feature-requests` | Propose a new feature request |
-| `toggleVote(featureRequestId, userToken)` | `POST /api/v1/feature-requests/{id}/vote` | Upvote or remove upvote |
+| `castVote(featureRequestId, userToken)` | `POST /api/v1/feature-requests/{id}/vote` | Cast an upvote (insert-only, idempotent) |
+| `removeVote(featureRequestId, userToken)` | `DELETE /api/v1/feature-requests/{id}/vote` | Remove an upvote (idempotent) |
 | `fetchComments(featureRequestId)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch discussion comments |
 | `postComment(featureRequestId, draft, userToken)` | `POST /api/v1/feature-requests/{id}/comments` | Post a comment or reply |
 | `fetchChangelog()` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch published release notes |

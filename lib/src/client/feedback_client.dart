@@ -200,21 +200,75 @@ class FeedbackClient {
     return FeatureRequestSubmissionResult.fromJson(json);
   }
 
-  /// Toggles an upvote on a feature request.
-  Future<VoteResult> toggleVote(
+  /// Casts an upvote on a feature request.
+  ///
+  /// The endpoint (`POST /api/v1/feature-requests/:id/vote`) is insert-only and
+  /// idempotent: repeating the request leaves an existing vote in place.
+  /// To remove a vote, use [removeVote].
+  Future<VoteResult> castVote(
+    String featureRequestId, {
+    required String userToken,
+    String? shipNotifyEmail,
+  }) async {
+    final body = <String, dynamic>{
+      'appKey': config.appKey,
+      'userToken': userToken,
+    };
+    final trimmedEmail = shipNotifyEmail?.trim();
+    if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
+      body['shipNotifyEmail'] = trimmedEmail;
+    }
+
+    final json = await _sendJson(
+      method: 'POST',
+      path: '/api/v1/feature-requests/$featureRequestId/vote',
+      body: body,
+      userToken: userToken,
+      acceptedStatuses: const [200],
+    );
+    return VoteResult.fromJson(json);
+  }
+
+  /// Removes the current user's upvote on a feature request.
+  ///
+  /// The endpoint (`DELETE /api/v1/feature-requests/:id/vote`) is idempotent:
+  /// removing a vote that is not present returns `{ "voted": false, "voteCount": <n> }`
+  /// with HTTP 200 rather than an error.
+  Future<VoteResult> removeVote(
     String featureRequestId, {
     required String userToken,
   }) async {
     final json = await _sendJson(
-      method: 'POST',
+      method: 'DELETE',
       path: '/api/v1/feature-requests/$featureRequestId/vote',
       body: {
         'appKey': config.appKey,
         'userToken': userToken,
       },
+      userToken: userToken,
       acceptedStatuses: const [200],
     );
     return VoteResult.fromJson(json);
+  }
+
+  /// Casts a vote on a feature request (legacy compatibility wrapper).
+  ///
+  /// The backend vote endpoint (`POST /api/v1/feature-requests/:id/vote`) is
+  /// now insert-only and no longer toggles. Use [castVote] to cast a vote and
+  /// [removeVote] to remove a vote.
+  @Deprecated(
+    'Use castVote or removeVote instead. The backend vote endpoint is insert-only and no longer toggles.',
+  )
+  Future<VoteResult> toggleVote(
+    String featureRequestId, {
+    required String userToken,
+    String? shipNotifyEmail,
+  }) {
+    return castVote(
+      featureRequestId,
+      userToken: userToken,
+      shipNotifyEmail: shipNotifyEmail,
+    );
   }
 
   /// Fetches discussion comments.
@@ -444,7 +498,11 @@ class FeedbackClient {
           body: body != null ? jsonEncode(body) : null,
         );
       } else if (method == 'DELETE') {
-        response = await _httpClient.delete(uri, headers: headers);
+        response = await _httpClient.delete(
+          uri,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        );
       } else {
         throw UnsupportedError('Unsupported HTTP method: $method');
       }
