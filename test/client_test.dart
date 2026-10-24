@@ -42,6 +42,109 @@ void main() {
       expect(await client.hasSeenChangelog('1.1.0'), isTrue);
     });
 
+    group('changelog-seen durability', () {
+      late TokenStorageAdapter originalSharedAdapter;
+
+      setUp(() {
+        originalSharedAdapter = UserTokenStore.shared.adapter;
+      });
+
+      tearDown(() {
+        UserTokenStore.configure(originalSharedAdapter);
+      });
+
+      test('seen state survives client reconstruction through the shared configured adapter',
+          () async {
+        final durable = MemoryTokenStorage();
+        UserTokenStore.configure(durable);
+
+        final first = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_durable_1',
+          ),
+        );
+        await first.markChangelogSeen('1.2.0');
+        expect(await first.hasSeenChangelog('1.2.0'), isTrue);
+
+        // Simulates a process restart: a brand-new client with no storage
+        // argument must still see the persisted state.
+        final second = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_durable_1',
+          ),
+        );
+        expect(await second.hasSeenChangelog('1.2.0'), isTrue);
+        expect(await second.hasSeenChangelog('1.3.0'), isFalse);
+      });
+
+      test('client constructed before UserTokenStore.configure persists through the configured adapter',
+          () async {
+        final durable = MemoryTokenStorage();
+        final early = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_durable_2',
+          ),
+        );
+
+        UserTokenStore.configure(durable);
+        await early.markChangelogSeen('2.0.0');
+
+        expect(
+          await durable.getItem('cupthread_seen_changelog_app_durable_2'),
+          contains('2.0.0'),
+        );
+      });
+
+      test('explicit storage override wins over the shared adapter', () async {
+        final durable = MemoryTokenStorage();
+        UserTokenStore.configure(durable);
+
+        final override = MemoryTokenStorage();
+        final client = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_override',
+          ),
+          storage: override,
+        );
+        await client.markChangelogSeen('3.0.0');
+
+        expect(
+          await override.getItem('cupthread_seen_changelog_app_override'),
+          contains('3.0.0'),
+        );
+        expect(
+          await durable.getItem('cupthread_seen_changelog_app_override'),
+          isNull,
+        );
+      });
+
+      test('seen keys are scoped per appKey', () async {
+        final durable = MemoryTokenStorage();
+        UserTokenStore.configure(durable);
+
+        final clientA = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_aaa',
+          ),
+        );
+        final clientB = FeedbackClient(
+          FeedbackClientConfig(
+            baseUrl: 'https://api.cupthread.com',
+            appKey: 'app_bbb',
+          ),
+        );
+
+        await clientA.markChangelogSeen('9.9.9');
+        expect(await clientA.hasSeenChangelog('9.9.9'), isTrue);
+        expect(await clientB.hasSeenChangelog('9.9.9'), isFalse);
+      });
+    });
+
     test('castVote sends POST /api/v1/feature-requests/:id/vote with body and X-User-Token header', () async {
       String? capturedMethod;
       String? capturedPath;

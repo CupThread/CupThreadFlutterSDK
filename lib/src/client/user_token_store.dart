@@ -39,6 +39,12 @@ class UserTokenStore {
     _shared = UserTokenStore(storage);
   }
 
+  /// The storage adapter backing this store.
+  ///
+  /// Other durable SDK state (changelog seen versions) shares this adapter
+  /// so hosts configure persistence in one place via [configure].
+  TokenStorageAdapter get adapter => _storage;
+
   /// Resolves the durable identity from storage exactly once; concurrent
   /// callers share the same in-flight [Future].
   Future<String> _resolve() {

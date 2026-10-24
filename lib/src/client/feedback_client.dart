@@ -45,7 +45,7 @@ class FeedbackClientConfig {
 class FeedbackClient {
   final FeedbackClientConfig config;
   final http.Client _httpClient;
-  final TokenStorageAdapter _storage;
+  final TokenStorageAdapter? _storageOverride;
   PublicAppConfig? _cachedAppConfig;
 
   FeedbackClient(
@@ -54,8 +54,18 @@ class FeedbackClient {
     TokenStorageAdapter? storage,
     PublicAppConfig? initialConfig,
   })  : _httpClient = httpClient ?? http.Client(),
-        _storage = storage ?? MemoryTokenStorage(),
+        _storageOverride = storage,
         _cachedAppConfig = initialConfig;
+
+  /// Storage used for durable client state (changelog seen versions).
+  ///
+  /// Defaults to the shared [UserTokenStore] adapter so "seen" state
+  /// survives process restarts once the host configures persistence in one
+  /// place via `UserTokenStore.configure(...)`. An explicit [storage]
+  /// override always wins. Resolved lazily so a client constructed before
+  /// `UserTokenStore.configure` still picks up the durable adapter.
+  TokenStorageAdapter get _storage =>
+      _storageOverride ?? UserTokenStore.shared.adapter;
 
   /// Returns cached app configuration if already fetched or provided, or null.
   PublicAppConfig? get cachedAppConfig => _cachedAppConfig;
