@@ -387,13 +387,18 @@ void main() {
       expect(find.text('Valid Feedback Title'), findsOneWidget);
     });
 
-    testWidgets('FeedbackComposer forwards turnstileToken from initialDraft', (tester) async {
+    testWidgets('FeedbackComposer forwards turnstileToken from initialDraft and drops it once rejected',
+        (tester) async {
       final bodies = <Map<String, dynamic>>[];
       final mockClient = MockClient((request) async {
         if (request.url.path.contains('/public/config/')) {
           return http.Response('{}', 200, headers: {'content-type': 'application/json'});
         }
         bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (bodies.length == 1) {
+          // The host-supplied token is rejected by a verification challenge.
+          return http.Response(turnstileBody, 403);
+        }
         return http.Response(
           jsonEncode({
             'id': 'fb_tok_draft',
@@ -441,6 +446,22 @@ void main() {
 
       expect(bodies, hasLength(1));
       expect(bodies.single['turnstileToken'], 'tok_from_host_draft');
+      expect(
+        find.text('Human verification is required to submit. Please try again after completing verification.'),
+        findsOneWidget,
+      );
+
+      // Retrying must not resend the rejected single-use token; the client
+      // falls back to the configured provider (absent here, so no token).
+      await tester.ensureVisible(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+
+      expect(bodies, hasLength(2));
+      expect(bodies.last.containsKey('turnstileToken'), isFalse);
+      expect(find.text('Human verification is required to submit. Please try again after completing verification.'),
+          findsNothing);
     });
 
     testWidgets('FeatureRequestComposeSheet shows verificationRequired on Turnstile challenge', (tester) async {

@@ -78,6 +78,11 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
   bool _isPickingAttachment = false;
   String? _errorMessage;
 
+  /// Turnstile tokens are single-use, so once a draft-supplied token was
+  /// rejected by a verification challenge it must never be resent; the
+  /// client falls back to [FeedbackClientConfig.turnstileTokenProvider].
+  bool _draftTokenRejected = false;
+
   @override
   void initState() {
     super.initState();
@@ -168,7 +173,8 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         buildNumber: widget.initialDraft?.buildNumber,
         metadata: widget.initialDraft?.metadata ?? {},
         attachments: _attachments,
-        turnstileToken: widget.initialDraft?.turnstileToken,
+        turnstileToken:
+            _draftTokenRejected ? null : widget.initialDraft?.turnstileToken,
       );
 
       final result = await client.submit(draft, userToken: userToken);
@@ -188,6 +194,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
         setState(() {
           _isSubmitting = false;
           if (e is TurnstileRequiredException) {
+            _draftTokenRejected = true;
             _errorMessage = strings.verificationRequired;
           } else {
             _errorMessage = e.toString();
