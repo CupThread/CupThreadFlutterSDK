@@ -130,11 +130,25 @@ class FeedbackClient {
   }
 
   /// Submits user feedback draft.
+  ///
+  /// When [draft] carries session-uploaded attachments (attachment
+  /// [FeedbackAttachment.uploadId] values) and no [userToken] is given, the
+  /// SDK falls back to the shared [UserTokenStore] identity so the submission
+  /// presents the same identity that created the upload sessions — the
+  /// intake endpoint finalizes uploads only for their uploading identity
+  /// (SEC-28) and would otherwise reject with `uploader_mismatch`.
   Future<FeedbackSubmissionResult> submit(
     FeedbackDraft draft, {
     String? userToken,
   }) async {
     final turnstileToken = await _resolveTurnstileToken(draft.turnstileToken);
+    final hasSessionUploads = draft.attachments.any(
+      (a) => a.uploadId != null && a.uploadId!.trim().isNotEmpty,
+    );
+    final identity = await _resolveIdentity(
+      userToken,
+      fallbackToStore: hasSessionUploads,
+    );
     final payload = draft.toJson(
       appKey: config.appKey,
       submittedAt: iso8601Now(),
@@ -147,18 +161,67 @@ class FeedbackClient {
       method: 'POST',
       path: '/api/v1/feedback',
       body: payload,
-      userToken: userToken,
+      userToken: identity,
       acceptedStatuses: const [200, 201, 202],
     );
 
     return FeedbackSubmissionResult.fromJson(json);
   }
 
-  /// Uploads binary file attachment.
+  /// Resolves the identity an intake or upload-session request presents as
+  /// `X-User-Token`: [userToken] wins when non-blank. When it is blank and
+  /// [fallbackToStore] is set, the shared [UserTokenStore] identity is used
+  /// so upload sessions and the submissions referencing them keep one stable
+  /// anonymous identity; without the flag the request stays fully anonymous.
+  Future<String?> _resolveIdentity(
+    String? userToken, {
+    required bool fallbackToStore,
+  }) async {
+    final trimmed = userToken?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    if (!fallbackToStore) return null;
+    return UserTokenStore.shared.getToken();
+  }
+
+  /// Uploads a binary file attachment through the governed upload-session
+  /// flow.
+  ///
+  /// Two requests are made against [config.baseUrl]:
+  ///
+  /// 1. `POST /api/v1/uploads/sessions` pre-allocates one file slot bound to
+  ///    the caller's identity. Anonymous callers must present an identity —
+  ///    [userToken] when given, the shared [UserTokenStore] identity
+  ///    otherwise — and an app-required Turnstile token is resolved through
+  ///    `FeedbackClientConfig.turnstileTokenProvider` (the session endpoint
+  ///    shares the feedback challenge binding).
+  /// 2. `PUT /api/v1/uploads/{uploadId}` streams the bytes into the slot,
+  ///    authorized by the session's bearer token.
+  ///
+  /// The returned [FeedbackAttachment] carries the slot's
+  /// [FeedbackAttachment.uploadId]; pass the attachment (or its draft) to
+  /// [submit] and the submission references the stored file through the
+  /// top-level `uploadIds` array. The legacy direct endpoints are retired:
+  /// `POST /api/v1/uploads/images` no longer returns a `key`/`url`, and
+  /// `POST /api/v1/uploads/r2` is a 410 Gone tombstone — image and
+  /// non-image files alike go through the session flow, and the storage
+  /// [AttachmentKind] is derived from the file's MIME type.
+  ///
+  /// [maxBytes] (or `PublicAppConfig.maxAttachmentBytes` when cached) is
+  /// enforced before any request; the session's per-file limit is enforced
+  /// before the bytes are streamed, and an HTTP 413 rejection maps to
+  /// [AttachmentTooLargeException]. An upload response that references no
+  /// `uploadId` throws [InvalidResponseException] instead of constructing an
+  /// attachment that could never be attached to a submission.
+  ///
+  /// [preferredKind] is ignored — it selected between the two retired direct
+  /// endpoints and is kept only for source compatibility.
   Future<FeedbackAttachment> uploadAttachment({
     required List<int> bytes,
     required String filename,
     required String mimeType,
+    @Deprecated(
+      'Upload sessions derive the storage kind from the MIME type; the parameter no longer selects a backend.',
+    )
     AttachmentKind? preferredKind,
     int? maxBytes,
     String? userToken,
@@ -169,31 +232,140 @@ class FeedbackClient {
       throw AttachmentTooLargeException(bytes.length, effectiveMax);
     }
 
-    final kind = preferredKind ??
-        (mimeType.startsWith('image/') ? AttachmentKind.image : AttachmentKind.r2);
-    final path = kind == AttachmentKind.image
-        ? '/api/v1/uploads/images'
-        : '/api/v1/uploads/r2';
-
-    final uri = Uri.parse('${config.baseUrl}$path');
-    final request = http.MultipartRequest('POST', uri);
-    request.fields['appKey'] = config.appKey;
-    if (userToken != null && userToken.trim().isNotEmpty) {
-      request.headers['X-User-Token'] = userToken.trim();
-    }
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-      ),
-    );
-
     final effectiveTimeout = timeout ?? config.uploadTimeout;
+    final turnstileToken = await _resolveTurnstileToken(null);
+    // Upload sessions are always bound to an uploader identity; fall back to
+    // the shared store so anonymous flows keep a stable identity across
+    // session creation and the finalizing submission.
+    final identity = (await _resolveIdentity(userToken, fallbackToStore: true))!;
 
     try {
-      final streamedResponse = await _httpClient.send(request).timeout(effectiveTimeout);
-      final response = await http.Response.fromStream(streamedResponse).timeout(effectiveTimeout);
+      final session = await _createUploadSession(
+        filename: filename,
+        mimeType: mimeType,
+        sizeBytes: bytes.length,
+        identity: identity,
+        turnstileToken: turnstileToken,
+        timeout: effectiveTimeout,
+      );
+
+      final slotLimit = session.slot.maxSizeBytes;
+      final sessionLimit = session.maxFileSizeBytes;
+      final sessionMax = slotLimit != null && sessionLimit != null
+          ? (slotLimit < sessionLimit ? slotLimit : sessionLimit)
+          : (slotLimit ?? sessionLimit);
+      if (sessionMax != null && bytes.length > sessionMax) {
+        throw AttachmentTooLargeException(bytes.length, sessionMax);
+      }
+
+      return await _uploadToSlot(
+        session,
+        bytes,
+        filename,
+        mimeType,
+        effectiveTimeout,
+      );
+    } catch (e) {
+      if (e is FeedbackException) rethrow;
+      if (e is TimeoutException) {
+        throw InvalidResponseException(
+          'Upload timed out requesting ${config.baseUrl}',
+          e,
+        );
+      }
+      throw UnreadableUploadResponseException(e.toString());
+    }
+  }
+
+  /// Creates a one-file upload session and returns its bearer token plus the
+  /// pre-allocated slot. A response missing `sessionToken` or the slot
+  /// `uploadId` is an [InvalidResponseException] — continuing without them
+  /// could only orphan the bytes.
+  Future<_UploadSession> _createUploadSession({
+    required String filename,
+    required String mimeType,
+    required int sizeBytes,
+    required String identity,
+    String? turnstileToken,
+    required Duration timeout,
+  }) async {
+    final json = await _sendJson(
+      method: 'POST',
+      path: '/api/v1/uploads/sessions',
+      body: {
+        'appKey': config.appKey,
+        'purpose': 'feedback_attachment',
+        if (turnstileToken != null && turnstileToken.isNotEmpty)
+          'turnstileToken': turnstileToken,
+        'files': [
+          {
+            'clientFileId': 'file-1',
+            'filename': filename,
+            'contentType': mimeType,
+            'sizeBytes': sizeBytes,
+          },
+        ],
+      },
+      userToken: identity,
+      acceptedStatuses: const [200, 201],
+      timeout: timeout,
+    );
+
+    final sessionJson = json['session'] as Map<String, dynamic>?;
+    final sessionToken = (sessionJson?['sessionToken'] as String?)?.trim() ?? '';
+    if (sessionToken.isEmpty) {
+      throw const InvalidResponseException(
+        'Upload session response is missing sessionToken',
+      );
+    }
+    final files = json['files'] as List<dynamic>? ?? const [];
+    if (files.isEmpty || files.first is! Map<String, dynamic>) {
+      throw const InvalidResponseException(
+        'Upload session response allocated no file slot',
+      );
+    }
+    final slotJson = files.first as Map<String, dynamic>;
+    final uploadId = (slotJson['uploadId'] as String?)?.trim() ?? '';
+    if (uploadId.isEmpty) {
+      throw const InvalidResponseException(
+        'Upload session file slot is missing uploadId',
+      );
+    }
+    return _UploadSession(
+      sessionToken: sessionToken,
+      maxFileSizeBytes: (sessionJson?['maxFileSizeBytes'] as num?)?.toInt(),
+      slot: _UploadSessionSlot(
+        uploadId: uploadId,
+        maxSizeBytes: (slotJson['maxSizeBytes'] as num?)?.toInt(),
+      ),
+    );
+  }
+
+  /// Streams the file bytes into the session slot via
+  /// `PUT /api/v1/uploads/{uploadId}` and maps the `UploadedFileResponse`
+  /// onto a [FeedbackAttachment], falling back to slot/local facts for
+  /// anything the server omits.
+  Future<FeedbackAttachment> _uploadToSlot(
+    _UploadSession session,
+    List<int> bytes,
+    String filename,
+    String mimeType,
+    Duration timeout,
+  ) async {
+    final uri = Uri.parse(
+      '${config.baseUrl}/api/v1/uploads/${Uri.encodeComponent(session.slot.uploadId)}',
+    );
+    try {
+      final response = await _httpClient
+          .put(
+            uri,
+            headers: {
+              'Authorization': 'Bearer ${session.sessionToken}',
+              'Content-Type': mimeType,
+            },
+            body: bytes,
+          )
+          .timeout(timeout);
 
       if (response.statusCode == 401) {
         throw const AuthenticationRequiredException();
@@ -201,18 +373,53 @@ class FeedbackClient {
       if (_isTurnstileChallenge(response.statusCode, response.body)) {
         throw TurnstileRequiredException(response.statusCode, response.body);
       }
+      if (response.statusCode == 413) {
+        final limit = session.slot.maxSizeBytes ?? session.maxFileSizeBytes;
+        throw AttachmentTooLargeException(bytes.length, limit ?? bytes.length);
+      }
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw UnexpectedStatusException(response.statusCode, response.body);
       }
 
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return FeedbackAttachment.fromJson(json);
-    } catch (e) {
-      if (e is FeedbackException) rethrow;
-      if (e is TimeoutException) {
-        throw InvalidResponseException('Upload timed out requesting $uri', e);
+      final json = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body) as Map<String, dynamic>;
+
+      final uploadId = (json['uploadId'] as String?)?.trim() ?? '';
+      final resolvedUploadId =
+          uploadId.isNotEmpty ? uploadId : session.slot.uploadId;
+      if (resolvedUploadId.isEmpty) {
+        throw const InvalidResponseException(
+          'Upload response references no uploadId; the stored file could not '
+          'be attached to a submission',
+        );
       }
-      throw UnreadableUploadResponseException(e.toString());
+      final downloadUrl = (json['downloadUrl'] as String?)?.trim() ?? '';
+      final responseMime = (json['contentType'] as String?)?.trim() ?? '';
+      final resolvedMime = responseMime.isNotEmpty ? responseMime : mimeType;
+
+      return FeedbackAttachment(
+        kind: resolvedMime.startsWith('image/')
+            ? AttachmentKind.image
+            : AttachmentKind.r2,
+        uploadId: resolvedUploadId,
+        key: resolvedUploadId,
+        url: downloadUrl,
+        filename: (json['filename'] as String?)?.trim().isNotEmpty == true
+            ? json['filename'] as String
+            : filename,
+        mimeType: resolvedMime,
+        size: (json['sizeBytes'] as num?)?.toInt() ?? bytes.length,
+      );
+    } on FeedbackException {
+      rethrow;
+    } on TimeoutException {
+      rethrow;
+    } on FormatException catch (e) {
+      throw InvalidResponseException(
+        'Failed to parse JSON response from $uri',
+        e,
+      );
     }
   }
 
@@ -665,6 +872,7 @@ class FeedbackClient {
     Map<String, dynamic>? body,
     String? userToken,
     List<int> acceptedStatuses = const [200],
+    Duration? timeout,
   }) async {
     final uri = Uri.parse('${config.baseUrl}$path');
     final headers = <String, String>{};
@@ -676,29 +884,29 @@ class FeedbackClient {
       headers['X-User-Token'] = userToken;
     }
 
-    final timeout = config.requestTimeout;
+    final effectiveTimeout = timeout ?? config.requestTimeout;
     http.Response response;
     try {
       if (method == 'GET') {
-        response = await _httpClient.get(uri, headers: headers).timeout(timeout);
+        response = await _httpClient.get(uri, headers: headers).timeout(effectiveTimeout);
       } else if (method == 'POST') {
         response = await _httpClient.post(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        ).timeout(timeout);
+        ).timeout(effectiveTimeout);
       } else if (method == 'PUT') {
         response = await _httpClient.put(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        ).timeout(timeout);
+        ).timeout(effectiveTimeout);
       } else if (method == 'DELETE') {
         response = await _httpClient.delete(
           uri,
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
-        ).timeout(timeout);
+        ).timeout(effectiveTimeout);
       } else {
         throw UnsupportedError('Unsupported HTTP method: $method');
       }
@@ -734,4 +942,27 @@ class FeedbackClient {
       throw InvalidResponseException('Failed to parse JSON response from $uri', e);
     }
   }
+}
+
+/// One pre-allocated file slot of an upload session
+/// (`CreateUploadSessionResponse.files[i]`).
+class _UploadSessionSlot {
+  final String uploadId;
+  final int? maxSizeBytes;
+
+  const _UploadSessionSlot({required this.uploadId, this.maxSizeBytes});
+}
+
+/// Parsed `POST /api/v1/uploads/sessions` response: the bearer token
+/// authorizing `PUT /api/v1/uploads/{uploadId}` plus the pre-allocated slot.
+class _UploadSession {
+  final String sessionToken;
+  final int? maxFileSizeBytes;
+  final _UploadSessionSlot slot;
+
+  const _UploadSession({
+    required this.sessionToken,
+    required this.slot,
+    this.maxFileSizeBytes,
+  });
 }

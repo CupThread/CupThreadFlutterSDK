@@ -104,12 +104,18 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
     try {
       final attachment = await widget.onPickAttachment!();
       if (attachment != null && mounted) {
+        final strings = CupThreadTheme.stringsOf(context);
         final config = CupThreadTheme.configOf(context, listen: false);
         final maxBytes = config?.maxAttachmentBytes ?? 10485760;
         if (attachment.size != null && attachment.size! > maxBytes) {
           final maxMb = (maxBytes / (1024 * 1024)).toStringAsFixed(1);
-          final strings = CupThreadTheme.stringsOf(context);
           setState(() => _errorMessage = '${strings.attachmentTooLarge} (max $maxMb MB)');
+          return;
+        }
+        // The intake endpoint caps submissions at 8 uploadIds; refuse a 9th
+        // attachment here instead of failing at submit time.
+        if (_attachments.length >= FeedbackDraft.maxUploadIds) {
+          setState(() => _errorMessage = strings.tooManyAttachments);
           return;
         }
         setState(() => _attachments.add(attachment));

@@ -629,26 +629,61 @@ void main() {
     });
   });
 
-  group('Issue 2: uploadAttachment auth header, status 200/201, 401, timeouts', () {
-    test('uploadAttachment sends X-User-Token header when provided', () async {
-      http.BaseRequest? capturedRequest;
-      const token = 'usr_token_upload_test';
-
+  group('Issue 2: uploadAttachment session flow, auth header, status 200/201, 401, timeouts', () {
+    /// Mock handler serving the two-leg upload-session flow: session
+    /// creation on `POST /api/v1/uploads/sessions`, byte streaming on
+    /// `PUT /api/v1/uploads/{uploadId}`.
+    (MockClient, List<http.BaseRequest>) sessionFlowMock({
+      int sessionStatus = 201,
+      int putStatus = 200,
+    }) {
+      final requests = <http.BaseRequest>[];
       final mockClient = MockClient((request) async {
-        capturedRequest = request;
+        requests.add(request);
+        if (request.url.path.endsWith('/uploads/sessions')) {
+          return http.Response(
+            jsonEncode({
+              'session': {
+                'sessionId': 'ses_123',
+                'sessionToken': 'sess_tok_abc',
+                'expiresAt': '2026-10-25T12:00:00Z',
+                'maxFileSizeBytes': 10485760,
+                'maxFiles': 8,
+              },
+              'files': [
+                {
+                  'clientFileId': 'file-1',
+                  'uploadId': 'upl_123',
+                  'uploadUrl': '/api/v1/uploads/upl_123',
+                  'maxSizeBytes': 10485760,
+                },
+              ],
+            }),
+            sessionStatus,
+            headers: {'content-type': 'application/json'},
+          );
+        }
         return http.Response(
           jsonEncode({
-            'kind': 'image',
-            'key': 'img_123',
-            'url': 'https://cdn.example.com/img_123.png',
+            'uploadId': 'upl_123',
+            'clientFileId': 'file-1',
             'filename': 'shot.png',
-            'mimeType': 'image/png',
-            'size': 512,
+            'contentType': 'image/png',
+            'sizeBytes': 512,
+            'sha256': 'abc',
+            'stored': true,
+            'downloadUrl': null,
           }),
-          201,
+          putStatus,
           headers: {'content-type': 'application/json'},
         );
       });
+      return (mockClient, requests);
+    }
+
+    test('uploadAttachment creates a session and PUTs bytes to the slot', () async {
+      const token = 'usr_token_upload_test';
+      final (mockClient, requests) = sessionFlowMock();
 
       final client = FeedbackClient(
         FeedbackClientConfig(
@@ -665,27 +700,45 @@ void main() {
         userToken: token,
       );
 
-      expect(capturedRequest, isNotNull);
-      expect(capturedRequest!.headers['X-User-Token'], token);
-      expect(attachment.key, 'img_123');
+      expect(requests, hasLength(2));
+
+      final sessionRequest = requests[0] as http.Request;
+      expect(sessionRequest.method, 'POST');
+      expect(sessionRequest.url.path, '/api/v1/uploads/sessions');
+      expect(sessionRequest.headers['X-User-Token'], token);
+      final sessionBody = jsonDecode(sessionRequest.body) as Map<String, dynamic>;
+      expect(sessionBody['appKey'], 'app_test_123');
+      expect(sessionBody['purpose'], 'feedback_attachment');
+      expect((sessionBody['files'] as List), hasLength(1));
+      expect(
+        (sessionBody['files'] as List).first as Map<String, dynamic>,
+        containsPair('filename', 'shot.png'),
+      );
+      expect(
+        (sessionBody['files'] as List).first as Map<String, dynamic>,
+        containsPair('contentType', 'image/png'),
+      );
+      expect(
+        (sessionBody['files'] as List).first as Map<String, dynamic>,
+        containsPair('sizeBytes', 4),
+      );
+
+      final putRequest = requests[1] as http.Request;
+      expect(putRequest.method, 'PUT');
+      expect(putRequest.url.path, '/api/v1/uploads/upl_123');
+      expect(putRequest.headers['Authorization'], 'Bearer sess_tok_abc');
+      expect(putRequest.headers['Content-Type'], 'image/png');
+      expect(putRequest.bodyBytes, [1, 2, 3, 4]);
+
+      expect(attachment.uploadId, 'upl_123');
       expect(attachment.kind, AttachmentKind.image);
+      expect(attachment.filename, 'shot.png');
+      expect(attachment.mimeType, 'image/png');
+      expect(attachment.size, 512);
     });
 
-    test('uploadAttachment omits X-User-Token when null or empty', () async {
-      http.BaseRequest? capturedRequest;
-
-      final mockClient = MockClient((request) async {
-        capturedRequest = request;
-        return http.Response(
-          jsonEncode({
-            'kind': 'r2',
-            'key': 'log_123',
-            'url': 'https://cdn.example.com/log_123.txt',
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      });
+    test('uploadAttachment falls back to the shared store identity when no userToken is given', () async {
+      final (mockClient, requests) = sessionFlowMock();
 
       final client = FeedbackClient(
         FeedbackClientConfig(
@@ -701,7 +754,11 @@ void main() {
         mimeType: 'text/plain',
         userToken: null,
       );
-      expect(capturedRequest!.headers.containsKey('X-User-Token'), isFalse);
+
+      final sessionRequest = requests[0] as http.Request;
+      final identity = sessionRequest.headers['X-User-Token'];
+      expect(identity, isNotNull);
+      expect(identity, isNotEmpty);
 
       await client.uploadAttachment(
         bytes: [1, 2],
@@ -709,37 +766,36 @@ void main() {
         mimeType: 'text/plain',
         userToken: '   ',
       );
-      expect(capturedRequest!.headers.containsKey('X-User-Token'), isFalse);
+      expect(
+        (requests[2] as http.Request).headers['X-User-Token'],
+        identity,
+        reason: 'blank userToken must reuse the same stable store identity',
+      );
     });
 
-    test('uploadAttachment accepts HTTP 200 and HTTP 201', () async {
-      for (final status in [200, 201]) {
-        final mockClient = MockClient((request) async {
-          return http.Response(
-            jsonEncode({
-              'kind': 'image',
-              'key': 'img_$status',
-              'url': 'https://cdn.example.com/img_$status.png',
-            }),
-            status,
-            headers: {'content-type': 'application/json'},
+    test('uploadAttachment accepts HTTP 200 and HTTP 201 on both legs', () async {
+      for (final sessionStatus in [200, 201]) {
+        for (final putStatus in [200, 201]) {
+          final (mockClient, _) = sessionFlowMock(
+            sessionStatus: sessionStatus,
+            putStatus: putStatus,
           );
-        });
 
-        final client = FeedbackClient(
-          FeedbackClientConfig(
-            baseUrl: 'https://api.cupthread.com',
-            appKey: 'app_test_123',
-          ),
-          httpClient: mockClient,
-        );
+          final client = FeedbackClient(
+            FeedbackClientConfig(
+              baseUrl: 'https://api.cupthread.com',
+              appKey: 'app_test_123',
+            ),
+            httpClient: mockClient,
+          );
 
-        final res = await client.uploadAttachment(
-          bytes: [1],
-          filename: 'test.png',
-          mimeType: 'image/png',
-        );
-        expect(res.key, 'img_$status');
+          final res = await client.uploadAttachment(
+            bytes: [1],
+            filename: 'test.png',
+            mimeType: 'image/png',
+          );
+          expect(res.uploadId, 'upl_123');
+        }
       }
     });
 

@@ -239,7 +239,7 @@ it.
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
 | `submit(draft, userToken?)` | `POST /api/v1/feedback` | Submit feedback draft with metadata and attachments |
-| `uploadAttachment(...)` | `POST /api/v1/uploads/{images,r2}` | Upload screenshot or log attachment |
+| `uploadAttachment(...)` | `POST /api/v1/uploads/sessions` + `PUT /api/v1/uploads/{uploadId}` | Upload screenshot or log attachment via the governed upload-session flow; the returned `uploadId` is sent with the submission |
 | `fetchAppConfig()` | `GET /api/v1/public/config/{appKey}` | Fetch app branding, appearance, and public settings |
 | `fetchColumns()` | `GET /api/v1/public/columns/{appKey}` | Fetch Kanban board columns for roadmap |
 | `fetchVersions()` | `GET /api/v1/public/versions/{appKey}` | Fetch release versions |
