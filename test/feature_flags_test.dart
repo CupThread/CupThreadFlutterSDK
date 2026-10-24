@@ -579,7 +579,7 @@ void main() {
 
       // API should NOT have been called, and snackbar should be displayed
       expect(voteApiCalled, isFalse);
-      expect(find.text('Sign-in is required to vote on feature requests.'), findsOneWidget);
+      expect(find.text('Sign-in is required to vote.'), findsOneWidget);
     });
 
     testWidgets('FeedbackComposer blocks anonymous submission when allowAnonymousFeedback = false', (tester) async {

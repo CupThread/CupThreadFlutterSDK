@@ -116,7 +116,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        setState(() => _errorMessage = CupThreadTheme.stringsOf(context).localizedErrorMessage(e));
       }
     } finally {
       if (mounted) {
@@ -134,7 +134,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
     final config = CupThreadTheme.configOf(context, listen: false);
     final isAnon = CupThreadTheme.isAnonymous(context);
     if (config != null && !config.allowAnonymousFeedback && isAnon) {
-      setState(() => _errorMessage = 'Sign-in is required to submit feedback.');
+      setState(() => _errorMessage = strings.signInRequiredToSubmitFeedback);
       return;
     }
 
@@ -193,7 +193,7 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
             _draftTokenRejected = true;
             _errorMessage = strings.verificationRequired;
           } else {
-            _errorMessage = e.toString();
+            _errorMessage = strings.localizedErrorMessage(e);
           }
         });
       }
@@ -361,13 +361,13 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
+                  color: colors.dangerBg,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                  border: Border.all(color: colors.dangerBorder),
                 ),
                 child: Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
+                  style: TextStyle(color: colors.danger, fontSize: 13),
                 ),
               ),
             Text(

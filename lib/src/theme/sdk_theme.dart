@@ -24,6 +24,15 @@ class CupThreadColors {
   final Color chipText;
   final Color divider;
 
+  /// Error text color for validation and API failure banners.
+  final Color danger;
+
+  /// Error banner background color.
+  final Color dangerBg;
+
+  /// Error banner border color.
+  final Color dangerBorder;
+
   const CupThreadColors({
     required this.background,
     required this.card,
@@ -45,6 +54,9 @@ class CupThreadColors {
     required this.chipBg,
     required this.chipText,
     required this.divider,
+    required this.danger,
+    required this.dangerBg,
+    required this.dangerBorder,
   });
 
   static const light = CupThreadColors(
@@ -68,6 +80,9 @@ class CupThreadColors {
     chipBg: Color(0xFFF1F5F9),
     chipText: Color(0xFF334155),
     divider: Color(0xFFE2E8F0),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    dangerBorder: Color(0xFFFCA5A5),
   );
 
   static const dark = CupThreadColors(
@@ -91,6 +106,9 @@ class CupThreadColors {
     chipBg: Color(0xFF1E293B),
     chipText: Color(0xFFCBD5E1),
     divider: Color(0xFF1E293B),
+    danger: Color(0xFFFCA5A5),
+    dangerBg: Color(0xFF450A0A),
+    dangerBorder: Color(0xFF7F1D1D),
   );
 
   static const midnight = CupThreadColors(
@@ -114,6 +132,9 @@ class CupThreadColors {
     chipBg: Color(0xFF1F293D),
     chipText: Color(0xFFCBD5E1),
     divider: Color(0xFF1F293D),
+    danger: Color(0xFFFCA5A5),
+    dangerBg: Color(0xFF450A0A),
+    dangerBorder: Color(0xFF7F1D1D),
   );
 
   static const ocean = CupThreadColors(
@@ -137,6 +158,9 @@ class CupThreadColors {
     chipBg: Color(0xFFE6FFFA),
     chipText: Color(0xFF0D9488),
     divider: Color(0xFFCCFBF1),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    dangerBorder: Color(0xFFFCA5A5),
   );
 
   static const forest = CupThreadColors(
@@ -160,6 +184,9 @@ class CupThreadColors {
     chipBg: Color(0xFFF7FEE7),
     chipText: Color(0xFF365314),
     divider: Color(0xFFD9F99D),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    dangerBorder: Color(0xFFFCA5A5),
   );
 
   static const sunset = CupThreadColors(
@@ -183,6 +210,9 @@ class CupThreadColors {
     chipBg: Color(0xFFFFEDD5),
     chipText: Color(0xFF7C2D12),
     divider: Color(0xFFFED7AA),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    dangerBorder: Color(0xFFFCA5A5),
   );
 
   static const candy = CupThreadColors(
@@ -206,6 +236,9 @@ class CupThreadColors {
     chipBg: Color(0xFFFAE8FF),
     chipText: Color(0xFF701A75),
     divider: Color(0xFFF5D0FE),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    dangerBorder: Color(0xFFFCA5A5),
   );
 
   static CupThreadColors resolve(SdkTheme theme, {bool isDarkMode = false}) {
