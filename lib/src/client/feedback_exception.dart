@@ -17,10 +17,19 @@ class AuthenticationRequiredException extends FeedbackException {
 /// Thrown when the CupThread API returns an unexpected HTTP response status.
 class UnexpectedStatusException extends FeedbackException {
   final int status;
+
+  /// Raw response body, retained for host diagnostics and logging only.
+  ///
+  /// Deliberately excluded from [message] and [toString()] so rendering a
+  /// caught exception (e.g. `e.toString()` in a host catch handler) can never
+  /// surface internal JSON/HTML payloads to end users.
   final String responseBody;
 
   const UnexpectedStatusException(this.status, this.responseBody)
-      : super('CupThread API responded with unexpected status HTTP $status: $responseBody');
+      : super('CupThread API responded with unexpected status HTTP $status');
+
+  @override
+  String toString() => 'UnexpectedStatusException($status): $message';
 }
 
 /// Thrown when an intake endpoint (`POST /api/v1/feedback`,
