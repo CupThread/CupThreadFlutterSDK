@@ -67,6 +67,58 @@ class FeatureRequestComment {
   }
 }
 
+/// Paginated page of discussion comments on a feature request.
+///
+/// Returned by `GET /api/v1/feature-requests/:id/comments`. Follow
+/// [nextCursor] to fetch subsequent pages while [hasMore] is true.
+///
+/// ### Example
+/// ```dart
+/// var page = await client.fetchCommentsPage('fr_123', limit: 100);
+/// while (page.hasMore && page.nextCursor != null) {
+///   page = await client.fetchCommentsPage('fr_123', cursor: page.nextCursor);
+/// }
+/// ```
+class FeatureRequestCommentPage {
+  /// Comments returned for the current page.
+  final List<FeatureRequestComment> comments;
+
+  /// Total number of comments in the thread, or null when the server omits it.
+  final int? total;
+
+  /// Whether more comments are available beyond this page.
+  final bool hasMore;
+
+  /// Opaque keyset cursor for the next page, or null on the last page.
+  final String? nextCursor;
+
+  /// Creates a [FeatureRequestCommentPage] container.
+  const FeatureRequestCommentPage({
+    required this.comments,
+    this.total,
+    required this.hasMore,
+    this.nextCursor,
+  });
+
+  /// Deserializes [FeatureRequestCommentPage] from a server JSON response.
+  ///
+  /// Tolerates responses from servers that do not yet send pagination
+  /// metadata: [total] defaults to null, [hasMore] to false and
+  /// [nextCursor] to null.
+  factory FeatureRequestCommentPage.fromJson(Map<String, dynamic> json) {
+    final list = (json['comments'] as List<dynamic>? ?? [])
+        .map((c) => FeatureRequestComment.fromJson(c as Map<String, dynamic>))
+        .toList();
+    final cursor = json['nextCursor'] as String?;
+    return FeatureRequestCommentPage(
+      comments: list,
+      total: (json['total'] as num?)?.toInt(),
+      hasMore: json['hasMore'] as bool? ?? false,
+      nextCursor: (cursor != null && cursor.isNotEmpty) ? cursor : null,
+    );
+  }
+}
+
 /// Draft for posting a new comment.
 class CommentDraft {
   final String body;

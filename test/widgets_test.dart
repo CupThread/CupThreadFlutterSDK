@@ -533,4 +533,108 @@ void main() {
       expect(find.text('7'), findsOneWidget);
     });
   });
+
+  group('CommentsView', () {
+    Map<String, dynamic> commentJson(String id) => {
+          'id': id,
+          'featureRequestId': 'fr_trunc',
+          'authorName': 'User $id',
+          'body': 'Body of $id',
+          'createdAt': '2026-05-01T00:00:00.000Z',
+        };
+
+    testWidgets('header shows the server-reported total for a truncated single-page response',
+        (tester) async {
+      final capturedUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        capturedUrls.add(request.url);
+        if (request.url.path == '/api/v1/feature-requests/fr_trunc/comments') {
+          return http.Response(
+            jsonEncode({
+              'comments': [commentJson('cm_1'), commentJson('cm_2')],
+              'total': 340,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{"error":"not found"}', 404);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const Scaffold(
+              body: SingleChildScrollView(
+                child: CommentsView(featureRequestId: 'fr_trunc'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The page payload holds 2 comments, but the header must reflect the
+      // server's thread total instead of the rendered list length.
+      expect(find.text('Comments (340)'), findsOneWidget);
+      final commentsRequests =
+          capturedUrls.where((u) => u.path.endsWith('/comments')).toList();
+      expect(commentsRequests, hasLength(1));
+      expect(commentsRequests.single.queryParameters.containsKey('cursor'), isFalse);
+    });
+
+    testWidgets('header falls back to the rendered count when the server omits total',
+        (tester) async {
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_trunc/comments') {
+          return http.Response(
+            jsonEncode({
+              'comments': [commentJson('cm_1')],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{"error":"not found"}', 404);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const Scaffold(
+              body: SingleChildScrollView(
+                child: CommentsView(featureRequestId: 'fr_trunc'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comments (1)'), findsOneWidget);
+    });
+  });
 }

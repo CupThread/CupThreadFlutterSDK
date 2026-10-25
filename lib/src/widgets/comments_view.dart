@@ -21,9 +21,13 @@ class CommentsView extends StatefulWidget {
 
 class _CommentsViewState extends State<CommentsView> {
   List<FeatureRequestComment> _comments = [];
+  int? _totalComments;
   bool _isLoading = true;
   bool _isPosting = false;
   FeatureRequestComment? _replyingTo;
+
+  /// Page cap for loading the thread, mirroring the client-side walk guard.
+  static const int _maxCommentPages = 100;
 
   final _textController = TextEditingController();
   final _nameController = TextEditingController();
@@ -44,10 +48,34 @@ class _CommentsViewState extends State<CommentsView> {
   Future<void> _loadComments() async {
     final client = CupThreadTheme.clientOf(context);
     try {
-      final list = await client.fetchComments(widget.featureRequestId);
+      // Walk the paginated comments endpoint so long threads load completely,
+      // capturing the server-reported thread total for the header count. The
+      // cursor guard mirrors [FeedbackClient.fetchComments]: a null, unchanged,
+      // or revisited cursor can never advance, so stop instead of looping.
+      final all = <FeatureRequestComment>[];
+      final seenCursors = <String>{};
+      String? cursor;
+      var hasMore = true;
+      int? total;
+      for (var page = 0; hasMore && page < _maxCommentPages; page++) {
+        final result =
+            await client.fetchCommentsPage(widget.featureRequestId, cursor: cursor);
+        total ??= result.total;
+        final next = result.nextCursor;
+        final cannotAdvance = result.hasMore &&
+            (next == null || next == cursor || seenCursors.contains(next));
+        if (!cannotAdvance || cursor == null) {
+          all.addAll(result.comments);
+        }
+        if (next != null) seenCursors.add(next);
+        hasMore = result.hasMore;
+        cursor = next;
+        if (cannotAdvance) break;
+      }
       if (mounted) {
         setState(() {
-          _comments = list;
+          _comments = all;
+          _totalComments = total;
           _isLoading = false;
         });
       }
@@ -85,6 +113,7 @@ class _CommentsViewState extends State<CommentsView> {
       if (mounted) {
         setState(() {
           _comments.add(newComment);
+          if (_totalComments != null) _totalComments = _totalComments! + 1;
           _textController.clear();
           _replyingTo = null;
           _isPosting = false;
@@ -114,7 +143,7 @@ class _CommentsViewState extends State<CommentsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${strings.comments} (${visibleComments.length})',
+          '${strings.comments} (${_totalComments ?? visibleComments.length})',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
