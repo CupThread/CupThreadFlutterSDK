@@ -682,6 +682,13 @@ class FeedbackClient {
   /// Author attribution ([CommentDraft.authorName] and friends) is resolved
   /// server-side from the signed-in profile: the server ignores the
   /// client-supplied author fields even though the draft still sends them.
+  ///
+  /// The server answers with the created comment wrapped in an envelope
+  /// (`FeatureRequestCommentCreated`: `{ "comment": { … } }`), which this
+  /// method unwraps. A flat comment object without a `comment` key is also
+  /// accepted so hosts serving hand-written fixtures keep working; a
+  /// present-but-invalid `comment` value is rejected as an invalid
+  /// response.
   Future<FeatureRequestComment> postComment(
     String featureRequestId,
     CommentDraft draft, {
@@ -694,7 +701,18 @@ class FeedbackClient {
       userToken: userToken,
       acceptedStatuses: const [200, 201],
     );
-    return FeatureRequestComment.fromJson(json);
+    final Object? envelope = json['comment'];
+    final Map<String, dynamic> payload;
+    if (!json.containsKey('comment')) {
+      payload = json;
+    } else if (envelope is Map<String, dynamic>) {
+      payload = envelope;
+    } else {
+      throw const InvalidResponseException(
+        'POST /comments response has an invalid "comment" envelope',
+      );
+    }
+    return FeatureRequestComment.fromJson(payload);
   }
 
   /// Maximum number of pages [fetchChangelog] will follow before giving up.
