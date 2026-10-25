@@ -35,16 +35,20 @@ enum AttachmentKind {
   }
 }
 
-/// Metadata and URL describing an uploaded file or screenshot attachment.
+/// Metadata describing an uploaded file or screenshot attachment.
 ///
 /// Attached to [FeedbackDraft] submissions for bug reports and user feedback.
+/// Files uploaded through the governed upload-session flow carry an
+/// [uploadId], which [FeedbackDraft.toJson] forwards to the submission so the
+/// stored bytes become reachable through the authorized
+/// `/api/v1/feedback/attachments/{id}/download` route. Legacy deployments
+/// that still return direct storage coordinates populate [key] and [url].
 ///
 /// ### Example
 /// ```dart
 /// final attachment = FeedbackAttachment(
 ///   kind: AttachmentKind.image,
-///   key: 'img_abc123',
-///   url: 'https://imagedelivery.net/.../public',
+///   uploadId: 'upl_abc123',
 ///   filename: 'screenshot.png',
 ///   mimeType: 'image/png',
 ///   size: 102400,
@@ -54,10 +58,26 @@ class FeedbackAttachment {
   /// Storage kind (image or generic R2 file).
   final AttachmentKind kind;
 
-  /// Unique storage identifier or object key.
+  /// Reserved upload-session file slot backing the stored attachment.
+  ///
+  /// Returned by `POST /api/v1/uploads/images` and
+  /// `PUT /api/v1/uploads/{uploadId}`; [FeedbackDraft.toJson] sends it to the
+  /// submission endpoint as the reference that ties the stored file to the
+  /// feedback record. Null only for legacy descriptors created before the
+  /// upload-session flow.
+  final String? uploadId;
+
+  /// Legacy storage identifier or object key.
+  ///
+  /// The current API deliberately never returns an object key (PRIV-02), so
+  /// this stays empty for session uploads; kept for display fallbacks and
+  /// older self-hosted deployments.
   final String key;
 
-  /// Publicly accessible HTTPS URL of the hosted attachment.
+  /// Legacy publicly accessible HTTPS URL of the hosted attachment.
+  ///
+  /// Empty for session uploads: stored attachments are only reachable through
+  /// the authorized download endpoint.
   final String url;
 
   /// Original filename of the uploaded file.
@@ -72,34 +92,57 @@ class FeedbackAttachment {
   /// Creates a [FeedbackAttachment] metadata record.
   const FeedbackAttachment({
     required this.kind,
-    required this.key,
-    required this.url,
+    this.uploadId,
+    this.key = '',
+    this.url = '',
     this.filename,
     this.mimeType,
     this.size,
   });
 
   /// Deserializes [FeedbackAttachment] from a JSON map.
+  ///
+  /// Understands both current upload shapes — `ImageUploadResponse` and
+  /// `UploadedFileResponse` ([uploadId] plus file facts, no key/url) — and
+  /// the legacy `key`/`url` shape.
   factory FeedbackAttachment.fromJson(Map<String, dynamic> json) {
+    final uploadId = (json['uploadId'] as String?)?.trim();
+    final mimeType = (json['mimeType'] ?? json['contentType']) as String?;
+    final size = (json['size'] ?? json['sizeBytes']) as num?;
     return FeedbackAttachment(
-      kind: AttachmentKind.fromWire(json['kind'] as String?),
+      kind: AttachmentKind.fromWire(
+        json['kind'] as String? ??
+            (mimeType != null && mimeType.startsWith('image/')
+                ? 'image'
+                : null),
+      ),
+      uploadId: (uploadId == null || uploadId.isEmpty) ? null : uploadId,
       key: json['key'] as String? ?? json['id'] as String? ?? '',
       url: json['url'] as String? ?? '',
       filename: json['filename'] as String?,
-      mimeType: json['mimeType'] as String?,
-      size: (json['size'] as num?)?.toInt(),
+      mimeType: mimeType,
+      size: size?.toInt(),
     );
   }
 
   /// Serializes [FeedbackAttachment] to a JSON map.
-  Map<String, dynamic> toJson() => {
-    'kind': kind.wireValue,
-    'key': key,
-    'url': url,
-    if (filename != null) 'filename': filename,
-    if (mimeType != null) 'mimeType': mimeType,
-    if (size != null) 'size': size,
-  };
+  ///
+  /// [uploadId] is trimmed so the serialized attachment reference matches the
+  /// normalized IDs collected by [FeedbackDraft.toJson]; empty [key]/[url]
+  /// values are omitted rather than sent as `''`, which the API's
+  /// `AttachmentInput.url` (`format: uri`) would reject.
+  Map<String, dynamic> toJson() {
+    final normalizedUploadId = uploadId?.trim() ?? '';
+    return {
+      'kind': kind.wireValue,
+      if (normalizedUploadId.isNotEmpty) 'uploadId': normalizedUploadId,
+      if (key.isNotEmpty) 'key': key,
+      if (url.isNotEmpty) 'url': url,
+      if (filename != null) 'filename': filename,
+      if (mimeType != null) 'mimeType': mimeType,
+      if (size != null) 'size': size,
+    };
+  }
 }
 
 /// Data payload for submitting user feedback, bug reports, and suggestions.
@@ -123,6 +166,10 @@ class FeedbackAttachment {
 /// print('Submitted ID: ${result.submissionId}');
 /// ```
 class FeedbackDraft {
+  /// Maximum number of attachments the submission endpoint accepts
+  /// (`FeedbackSubmissionInput.attachments.uploadIds` `maxItems: 8`).
+  static const int maxUploadIds = 8;
+
   /// Short title summarizing the feedback or issue.
   final String title;
 
@@ -170,11 +217,29 @@ class FeedbackDraft {
   /// Serializes [FeedbackDraft] to a JSON payload ready for `POST /api/v1/feedback`.
   ///
   /// Injects SDK branding, platform wire value, and ISO 8601 submission timestamp into [metadata].
+  /// Attachments uploaded through the session flow are referenced by the
+  /// top-level `uploadIds` array (the path the API uses to link stored files
+  /// to the submission), and each `attachments` entry repeats its own
+  /// `uploadId`. Throws [ArgumentError] when more than [maxUploadIds]
+  /// attachments carry an upload ID — the API caps `uploadIds` at 8 and would
+  /// reject the payload outright.
   Map<String, dynamic> toJson({required String appKey, required String submittedAt}) {
     final meta = Map<String, String>.from(metadata);
     meta['sdk'] = 'cupthread-flutter';
     meta['platform'] = platform.wireValue;
     meta['submittedAt'] = submittedAt;
+
+    final uploadIds = [
+      for (final attachment in attachments)
+        if (attachment.uploadId != null && attachment.uploadId!.trim().isNotEmpty)
+          attachment.uploadId!.trim(),
+    ];
+    if (uploadIds.length > maxUploadIds) {
+      throw ArgumentError(
+        'At most $maxUploadIds attachments can reference an uploadId; '
+        'the submission endpoint caps uploadIds at ${FeedbackDraft.maxUploadIds}.',
+      );
+    }
 
     return {
       'appKey': appKey,
@@ -191,6 +256,7 @@ class FeedbackDraft {
         'buildNumber': buildNumber!.trim(),
       'metadata': meta,
       'attachments': attachments.map((a) => a.toJson()).toList(),
+      if (uploadIds.isNotEmpty) 'uploadIds': uploadIds,
       if (turnstileToken != null && turnstileToken!.trim().isNotEmpty)
         'turnstileToken': turnstileToken!.trim(),
     };

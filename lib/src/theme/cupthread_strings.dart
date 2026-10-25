@@ -90,6 +90,7 @@ class CupThreadStrings {
   final String changelogDisabled;
   final String configLoadFailed;
   final String attachmentTooLarge;
+  final String tooManyAttachments;
   final String submissionQuotaExceeded;
   final String subscriptionInactive;
 
@@ -190,6 +191,7 @@ class CupThreadStrings {
     this.changelogDisabled = 'Changelog is currently disabled.',
     this.configLoadFailed = 'Failed to load configuration.',
     this.attachmentTooLarge = 'Attachment exceeds the maximum allowed size.',
+    this.tooManyAttachments = 'Too many attachments (max 8).',
     this.submissionQuotaExceeded =
         'The monthly submission limit has been reached. Please try again later.',
     this.subscriptionInactive =
@@ -225,6 +227,7 @@ class CupThreadStrings {
     daysAgoSuffix: '天前',
     verificationRequired: '提交前需要完成人机验证，请在完成验证后重试。',
     submissionQuotaExceeded: '本月提交数量已达上限，请稍后再试。',
+    tooManyAttachments: '附件数量过多（最多 8 个）。',
     subscriptionInactive: '提交功能暂时不可用，请稍后再试。',
 
     featureRequests: '功能建议',
@@ -310,6 +313,7 @@ class CupThreadStrings {
     daysAgoSuffix: '日前',
     verificationRequired: '送信には人間認証（Turnstile）が必要です。認証を完了してからもう一度お試しください。',
     submissionQuotaExceeded: '今月の送信上限に達しました。後でもう一度お試しください。',
+    tooManyAttachments: '添付ファイルが多すぎます（最大8個）。',
     subscriptionInactive: '送信は現在ご利用いただけません。後でもう一度お試しください。',
 
     featureRequests: '機能リクエスト',
@@ -395,6 +399,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' j',
     verificationRequired: 'Une vérification humaine est requise pour envoyer. Merci de réessayer après avoir terminé la vérification.',
     submissionQuotaExceeded: 'La limite mensuelle de soumissions a été atteinte. Merci de réessayer plus tard.',
+    tooManyAttachments: 'Trop de pièces jointes (8 maximum).',
     subscriptionInactive: 'Les soumissions sont momentanément indisponibles. Merci de réessayer plus tard.',
 
     featureRequests: 'Demandes de fonctionnalités',
@@ -481,6 +486,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' d',
     verificationRequired: 'Se requiere verificación humana para enviar. Inténtalo de nuevo después de completar la verificación.',
     submissionQuotaExceeded: 'Se ha alcanzado el límite mensual de envíos. Inténtalo de nuevo más tarde.',
+    tooManyAttachments: 'Demasiados archivos adjuntos (máximo 8).',
     subscriptionInactive: 'Los envíos no están disponibles temporalmente. Inténtalo de nuevo más tarde.',
 
     featureRequests: 'Solicitudes de funciones',
@@ -566,6 +572,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' T.',
     verificationRequired: 'Zum Senden ist eine menschliche Verifizierung erforderlich. Bitte nach Abschluss der Verifizierung erneut versuchen.',
     submissionQuotaExceeded: 'Das monatliche Limit für Einsendungen ist erreicht. Bitte versuchen Sie es später erneut.',
+    tooManyAttachments: 'Zu viele Anhänge (maximal 8).',
     subscriptionInactive: 'Einsendungen sind derzeit nicht möglich. Bitte versuchen Sie es später erneut.',
 
     featureRequests: 'Funktionswünsche',
@@ -653,6 +660,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' g fa',
     verificationRequired: 'È richiesta la verifica umana per inviare. Riprova dopo aver completato la verifica.',
     submissionQuotaExceeded: 'Il limite mensile di invii è stato raggiunto. Riprova più tardi.',
+    tooManyAttachments: 'Troppi allegati (massimo 8).',
     subscriptionInactive: 'Gli invii non sono al momento disponibili. Riprova più tardi.',
 
     featureRequests: 'Richieste di funzionalità',
@@ -738,6 +746,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' d',
     verificationRequired: 'É necessária verificação humana para enviar. Tente novamente após concluir a verificação.',
     submissionQuotaExceeded: 'O limite mensal de envios foi atingido. Tente novamente mais tarde.',
+    tooManyAttachments: 'Anexos demais (máximo 8).',
     subscriptionInactive: 'Os envios estão temporariamente indisponíveis. Tente novamente mais tarde.',
 
     featureRequests: 'Solicitações de recursos',
@@ -823,6 +832,7 @@ class CupThreadStrings {
     daysAgoSuffix: '天前',
     verificationRequired: '提交前需要完成人機驗證，請在完成驗證後重試。',
     submissionQuotaExceeded: '本月提交數量已達上限，請稍後再試。',
+    tooManyAttachments: '附件數量過多（最多 8 個）。',
     subscriptionInactive: '提交功能暫時無法使用，請稍後再試。',
 
     featureRequests: '功能建議',
@@ -908,6 +918,7 @@ class CupThreadStrings {
     daysAgoSuffix: '일 전',
     verificationRequired: '제출하려면 사용자 인증이 필요합니다. 인증을 완료한 후 다시 시도해 주세요.',
     submissionQuotaExceeded: '이번 달 제출 한도에 도달했습니다. 나중에 다시 시도해 주세요.',
+    tooManyAttachments: '첨부 파일이 너무 많습니다 (최대 8개).',
     subscriptionInactive: '제출 기능을 현재 사용할 수 없습니다. 나중에 다시 시도해 주세요.',
 
     featureRequests: '기능 요청',
@@ -993,6 +1004,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' dni temu',
     verificationRequired: 'Wysłanie wymaga weryfikacji człowieka. Spróbuj ponownie po jej ukończeniu.',
     submissionQuotaExceeded: 'Osiągnięto miesięczny limit zgłoszeń. Spróbuj ponownie później.',
+    tooManyAttachments: 'Za dużo załączników (maksymalnie 8).',
     subscriptionInactive: 'Zgłoszenia są obecnie niedostępne. Spróbuj ponownie później.',
 
     featureRequests: 'Propozycje funkcji',
@@ -1078,6 +1090,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' d siden',
     verificationRequired: 'Menneskelig verifisering kreves for å sende. Prøv igjen etter å ha fullført verifiseringen.',
     submissionQuotaExceeded: 'Månedsgrensen for innsendinger er nådd. Prøv igjen senere.',
+    tooManyAttachments: 'For mange vedlegg (maks 8).',
     subscriptionInactive: 'Innsendinger er midlertidig utilgjengelige. Prøv igjen senere.',
 
     featureRequests: 'Funksjonsønsker',
@@ -1163,6 +1176,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' gün önce',
     verificationRequired: 'Gönderim için insan doğrulaması gerekli. Doğrulamayı tamamladıktan sonra tekrar deneyin.',
     submissionQuotaExceeded: 'Aylık gönderim limitine ulaşıldı. Lütfen daha sonra tekrar deneyin.',
+    tooManyAttachments: 'Çok fazla ek (en fazla 8).',
     subscriptionInactive: 'Gönderimler şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
 
     featureRequests: 'Özellik istekleri',
@@ -1248,6 +1262,7 @@ class CupThreadStrings {
     daysAgoSuffix: ' ngày trước',
     verificationRequired: 'Cần xác minh con người để gửi. Vui lòng thử lại sau khi hoàn tất xác minh.',
     submissionQuotaExceeded: 'Đã đạt giới hạn gửi hàng tháng. Vui lòng thử lại sau.',
+    tooManyAttachments: 'Quá nhiều tệp đính kèm (tối đa 8).',
     subscriptionInactive: 'Tính năng gửi hiện không khả dụng. Vui lòng thử lại sau.',
 
     featureRequests: 'Yêu cầu tính năng',

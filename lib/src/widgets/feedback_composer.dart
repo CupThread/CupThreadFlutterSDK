@@ -100,16 +100,32 @@ class _FeedbackComposerState extends State<FeedbackComposer> {
 
   Future<void> _handlePickAttachment() async {
     if (widget.onPickAttachment == null) return;
+    // The documented picker callback may upload the file before it returns,
+    // so refuse a full list before invoking it. The post-pick check below
+    // still protects the cap if overlapping calls complete concurrently.
+    if (_attachments.length >= FeedbackDraft.maxUploadIds) {
+      setState(
+        () => _errorMessage =
+            CupThreadTheme.stringsOf(context).tooManyAttachments,
+      );
+      return;
+    }
     setState(() => _isPickingAttachment = true);
     try {
       final attachment = await widget.onPickAttachment!();
       if (attachment != null && mounted) {
+        final strings = CupThreadTheme.stringsOf(context);
         final config = CupThreadTheme.configOf(context, listen: false);
         final maxBytes = config?.maxAttachmentBytes ?? 10485760;
         if (attachment.size != null && attachment.size! > maxBytes) {
           final maxMb = (maxBytes / (1024 * 1024)).toStringAsFixed(1);
-          final strings = CupThreadTheme.stringsOf(context);
           setState(() => _errorMessage = '${strings.attachmentTooLarge} (max $maxMb MB)');
+          return;
+        }
+        // The intake endpoint caps submissions at 8 uploadIds; refuse a 9th
+        // attachment here instead of failing at submit time.
+        if (_attachments.length >= FeedbackDraft.maxUploadIds) {
+          setState(() => _errorMessage = strings.tooManyAttachments);
           return;
         }
         setState(() => _attachments.add(attachment));

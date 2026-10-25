@@ -87,6 +87,31 @@ void main() {
       }
     });
 
+    test('all locales define non-empty issue #43 attachment keys', () {
+      final locales = [
+        CupThreadStrings.en,
+        CupThreadStrings.zhHans,
+        CupThreadStrings.ja,
+        CupThreadStrings.fr,
+        CupThreadStrings.es,
+        CupThreadStrings.de,
+        CupThreadStrings.it,
+        CupThreadStrings.pt,
+        CupThreadStrings.zhHant,
+        CupThreadStrings.ko,
+        CupThreadStrings.pl,
+        CupThreadStrings.no,
+        CupThreadStrings.tr,
+        CupThreadStrings.vi,
+      ];
+      for (final s in locales) {
+        expect(s.tooManyAttachments, isNotEmpty,
+            reason: 'tooManyAttachments missing');
+        expect(s.tooManyAttachments, isNot(equals(s.attachmentTooLarge)),
+            reason: 'tooManyAttachments must be a distinct message');
+      }
+    });
+
     test('label templates keep their placeholders in every locale', () {
       final locales = [
         CupThreadStrings.en,

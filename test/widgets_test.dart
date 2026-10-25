@@ -191,6 +191,59 @@ void main() {
 
       expect(find.text('my_screenshot.png'), findsNothing);
     });
+
+    testWidgets('refuses a 9th attachment with the localized cap message', (tester) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      const testAttachment = FeedbackAttachment(
+        kind: AttachmentKind.image,
+        uploadId: 'upl_cap_test',
+        filename: 'shot.png',
+        mimeType: 'image/png',
+      );
+
+      final mockHttpClient = MockClient((request) async {
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            child: Scaffold(
+              body: FeedbackComposer(
+                onPickAttachment: () async => testAttachment,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Fill the composer up to the 8-attachment cap.
+      for (var i = 0; i < 8; i++) {
+        await tester.tap(find.text('Add Attachment'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('shot.png'), findsNWidgets(8));
+      expect(find.textContaining('Too many attachments'), findsNothing);
+
+      // The 9th pick is refused client-side with a localized message.
+      await tester.tap(find.text('Add Attachment'));
+      await tester.pumpAndSettle();
+      expect(find.text('shot.png'), findsNWidgets(8));
+      expect(find.textContaining('Too many attachments'), findsOneWidget);
+    });
   });
 
   group('Changelog seen persistence', () {
