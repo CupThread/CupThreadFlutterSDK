@@ -1050,4 +1050,276 @@ void main() {
       expect(overlayData!.entries.first.title, 'Release 1.2.0');
     });
   });
+
+  group('Modal sheet anonymous policy enforcement', () {
+    final testItemJson = {
+      'id': 'fr_1',
+      'appId': 'app_123',
+      'title': 'Feature A',
+      'description': 'Description A',
+      'status': 'under_review',
+      'approved': true,
+      'voteCount': 5,
+      'hasVoted': false,
+      'isOwnRequest': false,
+      'createdAt': '2026-09-01T12:00:00Z',
+      'updatedAt': '2026-09-01T12:00:00Z',
+    };
+
+    MockClient buildMockClient({
+      required void Function() onVote,
+      required void Function() onSubmitFeedback,
+    }) {
+      return MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          return http.Response(
+            jsonEncode({
+              'requests': [testItemJson],
+              'totalCount': 1,
+              'hasMore': false,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.contains('/vote')) {
+          onVote();
+          return http.Response(jsonEncode({'voted': true, 'voteCount': 6}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.contains('/comments')) {
+          return http.Response(jsonEncode({'comments': []}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.contains('/versions')) {
+          return http.Response(jsonEncode({'versions': []}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/api/v1/feedback') {
+          onSubmitFeedback();
+          return http.Response(
+              jsonEncode({'submissionId': 'fb_1', 'forwardedToGithub': false}),
+              201,
+              headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      });
+    }
+
+    testWidgets(
+        'FeatureRequestDetailSheet blocks anonymous vote via the card-tap path when allowAnonymousVote = false',
+        (tester) async {
+      final config = createMockConfig(allowAnonymousVote: false);
+      bool voteApiCalled = false;
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: buildMockClient(
+          onVote: () => voteApiCalled = true,
+          onSubmitFeedback: () {},
+        ),
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: null, // anonymous user
+            child: const FeatureRequestsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Open the detail sheet the way users do: by tapping the request card.
+      await tester.tap(find.text('Feature A'));
+      await tester.pumpAndSettle();
+
+      // The list card behind the sheet still owns a VoteButton, so target the
+      // one inside the sheet.
+      final sheetVoteButton = find.descendant(
+        of: find.byType(FeatureRequestDetailSheet),
+        matching: find.byType(VoteButton),
+      );
+      expect(sheetVoteButton, findsOneWidget);
+      await tester.tap(sheetVoteButton);
+      await tester.pumpAndSettle();
+
+      expect(voteApiCalled, isFalse);
+      // ScaffoldMessenger may keep an extra Hero-flight copy of the SnackBar
+      // under the screen Scaffold behind the sheet, so assert presence rather
+      // than an exact count.
+      expect(find.text('Sign-in is required to vote.'), findsWidgets);
+    });
+
+    testWidgets(
+        'FeatureRequestDetailSheet sends votes for authenticated users when allowAnonymousVote = false',
+        (tester) async {
+      final config = createMockConfig(allowAnonymousVote: false);
+      bool voteApiCalled = false;
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: buildMockClient(
+          onVote: () => voteApiCalled = true,
+          onSubmitFeedback: () {},
+        ),
+        initialConfig: config,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: 'user-token-1', // authenticated user
+            child: const FeatureRequestsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Feature A'));
+      await tester.pumpAndSettle();
+
+      final sheetVoteButton = find.descendant(
+        of: find.byType(FeatureRequestDetailSheet),
+        matching: find.byType(VoteButton),
+      );
+      expect(sheetVoteButton, findsOneWidget);
+      await tester.tap(sheetVoteButton);
+      await tester.pumpAndSettle();
+
+      // No over-blocking: the authenticated vote request goes through.
+      expect(voteApiCalled, isTrue);
+      expect(find.text('Sign-in is required to vote.'), findsNothing);
+    });
+
+    testWidgets(
+        'FeedbackComposer.showModal blocks anonymous submission when allowAnonymousFeedback = false',
+        (tester) async {
+      final config = createMockConfig(allowAnonymousFeedback: false);
+      bool submitCalled = false;
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: buildMockClient(
+          onVote: () {},
+          onSubmitFeedback: () => submitCalled = true,
+        ),
+        initialConfig: config,
+      );
+
+      FeedbackSubmissionResult? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: null, // anonymous user
+            child: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () async {
+                  result = await FeedbackComposer.showModal(ctx);
+                },
+                child: const Text('Open Modal'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // One extra frame for CupThreadTheme to restore the anonymous
+      // identity from storage before building its child.
+      await tester.pump();
+      await tester.tap(find.text('Open Modal'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'Valid feedback summary');
+      await tester.enterText(
+          find.byType(TextField).at(1), 'Valid feedback details description');
+
+      await tester.ensureVisible(find.text('Submit Feedback'));
+      await tester.tap(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+
+      // The gate must hold on the documented showModal path, not only when
+      // the composer is mounted directly under the outer theme.
+      expect(submitCalled, isFalse);
+      expect(result, isNull);
+      expect(find.text('Sign-in is required to submit feedback.'), findsOneWidget);
+    });
+
+    testWidgets(
+        'FeedbackComposer.showModal submits for authenticated users when allowAnonymousFeedback = false',
+        (tester) async {
+      final config = createMockConfig(allowAnonymousFeedback: false);
+      bool submitCalled = false;
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: buildMockClient(
+          onVote: () {},
+          onSubmitFeedback: () => submitCalled = true,
+        ),
+        initialConfig: config,
+      );
+
+      FeedbackSubmissionResult? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            userToken: 'user-token-1', // authenticated user
+            child: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () async {
+                  result = await FeedbackComposer.showModal(ctx);
+                },
+                child: const Text('Open Modal'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.tap(find.text('Open Modal'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'Valid feedback summary');
+      await tester.enterText(
+          find.byType(TextField).at(1), 'Valid feedback details description');
+
+      await tester.ensureVisible(find.text('Submit Feedback'));
+      await tester.tap(find.text('Submit Feedback'));
+      await tester.pumpAndSettle();
+
+      // No over-blocking: the authenticated submission goes through and the
+      // sheet pops with the server result.
+      expect(submitCalled, isTrue);
+      expect(result, isNotNull);
+      expect(result!.submissionId, 'fb_1');
+      expect(find.byType(FeedbackComposer), findsNothing);
+    });
+  });
 }
