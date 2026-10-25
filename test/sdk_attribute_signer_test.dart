@@ -306,7 +306,7 @@ void main() {
       expect(body['timestamp'], 1700000000);
     });
 
-    test('leaves non-payment attributes unsigned', () async {
+    test('leaves identity-only updates unsigned', () async {
       late http.Request capturedRequest;
       final mockClient = MockClient((request) async {
         capturedRequest = request;
@@ -326,17 +326,98 @@ void main() {
         httpClient: mockClient,
       );
 
-      // Currency only, no isPaying/plan/mrr
-      await client.updateUserAttributes(
-        userToken: userToken,
-        currency: 'EUR',
-      );
+      // No isPaying/plan/mrr/currency — the gate must not over-trigger.
+      await client.updateUserAttributes(userToken: userToken);
 
       final body = jsonDecode(capturedRequest.body) as Map<String, dynamic>;
-      expect(body['currency'], 'EUR');
+      expect(body['userToken'], userToken);
       expect(body.containsKey('signature'), isFalse);
       expect(body.containsKey('timestamp'), isFalse);
       expect(body.containsKey('isPaying'), isFalse);
+      expect(body.containsKey('currency'), isFalse);
+    });
+
+    test('signs currency-only updates as a verified attribute (fixes #54)', () async {
+      late http.Request capturedRequest;
+      final mockClient = MockClient((request) async {
+        capturedRequest = request;
+        return http.Response(
+          jsonEncode({'ok': true, 'updatedAt': '2026-09-17T00:00:00Z'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: appKey,
+          sdkSigningSecret: secret,
+        ),
+        httpClient: mockClient,
+      );
+
+      await client.updateUserAttributes(
+        userToken: userToken,
+        currency: ' eur ',
+      );
+
+      final body = jsonDecode(capturedRequest.body) as Map<String, dynamic>;
+      // The value is trimmed before it is sent and signed as sent.
+      expect(body['currency'], 'eur');
+
+      final signature = body['signature'] as String;
+      final timestamp = body['timestamp'] as int;
+      expect(signature, matches(RegExp(r'^[0-9a-f]{64}$')));
+
+      final unsignedBody = <String, dynamic>{...body}
+        ..remove('signature')
+        ..remove('timestamp');
+      expect(
+        SdkAttributeSigner.verify(
+          secret: secret,
+          signature: signature,
+          appKey: appKey,
+          userToken: userToken,
+          raw: unsignedBody,
+          timestamp: timestamp,
+        ),
+        isTrue,
+      );
+    });
+
+    test('throws ArgumentError for a currency-only update when no secret is configured', () async {
+      var requestCount = 0;
+      final mockClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({'ok': true, 'updatedAt': '2026-09-17T00:00:00Z'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: appKey,
+          // No secret
+        ),
+        httpClient: mockClient,
+      );
+
+      await expectLater(
+        client.updateUserAttributes(
+          userToken: userToken,
+          currency: 'EUR',
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('sdkSigningSecret is required'),
+        )),
+      );
+      expect(requestCount, 0);
     });
 
     test('accepts explicit precomputed signature and timestamp', () async {
@@ -458,10 +539,10 @@ void main() {
       expect(sentSignature, expected);
     });
 
-    test('sends unsigned when payment attributes provided without secret (allowing server 422)', () async {
-      late http.Request capturedRequest;
+    test('throws ArgumentError when payment attributes are reported without any secret (fixes #54)', () async {
+      var requestCount = 0;
       final mockClient = MockClient((request) async {
-        capturedRequest = request;
+        requestCount++;
         return http.Response(
           jsonEncode({
             'error': 'payment_attributes_require_signature',
@@ -486,12 +567,16 @@ void main() {
           userToken: userToken,
           isPaying: true,
         ),
-        throwsA(isA<UnexpectedStatusException>().having((e) => e.status, 'status', 422)),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('sdkSigningSecret is required'),
+        )),
       );
 
-      final body = jsonDecode(capturedRequest.body) as Map<String, dynamic>;
-      expect(body.containsKey('signature'), isFalse);
-      expect(body.containsKey('timestamp'), isFalse);
+      // The failure is client-side: an unsigned request that the API is
+      // guaranteed to reject is never sent.
+      expect(requestCount, 0);
     });
   });
 }
