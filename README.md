@@ -247,7 +247,8 @@ it.
 | `submitFeatureRequest(draft, userToken)` | `POST /api/v1/feature-requests` | Propose a new feature request |
 | `castVote(featureRequestId, userToken)` | `POST /api/v1/feature-requests/{id}/vote` | Cast an upvote (insert-only, idempotent) |
 | `removeVote(featureRequestId, userToken)` | `DELETE /api/v1/feature-requests/{id}/vote` | Remove an upvote (idempotent) |
-| `fetchComments(featureRequestId)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch discussion comments |
+| `fetchComments(featureRequestId)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch all discussion comments (follows cursor pagination) |
+| `fetchCommentsPage(featureRequestId, limit, cursor)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch one page of comments (`total` / `hasMore` / `nextCursor`) |
 | `postComment(featureRequestId, draft, userToken)` | `POST /api/v1/feature-requests/{id}/comments` | Post a comment or reply |
 | `fetchChangelog()` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch published release notes (follows cursor pagination) |
 | `fetchChangelogPage(limit, cursor)` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch one page of release notes (`hasMore` / `nextCursor`) |

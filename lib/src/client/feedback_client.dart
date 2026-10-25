@@ -601,15 +601,71 @@ class FeedbackClient {
     );
   }
 
-  /// Fetches discussion comments.
-  Future<List<FeatureRequestComment>> fetchComments(String featureRequestId) async {
+  /// Maximum number of pages [fetchComments] will follow before giving up.
+  ///
+  /// Guards against a misbehaving server that keeps returning a non-advancing
+  /// `nextCursor`, which would otherwise loop forever.
+  static const int _commentsMaxPages = 100;
+
+  /// Fetches a single page of discussion comments.
+  ///
+  /// Maps to `GET /api/v1/feature-requests/:id/comments` with the optional
+  /// `limit` (1–200) and opaque `cursor` query parameters. The returned
+  /// [FeatureRequestCommentPage] exposes `total`, `hasMore` and `nextCursor`;
+  /// pass a previously returned cursor back in to walk through comments
+  /// beyond the first page.
+  ///
+  /// To fetch everything at once, use [fetchComments].
+  Future<FeatureRequestCommentPage> fetchCommentsPage(
+    String featureRequestId, {
+    int? limit,
+    String? cursor,
+  }) async {
+    final params = <String, String>{};
+    if (limit != null) {
+      params['limit'] = limit.clamp(1, 200).toString();
+    }
+    if (cursor != null && cursor.isNotEmpty) {
+      params['cursor'] = cursor;
+    }
+    final queryString = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
     final json = await _sendJson(
       method: 'GET',
-      path: '/api/v1/feature-requests/$featureRequestId/comments',
+      path: '/api/v1/feature-requests/$featureRequestId/comments$queryString',
     );
-    return (json['comments'] as List<dynamic>? ?? [])
-        .map((c) => FeatureRequestComment.fromJson(c as Map<String, dynamic>))
-        .toList();
+    return FeatureRequestCommentPage.fromJson(json);
+  }
+
+  /// Fetches all discussion comments on a feature request, in server order.
+  ///
+  /// Follows `hasMore` / `nextCursor` across pages so threads with more than
+  /// one page still load completely. Stops early when the server fails to
+  /// advance the cursor (null, unchanged, or already visited), and a page cap
+  /// of [_commentsMaxPages] backstops anything else.
+  Future<List<FeatureRequestComment>> fetchComments(String featureRequestId) async {
+    final all = <FeatureRequestComment>[];
+    final seenCursors = <String>{};
+    String? cursor;
+    var hasMore = true;
+    for (var page = 0; hasMore && page < _commentsMaxPages; page++) {
+      final result = await fetchCommentsPage(featureRequestId, cursor: cursor);
+      final next = result.nextCursor;
+
+      // While hasMore is true the server must hand back an advancing
+      // cursor; a null, unchanged, or revisited cursor would return the
+      // same page forever. Keep the first page's comments even then, but
+      // drop a repeated page so its entries are not appended twice.
+      final cannotAdvance = result.hasMore &&
+          (next == null || next == cursor || seenCursors.contains(next));
+      if (!cannotAdvance || cursor == null) {
+        all.addAll(result.comments);
+      }
+      if (next != null) seenCursors.add(next);
+      hasMore = result.hasMore;
+      cursor = next;
+      if (cannotAdvance) break;
+    }
+    return all;
   }
 
   /// Posts a comment on a feature request.

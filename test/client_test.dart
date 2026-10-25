@@ -499,5 +499,247 @@ void main() {
       expect(requestCount, 1);
       expect(entries, hasLength(1));
     });
+
+    Map<String, dynamic> commentJson(String id) => {
+          'id': id,
+          'featureRequestId': 'fr_abc',
+          'authorName': 'User $id',
+          'body': 'Body of $id',
+          'createdAt': '2026-05-01T00:00:00.000Z',
+        };
+
+    test('fetchCommentsPage sends limit/cursor params and parses total/hasMore/nextCursor', () async {
+      final capturedUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        capturedUrls.add(request.url);
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_1')],
+            'total': 340,
+            'hasMore': true,
+            'nextCursor': 'next-page',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final page = await client.fetchCommentsPage('fr_abc', limit: 100, cursor: 'cur-1');
+
+      expect(capturedUrls, hasLength(1));
+      expect(capturedUrls.single.path, '/api/v1/feature-requests/fr_abc/comments');
+      expect(capturedUrls.single.queryParameters['limit'], '100');
+      expect(capturedUrls.single.queryParameters['cursor'], 'cur-1');
+      expect(page.comments, hasLength(1));
+      expect(page.comments.single.id, 'cm_1');
+      expect(page.total, 340);
+      expect(page.hasMore, isTrue);
+      expect(page.nextCursor, 'next-page');
+    });
+
+    test('fetchCommentsPage clamps limit to the documented 1..200 range', () async {
+      final capturedUrls = <Uri>[];
+
+      final mockHttpClient = MockClient((request) async {
+        capturedUrls.add(request.url);
+        return http.Response(
+          jsonEncode({'comments': [], 'total': 0, 'hasMore': false, 'nextCursor': null}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await client.fetchCommentsPage('fr_abc', limit: 500);
+      await client.fetchCommentsPage('fr_abc', limit: 0);
+
+      expect(capturedUrls[0].queryParameters['limit'], '200');
+      expect(capturedUrls[1].queryParameters['limit'], '1');
+    });
+
+    test('fetchComments follows all pages and concatenates them in server order', () async {
+      final cursorsSeen = <String?>[];
+
+      final mockHttpClient = MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        cursorsSeen.add(cursor);
+        if (cursor == null) {
+          return http.Response(
+            jsonEncode({
+              'comments': [commentJson('cm_1'), commentJson('cm_2')],
+              'total': 3,
+              'hasMore': true,
+              'nextCursor': 'page-2',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_3')],
+            'total': 3,
+            'hasMore': false,
+            'nextCursor': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final comments = await client.fetchComments('fr_abc');
+
+      expect(cursorsSeen, [null, 'page-2']);
+      expect(comments.map((c) => c.id).toList(), ['cm_1', 'cm_2', 'cm_3']);
+    });
+
+    test('fetchComments stays compatible with a legacy single-page response', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_only')],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final comments = await client.fetchComments('fr_abc');
+
+      expect(requestCount, 1);
+      expect(comments, hasLength(1));
+      expect(comments.single.id, 'cm_only');
+    });
+
+    test('fetchComments stops early on a server that repeats the same nextCursor', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_$requestCount')],
+            'total': 99,
+            'hasMore': true,
+            'nextCursor': 'same-cursor',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final comments = await client.fetchComments('fr_abc');
+
+      // The repeated page is dropped, so no duplicate comments are appended.
+      expect(requestCount, 2);
+      expect(comments, hasLength(1));
+      expect(comments.single.id, 'cm_1');
+    });
+
+    test('fetchComments stops early on a server that revisits an earlier cursor', () async {
+      final mockHttpClient = MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        // An alternating cursor cycle: null → b → a → b → a → …
+        final next = cursor == 'a' ? 'b' : 'a';
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_${cursor ?? 'first'}')],
+            'total': 99,
+            'hasMore': true,
+            'nextCursor': next,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final comments = await client.fetchComments('fr_abc');
+
+      // Requests: first page, then 'a', then 'b' whose next cursor 'a' was
+      // already visited — the loop stops there and drops that final page.
+      expect(comments.map((c) => c.id).toList(), ['cm_first', 'cm_a']);
+    });
+
+    test('fetchComments stops on hasMore=true with a null nextCursor', () async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'comments': [commentJson('cm_$requestCount')],
+            'total': 99,
+            'hasMore': true,
+            'nextCursor': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final comments = await client.fetchComments('fr_abc');
+
+      expect(requestCount, 1);
+      expect(comments, hasLength(1));
+    });
   });
 }
