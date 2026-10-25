@@ -249,7 +249,7 @@ it.
 | `removeVote(featureRequestId, userToken)` | `DELETE /api/v1/feature-requests/{id}/vote` | Remove an upvote (idempotent) |
 | `fetchComments(featureRequestId)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch all discussion comments (follows cursor pagination) |
 | `fetchCommentsPage(featureRequestId, limit, cursor)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch one page of comments (`total` / `hasMore` / `nextCursor`) |
-| `postComment(featureRequestId, draft, userToken)` | `POST /api/v1/feature-requests/{id}/comments` | Post a comment or reply |
+| `postComment(featureRequestId, draft, userToken)` | `POST /api/v1/feature-requests/{id}/comments` | Post a comment or reply — Clerk session only; requires a session-capable `http.Client` (anonymous `X-User-Token` gets 401) |
 | `fetchChangelog()` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch published release notes (follows cursor pagination) |
 | `fetchChangelogPage(limit, cursor)` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch one page of release notes (`hasMore` / `nextCursor`) |
 | `subscribeToChangelog(email, userToken)` | `POST /api/v1/public/apps/{appKey}/changelog/subscribe` | Subscribe email to changelog |

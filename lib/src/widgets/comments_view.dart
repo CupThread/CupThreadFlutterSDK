@@ -30,7 +30,6 @@ class _CommentsViewState extends State<CommentsView> {
   static const int _maxCommentPages = 100;
 
   final _textController = TextEditingController();
-  final _nameController = TextEditingController();
 
   @override
   void initState() {
@@ -41,7 +40,6 @@ class _CommentsViewState extends State<CommentsView> {
   @override
   void dispose() {
     _textController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -94,11 +92,10 @@ class _CommentsViewState extends State<CommentsView> {
     setState(() => _isPosting = true);
 
     try {
+      // Author attribution is resolved server-side from the signed-in
+      // profile, so the draft carries no client-supplied author fields.
       final draft = CommentDraft(
         body: body,
-        authorName: _nameController.text.trim().isNotEmpty
-            ? _nameController.text.trim()
-            : null,
         parentId: _replyingTo?.id,
         replyToClerkId: _replyingTo?.authorClerkId,
         replyToAuthorName: _replyingTo?.authorName,
@@ -122,11 +119,14 @@ class _CommentsViewState extends State<CommentsView> {
     } catch (e) {
       if (mounted) {
         setState(() => _isPosting = false);
+        final strings = CupThreadTheme.stringsOf(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e is TurnstileRequiredException
-                ? CupThreadTheme.stringsOf(context).verificationRequired
-                : CupThreadTheme.stringsOf(context).commentPostFailed),
+                ? strings.verificationRequired
+                : e is AuthenticationRequiredException
+                    ? strings.signInRequiredToComment
+                    : strings.commentPostFailed),
           ),
         );
       }
@@ -173,7 +173,14 @@ class _CommentsViewState extends State<CommentsView> {
         else
           ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
         const SizedBox(height: 12),
-        _buildComposeBox(colors, strings),
+        // The public API accepts comment writes from a Clerk end-user session
+        // only; the SDK's anonymous X-User-Token identity is always rejected
+        // with 401, so an anonymous session gets a sign-in notice instead of
+        // a compose box that can never succeed.
+        if (CupThreadTheme.isAnonymous(context))
+          _buildSignInNotice(colors, strings)
+        else
+          _buildComposeBox(colors, strings),
       ],
     );
   }
@@ -253,6 +260,32 @@ class _CommentsViewState extends State<CommentsView> {
     );
   }
 
+  Widget _buildSignInNotice(CupThreadColors colors, CupThreadStrings strings) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_outline, size: 16, color: colors.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              strings.signInRequiredToComment,
+              style: TextStyle(
+                fontSize: 13,
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildComposeBox(CupThreadColors colors, CupThreadStrings strings) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -294,26 +327,6 @@ class _CommentsViewState extends State<CommentsView> {
                 ],
               ),
             ),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: strings.yourNameOptional,
-              hintStyle: TextStyle(color: colors.textMuted, fontSize: 13),
-              isDense: true,
-              filled: true,
-              fillColor: colors.inputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: colors.inputBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: colors.inputBorder),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
           TextField(
             controller: _textController,
             maxLines: 2,
