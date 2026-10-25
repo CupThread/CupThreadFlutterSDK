@@ -75,6 +75,30 @@ void main() {
       expect(comment.id, 'cm_9');
       expect(comment.body, 'Hello world');
     });
+
+    test('rejects a present-but-invalid comment envelope', () async {
+      for (final body in [
+        jsonEncode({'comment': null}),
+        jsonEncode({'comment': 'cm_9'}),
+      ]) {
+        final client = clientWith(MockClient((request) async {
+          return http.Response(
+            body,
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }));
+
+        await expectLater(
+          client.postComment(
+            'fr_1',
+            const CommentDraft(body: 'Hello world'),
+            userToken: 'user_tok_1',
+          ),
+          throwsA(isA<InvalidResponseException>()),
+        );
+      }
+    });
   });
 
   group('issue #51 — CommentsView posting and replying', () {
@@ -165,6 +189,26 @@ void main() {
         thread: () => [
           {
             'id': '',
+            'featureRequestId': 'fr_1',
+            'body': 'ghost',
+            'createdAt': '2026-05-01T00:00:00.000Z',
+          },
+        ],
+      ));
+
+      await tester.pumpWidget(host(client));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ghost'), findsOneWidget);
+      expect(find.text('Reply'), findsNothing);
+    });
+
+    testWidgets('a comment with a whitespace-only id offers no reply affordance',
+        (tester) async {
+      final client = clientWith(commentsFeedMock(
+        thread: () => [
+          {
+            'id': '   ',
             'featureRequestId': 'fr_1',
             'body': 'ghost',
             'createdAt': '2026-05-01T00:00:00.000Z',

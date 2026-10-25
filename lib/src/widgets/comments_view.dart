@@ -99,7 +99,7 @@ class _CommentsViewState extends State<CommentsView> {
       // API rejects that with 400 invalid_parent — so it degrades to a
       // top-level comment.
       final target = _replyingTo;
-      final canReply = target != null && target.id.isNotEmpty;
+      final canReply = target != null && target.id.trim().isNotEmpty;
       final draft = CommentDraft(
         body: body,
         parentId: canReply ? target.id : null,
@@ -250,10 +250,10 @@ class _CommentsViewState extends State<CommentsView> {
           const SizedBox(height: 6),
           MarkdownText(content: comment.body),
           const SizedBox(height: 6),
-          // A comment without an id cannot be referenced by a reply, so it
-          // renders without the reply affordance rather than inviting a
-          // reply the API would reject.
-          if (comment.id.isNotEmpty)
+          // A comment without a usable id cannot be referenced by a reply,
+          // so it renders without the reply affordance rather than
+          // inviting a reply the API would reject.
+          if (comment.id.trim().isNotEmpty)
             GestureDetector(
               onTap: () => setState(() => _replyingTo = comment),
               child: Text(

@@ -686,7 +686,9 @@ class FeedbackClient {
   /// The server answers with the created comment wrapped in an envelope
   /// (`FeatureRequestCommentCreated`: `{ "comment": { … } }`), which this
   /// method unwraps. A flat comment object without a `comment` key is also
-  /// accepted so hosts serving hand-written fixtures keep working.
+  /// accepted so hosts serving hand-written fixtures keep working; a
+  /// present-but-invalid `comment` value is rejected as an invalid
+  /// response.
   Future<FeatureRequestComment> postComment(
     String featureRequestId,
     CommentDraft draft, {
@@ -699,8 +701,17 @@ class FeedbackClient {
       userToken: userToken,
       acceptedStatuses: const [200, 201],
     );
-    final envelope = json['comment'];
-    final payload = envelope is Map<String, dynamic> ? envelope : json;
+    final Object? envelope = json['comment'];
+    final Map<String, dynamic> payload;
+    if (!json.containsKey('comment')) {
+      payload = json;
+    } else if (envelope is Map<String, dynamic>) {
+      payload = envelope;
+    } else {
+      throw const InvalidResponseException(
+        'POST /comments response has an invalid "comment" envelope',
+      );
+    }
     return FeatureRequestComment.fromJson(payload);
   }
 
