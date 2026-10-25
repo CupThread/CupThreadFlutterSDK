@@ -94,11 +94,17 @@ class _CommentsViewState extends State<CommentsView> {
     try {
       // Author attribution is resolved server-side from the signed-in
       // profile, so the draft carries no client-supplied author fields.
+      // A reply target whose id never arrived (e.g. a comment parsed from
+      // a legacy flat fixture) must not be sent as `parentId: ''` — the
+      // API rejects that with 400 invalid_parent — so it degrades to a
+      // top-level comment.
+      final target = _replyingTo;
+      final canReply = target != null && target.id.isNotEmpty;
       final draft = CommentDraft(
         body: body,
-        parentId: _replyingTo?.id,
-        replyToClerkId: _replyingTo?.authorClerkId,
-        replyToAuthorName: _replyingTo?.authorName,
+        parentId: canReply ? target.id : null,
+        replyToClerkId: canReply ? target.authorClerkId : null,
+        replyToAuthorName: canReply ? target.authorName : null,
       );
 
       final newComment = await client.postComment(
@@ -244,17 +250,21 @@ class _CommentsViewState extends State<CommentsView> {
           const SizedBox(height: 6),
           MarkdownText(content: comment.body),
           const SizedBox(height: 6),
-          GestureDetector(
-            onTap: () => setState(() => _replyingTo = comment),
-            child: Text(
-              strings.reply,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: colors.primary,
+          // A comment without an id cannot be referenced by a reply, so it
+          // renders without the reply affordance rather than inviting a
+          // reply the API would reject.
+          if (comment.id.isNotEmpty)
+            GestureDetector(
+              onTap: () => setState(() => _replyingTo = comment),
+              child: Text(
+                strings.reply,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colors.primary,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
