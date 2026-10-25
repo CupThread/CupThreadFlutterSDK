@@ -120,10 +120,20 @@ class FeatureRequestCommentPage {
 }
 
 /// Draft for posting a new comment.
+///
+/// Author attribution is resolved server-side from the signed-in profile:
+/// the API accepts comments from a Clerk end-user session only and ignores
+/// client-supplied [authorName] / [authorEmail] / [authorAvatarUrl]. The
+/// fields remain part of the payload for API-shape compatibility, but hosts
+/// should not rely on them having any effect.
 class CommentDraft {
   final String body;
+
+  /// Ignored by the server; authorship is resolved from the signed-in profile.
   final String? authorName;
   final String? authorEmail;
+
+  /// Ignored by the server; the avatar is resolved from the signed-in profile.
   final String? authorAvatarUrl;
   final String? parentId;
   final String? replyToClerkId;

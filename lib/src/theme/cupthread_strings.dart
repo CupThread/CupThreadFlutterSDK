@@ -112,6 +112,7 @@ class CupThreadStrings {
   final String commentOn;
   final String signInRequired;
   final String signInRequiredToVote;
+  final String signInRequiredToComment;
   final String signInRequiredToSubmitFeedback;
   final String unexpectedError;
 
@@ -208,6 +209,7 @@ class CupThreadStrings {
     this.commentOn = 'on {title}',
     this.signInRequired = 'Sign-in is required.',
     this.signInRequiredToVote = 'Sign-in is required to vote.',
+    this.signInRequiredToComment = 'Sign-in is required to comment.',
     this.signInRequiredToSubmitFeedback = 'Sign-in is required to submit feedback.',
     this.unexpectedError = 'Something went wrong. Please try again.',
   });
@@ -297,6 +299,7 @@ class CupThreadStrings {
     commentOn: '关于「{title}」',
     signInRequired: '需要登录。',
     signInRequiredToVote: '投票前需要登录。',
+    signInRequiredToComment: '评论前需要登录。',
     signInRequiredToSubmitFeedback: '提交反馈前需要登录。',
     unexpectedError: '出错了，请重试。',
   );
@@ -383,6 +386,7 @@ class CupThreadStrings {
     commentOn: '{title} について',
     signInRequired: 'サインインが必要です。',
     signInRequiredToVote: '投票にはサインインが必要です。',
+    signInRequiredToComment: 'コメントするにはサインインが必要です。',
     signInRequiredToSubmitFeedback: 'フィードバックの送信にはサインインが必要です。',
     unexpectedError: '問題が発生しました。もう一度お試しください。',
   );
@@ -470,6 +474,7 @@ class CupThreadStrings {
     commentOn: 'sur {title}',
     signInRequired: 'Connexion requise.',
     signInRequiredToVote: 'Connexion requise pour voter.',
+    signInRequiredToComment: 'Connexion requise pour commenter.',
     signInRequiredToSubmitFeedback: 'Connexion requise pour envoyer un retour.',
     unexpectedError: 'Une erreur est survenue. Merci de réessayer.',
   );
@@ -556,6 +561,7 @@ class CupThreadStrings {
     commentOn: 'sobre {title}',
     signInRequired: 'Se requiere iniciar sesión.',
     signInRequiredToVote: 'Se requiere iniciar sesión para votar.',
+    signInRequiredToComment: 'Se requiere iniciar sesión para comentar.',
     signInRequiredToSubmitFeedback: 'Se requiere iniciar sesión para enviar comentarios.',
     unexpectedError: 'Algo salió mal. Inténtalo de nuevo.',
   );
@@ -644,6 +650,7 @@ class CupThreadStrings {
     commentOn: 'zu {title}',
     signInRequired: 'Anmeldung erforderlich.',
     signInRequiredToVote: 'Zum Abstimmen ist eine Anmeldung erforderlich.',
+    signInRequiredToComment: 'Zum Kommentieren ist eine Anmeldung erforderlich.',
     signInRequiredToSubmitFeedback: 'Zum Senden von Feedback ist eine Anmeldung erforderlich.',
     unexpectedError: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.',
   );
@@ -730,6 +737,7 @@ class CupThreadStrings {
     commentOn: 'su {title}',
     signInRequired: 'Accesso richiesto.',
     signInRequiredToVote: 'È necessario accedere per votare.',
+    signInRequiredToComment: 'È necessario accedere per commentare.',
     signInRequiredToSubmitFeedback: 'È necessario accedere per inviare un feedback.',
     unexpectedError: 'Si è verificato un errore. Riprova.',
   );
@@ -816,6 +824,7 @@ class CupThreadStrings {
     commentOn: 'sobre {title}',
     signInRequired: 'É necessário entrar.',
     signInRequiredToVote: 'É necessário entrar para votar.',
+    signInRequiredToComment: 'É necessário entrar para comentar.',
     signInRequiredToSubmitFeedback: 'É necessário entrar para enviar feedback.',
     unexpectedError: 'Algo deu errado. Tente novamente.',
   );
@@ -902,6 +911,7 @@ class CupThreadStrings {
     commentOn: '關於「{title}」',
     signInRequired: '需要登入。',
     signInRequiredToVote: '投票前需要登入。',
+    signInRequiredToComment: '留言前需要登入。',
     signInRequiredToSubmitFeedback: '提交回饋前需要登入。',
     unexpectedError: '發生錯誤，請重試。',
   );
@@ -988,6 +998,7 @@ class CupThreadStrings {
     commentOn: '{title}에 대한 댓글',
     signInRequired: '로그인이 필요합니다.',
     signInRequiredToVote: '투표하려면 로그인이 필요합니다.',
+    signInRequiredToComment: '댓글을 작성하려면 로그인이 필요합니다.',
     signInRequiredToSubmitFeedback: '피드백을 제출하려면 로그인이 필요합니다.',
     unexpectedError: '문제가 발생했습니다. 다시 시도해 주세요.',
   );
@@ -1074,6 +1085,7 @@ class CupThreadStrings {
     commentOn: 'dotyczy: {title}',
     signInRequired: 'Wymagane zalogowanie.',
     signInRequiredToVote: 'Aby zagłosować, musisz się zalogować.',
+    signInRequiredToComment: 'Aby dodać komentarz, musisz się zalogować.',
     signInRequiredToSubmitFeedback: 'Aby wysłać opinię, musisz się zalogować.',
     unexpectedError: 'Coś poszło nie tak. Spróbuj ponownie.',
   );
@@ -1160,6 +1172,7 @@ class CupThreadStrings {
     commentOn: 'om {title}',
     signInRequired: 'Innlogging kreves.',
     signInRequiredToVote: 'Innlogging kreves for å stemme.',
+    signInRequiredToComment: 'Innlogging kreves for å kommentere.',
     signInRequiredToSubmitFeedback: 'Innlogging kreves for å gi tilbakemelding.',
     unexpectedError: 'Noe gikk galt. Prøv igjen.',
   );
@@ -1246,6 +1259,7 @@ class CupThreadStrings {
     commentOn: '{title} üzerine',
     signInRequired: 'Oturum açmanız gerekiyor.',
     signInRequiredToVote: 'Oy vermek için oturum açmanız gerekiyor.',
+    signInRequiredToComment: 'Yorum yapmak için oturum açmanız gerekiyor.',
     signInRequiredToSubmitFeedback: 'Geri bildirim göndermek için oturum açmanız gerekiyor.',
     unexpectedError: 'Bir şeyler ters gitti. Tekrar deneyin.',
   );
@@ -1332,6 +1346,7 @@ class CupThreadStrings {
     commentOn: 'về {title}',
     signInRequired: 'Cần đăng nhập.',
     signInRequiredToVote: 'Cần đăng nhập để bình chọn.',
+    signInRequiredToComment: 'Cần đăng nhập để bình luận.',
     signInRequiredToSubmitFeedback: 'Cần đăng nhập để gửi phản hồi.',
     unexpectedError: 'Đã xảy ra lỗi. Vui lòng thử lại.',
   );
@@ -1483,6 +1498,7 @@ class CupThreadStrings {
     String? commentOn,
     String? signInRequired,
     String? signInRequiredToVote,
+    String? signInRequiredToComment,
     String? signInRequiredToSubmitFeedback,
     String? unexpectedError,
   }) {
@@ -1572,6 +1588,8 @@ class CupThreadStrings {
       commentOn: commentOn ?? this.commentOn,
       signInRequired: signInRequired ?? this.signInRequired,
       signInRequiredToVote: signInRequiredToVote ?? this.signInRequiredToVote,
+      signInRequiredToComment:
+          signInRequiredToComment ?? this.signInRequiredToComment,
       signInRequiredToSubmitFeedback:
           signInRequiredToSubmitFeedback ?? this.signInRequiredToSubmitFeedback,
       unexpectedError: unexpectedError ?? this.unexpectedError,

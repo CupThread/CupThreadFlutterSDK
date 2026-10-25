@@ -669,6 +669,18 @@ class FeedbackClient {
   }
 
   /// Posts a comment on a feature request.
+  ///
+  /// The API authenticates comment writes with a **Clerk end-user session
+  /// only**: the anonymous `X-User-Token` identity this SDK resolves from
+  /// [FeedbackClientConfig] is not accepted and every call without a Clerk
+  /// session is rejected with `401 authentication_required`
+  /// ([AuthenticationRequiredException]). The bundled widgets hide the
+  /// composer for anonymous sessions accordingly; calling this method
+  /// directly requires the host to inject an `http.Client` whose requests
+  /// carry the end user's Clerk session credentials.
+  ///
+  /// Author attribution ([CommentDraft.authorName] and friends) is resolved
+  /// server-side from the signed-in profile and ignored on the wire.
   Future<FeatureRequestComment> postComment(
     String featureRequestId,
     CommentDraft draft, {
