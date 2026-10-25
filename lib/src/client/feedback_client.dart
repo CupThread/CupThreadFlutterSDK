@@ -680,7 +680,8 @@ class FeedbackClient {
   /// carry the end user's Clerk session credentials.
   ///
   /// Author attribution ([CommentDraft.authorName] and friends) is resolved
-  /// server-side from the signed-in profile and ignored on the wire.
+  /// server-side from the signed-in profile: the server ignores the
+  /// client-supplied author fields even though the draft still sends them.
   Future<FeatureRequestComment> postComment(
     String featureRequestId,
     CommentDraft draft, {
