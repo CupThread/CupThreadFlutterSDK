@@ -4,8 +4,9 @@ import 'package:crypto/crypto.dart';
 /// Utilities for canonicalizing and signing end-user payment attributes
 /// for `PUT /api/v1/public/apps/:appKey/user` (cpt-user-attrs-v1 protocol).
 ///
-/// End-user payment attributes (`isPaying`, `mrr`, `plan`) require an
-/// HMAC-SHA256 signature produced with the app's per-app SDK signing secret.
+/// End-user payment attributes (`isPaying`, `mrr`, `plan`, `currency`)
+/// require an HMAC-SHA256 signature produced with the app's per-app SDK
+/// signing secret.
 class SdkAttributeSigner {
   const SdkAttributeSigner._();
 

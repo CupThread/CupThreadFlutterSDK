@@ -844,9 +844,9 @@ class FeedbackClient {
 
   /// Reports self-declared user attributes.
   ///
-  /// Calls that report payment attributes ([isPaying], [plan], or [mrr])
-  /// must carry an HMAC-SHA256 signature produced with the app's SDK signing secret
-  /// (cpt-user-attrs-v1).
+  /// Calls that report any verified attribute ([isPaying], [plan], [mrr], or
+  /// [currency]) must carry an HMAC-SHA256 signature produced with the app's
+  /// SDK signing secret (cpt-user-attrs-v1).
   ///
   /// If [signature] is provided, it and [timestamp] are sent directly.
   /// [signature] must be accompanied by the [timestamp] the canonical string was
@@ -855,7 +855,11 @@ class FeedbackClient {
   /// a freshly generated one would never match.
   /// Otherwise, if a signing secret is configured in [signingSecret] or
   /// [FeedbackClientConfig.sdkSigningSecret], the SDK automatically signs the payload.
-  /// Requests without payment attributes (identity or [currency] only) remain unsigned.
+  /// Reporting a verified attribute without any configured secret throws
+  /// [ArgumentError] before any network call — the API rejects unsigned
+  /// payment attributes with `422 payment_attributes_require_signature`.
+  /// Identity-only updates (none of [isPaying], [plan], [mrr], [currency])
+  /// remain unsigned.
   Future<UserAttributesUpdateResult> updateUserAttributes({
     required String userToken,
     bool? isPaying,
@@ -874,8 +878,10 @@ class FeedbackClient {
     if (mrr != null) body['mrr'] = mrr;
     if (currency != null && currency.isNotEmpty) body['currency'] = currency.trim();
 
-    final assertsPayment =
-        body.containsKey('isPaying') || body.containsKey('plan') || body.containsKey('mrr');
+    final assertsPayment = body.containsKey('isPaying') ||
+        body.containsKey('plan') ||
+        body.containsKey('mrr') ||
+        body.containsKey('currency');
 
     if (signature != null && signature.isNotEmpty) {
       if (timestamp == null) {
@@ -888,19 +894,24 @@ class FeedbackClient {
       body['timestamp'] = timestamp;
     } else if (assertsPayment) {
       final secret = signingSecret ?? config.sdkSigningSecret;
-      if (secret != null && secret.isNotEmpty) {
-        final ts =
-            timestamp ?? (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000);
-        final sig = SdkAttributeSigner.sign(
-          secret: secret,
-          appKey: config.appKey,
-          userToken: userToken,
-          raw: body,
-          timestamp: ts,
+      if (secret == null || secret.isEmpty) {
+        throw ArgumentError(
+          'sdkSigningSecret is required when reporting isPaying, plan, mrr, '
+          'or currency; the API rejects unsigned payment attributes with '
+          '422 payment_attributes_require_signature',
         );
-        body['timestamp'] = ts;
-        body['signature'] = sig;
       }
+      final ts =
+          timestamp ?? (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000);
+      final sig = SdkAttributeSigner.sign(
+        secret: secret,
+        appKey: config.appKey,
+        userToken: userToken,
+        raw: body,
+        timestamp: ts,
+      );
+      body['timestamp'] = ts;
+      body['signature'] = sig;
     }
 
     final json = await _sendJson(
