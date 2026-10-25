@@ -70,6 +70,21 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
   Future<void> _handleToggleVote() async {
     if (_item.isOwnRequest || _isVoting) return;
 
+    // Mirror the list screens' anonymous-vote gate. Config and anonymity are
+    // read through the sheet context, which resolves the scope carried in by
+    // [FeatureRequestDetailSheet.show] — so the host's policy applies even
+    // though the route re-wraps the content in a fresh [CupThreadTheme].
+    final config = CupThreadTheme.configOf(context, listen: false);
+    final isAnon = CupThreadTheme.isAnonymous(context);
+    if (config != null && !config.allowAnonymousVote && isAnon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(CupThreadTheme.stringsOf(context).signInRequiredToVote)),
+      );
+      return;
+    }
+
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
 
