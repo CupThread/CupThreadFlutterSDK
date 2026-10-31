@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import 'avatar.dart';
@@ -63,12 +64,27 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
     if (configError != null && appConfig == null && !isEnabled) return;
     if (!isEnabled) return;
+    if (_isAnonymousViewGated()) return;
 
     if (!_hasAttemptedLoad || _lastConfig != appConfig) {
       _lastConfig = appConfig;
       _hasAttemptedLoad = true;
       _loadData();
     }
+  }
+
+  /// Whether the anonymous roadmap-view policy gates this screen: with config
+  /// resolved, anonymous sessions may not load the requests list at all.
+  /// Mirrors `RoadmapBoardScreen._isAnonymousViewGated` — the requests screen
+  /// consumes the same policy-gated endpoints (`GET /api/v1/feature-requests`
+  /// and `GET /api/v1/public/versions/:appKey`) as the board, so without this
+  /// gate anonymous users on sign-in-only boards land in a retry loop that
+  /// can never succeed (every request answers 401).
+  bool _isAnonymousViewGated({bool listen = true}) {
+    final config = CupThreadTheme.configOf(context, listen: listen);
+    return config != null &&
+        !config.allowAnonymousRoadmap &&
+        CupThreadTheme.isAnonymous(context);
   }
 
   @override
@@ -85,6 +101,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       listen: false,
     );
     if (!isEnabled) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    if (_isAnonymousViewGated(listen: false)) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -132,6 +152,9 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
   Future<void> _loadMore() async {
     if (_isLoadingMore || _items.length >= _total) return;
+    // Same policy gate as the initial load: the paged endpoint is equally
+    // gated, so do not send requests anonymous sessions cannot succeed.
+    if (_isAnonymousViewGated(listen: false)) return;
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
@@ -339,6 +362,45 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       );
     }
 
+    if (_isAnonymousViewGated()) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.featureRequests,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.signInRequired,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
@@ -480,17 +542,26 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   bool get _hasMore => _items.length < _total;
 
   Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
+    // Covers the window where config has not resolved yet but the gated API
+    // already answered 401: show sign-in guidance instead of a generic
+    // failure whose Retry button could never succeed.
+    final isAuthError = _loadError is AuthenticationRequiredException;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off,
-                size: 48, color: Theme.of(context).colorScheme.error),
+            Icon(
+              isAuthError ? Icons.lock_outline : Icons.cloud_off,
+              size: 48,
+              color: isAuthError
+                  ? colors.textMuted
+                  : Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 12),
             Text(
-              strings.failedToLoadRequests,
+              isAuthError ? strings.signInRequired : strings.failedToLoadRequests,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.textPrimary,
@@ -498,17 +569,19 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _loadError = null;
-                });
-                _loadData();
-              },
-              child: Text(strings.retry),
-            ),
+            if (!isAuthError) ...[
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _loadError = null;
+                  });
+                  _loadData();
+                },
+                child: Text(strings.retry),
+              ),
+            ],
           ],
         ),
       ),
