@@ -215,4 +215,69 @@ void main() {
     expect(find.text('Failed to load requests'), findsNothing);
     expect(find.text('Retry'), findsNothing);
   });
+
+  testWidgets(
+      'signing in after a 401 reloads the list and leaves the error state',
+      (tester) async {
+    // Simulates the fallback window: an open-board config whose client
+    // 401s (policy drifted or arrived late), then the user signs in —
+    // the session change must trigger a reload that succeeds.
+    final openConfig = createMockConfig(allowAnonymousRoadmap: true);
+    var requestsServed = 0;
+    final client = FeedbackClient(
+      FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+      ),
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          requestsServed++;
+          if (requestsServed <= 1) {
+            return http.Response(
+              jsonEncode({
+                'error': 'Sign in is required to view this roadmap',
+                'code': 'authentication_required',
+              }),
+              401,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            jsonEncode({'requests': [], 'totalCount': 0, 'hasMore': false}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.contains('/versions')) {
+          return http.Response(jsonEncode({'versions': []}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200);
+      }),
+      initialConfig: openConfig,
+    );
+
+    Widget hostFor(String? userToken) => MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: openConfig,
+            userToken: userToken,
+            child: const FeatureRequestsScreen(),
+          ),
+        );
+
+    await tester.pumpWidget(hostFor(null));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign-in is required.'), findsOneWidget);
+
+    // The user signs in: a new userToken must clear the stale error and
+    // reload, surfacing the board instead of dead-end guidance.
+    await tester.pumpWidget(hostFor('usr_tok_signed_in'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign-in is required.'), findsNothing);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(requestsServed, greaterThanOrEqualTo(2));
+  });
 }
