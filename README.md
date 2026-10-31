@@ -90,7 +90,9 @@ Future<void> main() async {
       baseUrl: 'https://api.cupthread.com',
       appKey: 'app_xxx', // from your CupThread Developer Console
       sdkSigningSecret: 'sec_xxx', // Optional: required for reporting payment attributes (isPaying, mrr, plan)
-      // Optional: Turnstile token provider for production intake (or set per draft)
+      // Optional: Turnstile token provider for production intake — used by
+      // feedback submit, feature-request propose, attachment upload sessions,
+      // and changelog subscribe (or set per draft)
       turnstileTokenProvider: () async {
         // Obtain token via flutter_turnstile, webview, or native bridge
         return await myTurnstileService.getToken();
