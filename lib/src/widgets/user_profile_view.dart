@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -41,7 +42,10 @@ class _UserProfileViewState extends State<UserProfileView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e;
+          // A 404 means the id is unknown or not an app-scoped `u_*` id;
+          // fall through to the dedicated "user not found" copy instead of
+          // the generic failure message.
+          _error = (e is UnexpectedStatusException && e.status == 404) ? null : e;
           _isLoading = false;
         });
       }
