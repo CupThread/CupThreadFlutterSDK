@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../client/feedback_exception.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 import '../utils/formatters.dart';
@@ -41,7 +42,10 @@ class _UserProfileViewState extends State<UserProfileView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e;
+          // A 404 means the id is unknown or not an app-scoped `u_*` id;
+          // fall through to the dedicated "user not found" copy instead of
+          // the generic failure message.
+          _error = (e is UnexpectedStatusException && e.status == 404) ? null : e;
           _isLoading = false;
         });
       }
@@ -119,12 +123,12 @@ class _UserProfileViewState extends State<UserProfileView> {
                       ),
 
                       // Apps
-                      if (_data!.apps.isNotEmpty) ...[
+                      if (_data!.publicApps.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            '${strings.appsSection} (${_data!.apps.length})',
+                            '${strings.appsSection} (${_data!.publicApps.length})',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -133,7 +137,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        ..._data!.apps.map(
+                        ..._data!.publicApps.map(
                           (app) => Container(
                             margin: const EdgeInsets.only(bottom: 10),
                             padding: const EdgeInsets.all(14),
@@ -166,8 +170,9 @@ class _UserProfileViewState extends State<UserProfileView> {
                         ),
                       ],
 
-                      // Comments
-                      if (!_data!.hideComments && _data!.recentComments.isNotEmpty) ...[
+                      // Comments — the API already gates these on the
+                      // user's hideComments privacy setting.
+                      if (_data!.recentComments.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         Align(
                           alignment: Alignment.centerLeft,

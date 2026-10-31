@@ -17,15 +17,18 @@ class UserAttributesUpdateResult {
 }
 
 /// Public profile of a developer or user.
+///
+/// Mirrors the `UserProfile` schema of
+/// `GET /api/v1/users/{userId}/profile`: profiles are opt-in, so unknown or
+/// opted-out users come back as an anonymous placeholder (null display name,
+/// null avatar/bio/website).
 class PublicUserProfile {
   final String clerkUserId;
   final String? displayName;
   final String? avatarUrl;
   final String? bio;
   final String? websiteUrl;
-  final bool hideComments;
   final String createdAt;
-  final String updatedAt;
 
   const PublicUserProfile({
     required this.clerkUserId,
@@ -33,9 +36,7 @@ class PublicUserProfile {
     this.avatarUrl,
     this.bio,
     this.websiteUrl,
-    this.hideComments = false,
     this.createdAt = '',
-    this.updatedAt = '',
   });
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
@@ -45,51 +46,59 @@ class PublicUserProfile {
       avatarUrl: json['avatarUrl'] as String?,
       bio: json['bio'] as String?,
       websiteUrl: json['websiteUrl'] as String?,
-      hideComments: json['hideComments'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
-      updatedAt: json['updatedAt'] as String? ?? '',
     );
   }
 }
 
 /// App summary card on a user profile.
+///
+/// Mirrors the `PublicUserProfileApp` schema: one public app of a workspace
+/// the profile user owns.
 class PublicAppSummary {
   final String id;
   final String name;
-  final String slug;
+  final String appSlug;
+  final String workspaceSlug;
+  final String workspaceName;
   final String? iconUrl;
   final String? description;
-  final int requestCount;
 
   const PublicAppSummary({
     required this.id,
     required this.name,
-    required this.slug,
+    required this.appSlug,
+    required this.workspaceSlug,
+    required this.workspaceName,
     this.iconUrl,
     this.description,
-    this.requestCount = 0,
   });
 
   factory PublicAppSummary.fromJson(Map<String, dynamic> json) {
     return PublicAppSummary(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      slug: json['slug'] as String? ?? '',
+      appSlug: json['appSlug'] as String? ?? '',
+      workspaceSlug: json['workspaceSlug'] as String? ?? '',
+      workspaceName: json['workspaceName'] as String? ?? '',
       iconUrl: json['iconUrl'] as String?,
       description: json['description'] as String?,
-      requestCount: (json['requestCount'] as num?)?.toInt() ?? 0,
     );
   }
 }
 
 /// Comment preview on a user profile.
+///
+/// Mirrors the `recentComments` items of the profile response: no `appId` is
+/// disclosed, only the app and workspace slugs plus the display name.
 class UserProfileComment {
   final String id;
   final String body;
   final String createdAt;
   final String featureRequestId;
   final String featureRequestTitle;
-  final String appId;
+  final String workspaceSlug;
+  final String appSlug;
   final String appName;
 
   const UserProfileComment({
@@ -98,7 +107,8 @@ class UserProfileComment {
     required this.createdAt,
     required this.featureRequestId,
     required this.featureRequestTitle,
-    required this.appId,
+    required this.workspaceSlug,
+    required this.appSlug,
     required this.appName,
   });
 
@@ -109,28 +119,31 @@ class UserProfileComment {
       createdAt: json['createdAt'] as String? ?? '',
       featureRequestId: json['featureRequestId'] as String? ?? '',
       featureRequestTitle: json['featureRequestTitle'] as String? ?? '',
-      appId: json['appId'] as String? ?? '',
+      workspaceSlug: json['workspaceSlug'] as String? ?? '',
+      appSlug: json['appSlug'] as String? ?? '',
       appName: json['appName'] as String? ?? '',
     );
   }
 }
 
 /// Full public user profile response.
+///
+/// Mirrors the `PublicUserProfileResponse` schema. The API never discloses
+/// the `hideComments` privacy flag (it gates `recentComments` server-side),
+/// so there is deliberately no `hideComments` field here.
 class PublicUserProfileResult {
   final PublicUserProfile profile;
-  final List<PublicAppSummary> apps;
+  final List<PublicAppSummary> publicApps;
   final List<UserProfileComment> recentComments;
-  final bool hideComments;
 
   const PublicUserProfileResult({
     required this.profile,
-    this.apps = const [],
+    this.publicApps = const [],
     this.recentComments = const [],
-    this.hideComments = false,
   });
 
   factory PublicUserProfileResult.fromJson(Map<String, dynamic> json) {
-    final appsList = (json['apps'] as List<dynamic>? ?? [])
+    final appsList = (json['publicApps'] as List<dynamic>? ?? [])
         .map((a) => PublicAppSummary.fromJson(a as Map<String, dynamic>))
         .toList();
     final commentsList = (json['recentComments'] as List<dynamic>? ?? [])
@@ -139,9 +152,8 @@ class PublicUserProfileResult {
 
     return PublicUserProfileResult(
       profile: PublicUserProfile.fromJson(json['profile'] as Map<String, dynamic>? ?? {}),
-      apps: appsList,
+      publicApps: appsList,
       recentComments: commentsList,
-      hideComments: json['hideComments'] as bool? ?? false,
     );
   }
 }

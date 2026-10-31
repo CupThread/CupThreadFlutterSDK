@@ -956,10 +956,28 @@ class FeedbackClient {
   }
 
   /// Fetches public user profile.
-  Future<PublicUserProfileResult> fetchUserProfile(String userId) async {
+  ///
+  /// [userId] must be the app-scoped public id (`u_<hex>`) taken from a
+  /// board/comment payload (`authorClerkId`, `requesterClerkId`,
+  /// `recentCommenters[].clerkUserId`, …). Raw Clerk ids (`user_*`) are not
+  /// resolved on this unauthenticated endpoint: they — like any unknown or
+  /// opted-out user — come back as an anonymous placeholder profile
+  /// (null display name, empty [PublicUserProfileResult.publicApps] and
+  /// `recentComments`) rather than a 404. Only unknown `u_*` identifiers
+  /// answer 404. Rate limited per client IP (429).
+  ///
+  /// The `appKey` query parameter is required by the API so app-scoped
+  /// `u_*` identifiers can be resolved; it defaults to
+  /// [FeedbackClientConfig.appKey] and can be overridden with [appKey].
+  Future<PublicUserProfileResult> fetchUserProfile(
+    String userId, {
+    String? appKey,
+  }) async {
+    final resolvedAppKey = appKey ?? config.appKey;
     final json = await _sendJson(
       method: 'GET',
-      path: '/api/v1/users/$userId/profile',
+      path: '/api/v1/users/${Uri.encodeComponent(userId)}/profile'
+          '?appKey=${Uri.encodeComponent(resolvedAppKey)}',
     );
     return PublicUserProfileResult.fromJson(json);
   }
