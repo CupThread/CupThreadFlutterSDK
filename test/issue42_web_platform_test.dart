@@ -32,6 +32,12 @@ void main() {
       // POST /api/v1/feedback — `web` is not accepted. This guards future
       // enum additions against drifting from the API contract.
       const acceptedWireValues = {'ios', 'macos', 'android', 'universal'};
+      const expectedWireValues = {
+        FeedbackPlatform.ios: 'ios',
+        FeedbackPlatform.macos: 'macos',
+        FeedbackPlatform.android: 'android',
+        FeedbackPlatform.universal: 'universal',
+      };
 
       for (final platform in FeedbackPlatform.values) {
         final payload = FeedbackDraft(
@@ -45,6 +51,14 @@ void main() {
           isIn(acceptedWireValues),
           reason: '${platform.name} must serialize to an API-accepted value',
         );
+        final expectedWireValue = expectedWireValues[platform];
+        if (expectedWireValue != null) {
+          expect(
+            payload['platform'],
+            expectedWireValue,
+            reason: '${platform.name} must preserve its wire value',
+          );
+        }
       }
     });
 
