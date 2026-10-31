@@ -22,6 +22,7 @@ class WhatsNewScreen extends StatefulWidget {
 class _WhatsNewScreenState extends State<WhatsNewScreen> {
   List<ChangelogEntry> _entries = [];
   bool _isLoading = true;
+  Object? _loadError;
   bool _isSubscribed = false;
   bool _isSubscribing = false;
 
@@ -54,6 +55,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
     if (!_hasAttemptedLoad || _lastConfig != appConfig) {
       _lastConfig = appConfig;
       _hasAttemptedLoad = true;
+      _loadError = null;
       _loadData();
     }
   }
@@ -94,11 +96,17 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
       if (mounted) {
         setState(() {
           _entries = list;
+          _loadError = null;
           _isLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadError = e;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -298,6 +306,29 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
       );
     }
 
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.whatsNew,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(child: CircularProgressIndicator(color: colors.primary)),
+      );
+    }
+
+    if (_loadError != null && _entries.isEmpty) {
+      return _buildLoadError(colors, strings);
+    }
+
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
@@ -312,9 +343,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: colors.primary))
-          : RefreshIndicator(
+      body: RefreshIndicator(
               onRefresh: _loadData,
               color: colors.primary,
               child: ListView(
@@ -466,6 +495,67 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
           const SizedBox(height: 10),
           MarkdownText(content: entry.body),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
+    final isAuthError = _loadError is AuthenticationRequiredException;
+    return Scaffold(
+      backgroundColor: colors.background,
+      appBar: AppBar(
+        backgroundColor: colors.card,
+        elevation: 0,
+        title: Text(
+          widget.title ?? strings.whatsNew,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isAuthError ? Icons.lock_outline : Icons.cloud_off,
+                size: 48,
+                color: isAuthError
+                    ? colors.textMuted
+                    : Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isAuthError
+                    ? strings.signInRequired
+                    : strings.failedToLoadRequests,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (!isAuthError) ...[
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _loadError = null;
+                    });
+                    _loadData();
+                  },
+                  child: Text(strings.retry),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

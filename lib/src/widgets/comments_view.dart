@@ -23,6 +23,7 @@ class _CommentsViewState extends State<CommentsView> {
   List<FeatureRequestComment> _comments = [];
   int? _totalComments;
   bool _isLoading = true;
+  Object? _loadError;
   bool _isPosting = false;
   FeatureRequestComment? _replyingTo;
 
@@ -74,11 +75,17 @@ class _CommentsViewState extends State<CommentsView> {
         setState(() {
           _comments = all;
           _totalComments = total;
+          _loadError = null;
           _isLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadError = e;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -164,30 +171,70 @@ class _CommentsViewState extends State<CommentsView> {
               child: CircularProgressIndicator(color: colors.primary),
             ),
           )
-        else if (visibleComments.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              strings.noCommentsYet,
+        else if (_loadError != null && visibleComments.isEmpty)
+          _buildLoadError(colors, strings)
+        else ...[
+          if (visibleComments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                strings.noCommentsYet,
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: colors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          else
+            ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
+          const SizedBox(height: 12),
+          // The public API accepts comment writes from a Clerk end-user session
+          // only; the SDK's anonymous X-User-Token identity is always rejected
+          // with 401, so an anonymous session gets a sign-in notice instead of
+          // a compose box that can never succeed.
+          if (CupThreadTheme.isAnonymous(context))
+            _buildSignInNotice(colors, strings)
+          else
+            _buildComposeBox(colors, strings),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off,
+                size: 36, color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: 8),
+            Text(
+              strings.failedToLoadRequests,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: colors.textMuted,
-                fontSize: 13,
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          )
-        else
-          ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
-        const SizedBox(height: 12),
-        // The public API accepts comment writes from a Clerk end-user session
-        // only; the SDK's anonymous X-User-Token identity is always rejected
-        // with 401, so an anonymous session gets a sign-in notice instead of
-        // a compose box that can never succeed.
-        if (CupThreadTheme.isAnonymous(context))
-          _buildSignInNotice(colors, strings)
-        else
-          _buildComposeBox(colors, strings),
-      ],
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _loadError = null;
+                });
+                _loadComments();
+              },
+              child: Text(strings.retry),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
