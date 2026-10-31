@@ -32,6 +32,11 @@ enum FeedbackPlatform {
   universal('universal'),
 
   /// Web browser runtime (HTML/CanvasKit/WASM).
+  ///
+  /// Client-side descriptor only: the API's `platform` enum
+  /// (`ios` | `macos` | `android` | `universal`) does not accept `web`,
+  /// so [FeedbackDraft.toJson] serializes this value as `universal`
+  /// while keeping the precise `web` value in `metadata.platform`.
   web('web');
 
   /// Wire string representation sent over HTTP payloads.

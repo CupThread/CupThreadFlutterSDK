@@ -223,6 +223,13 @@ class FeedbackDraft {
   /// `uploadId`. Throws [ArgumentError] when more than [maxUploadIds]
   /// attachments carry an upload ID — the API caps `uploadIds` at 8 and would
   /// reject the payload outright.
+  ///
+  /// The API's `platform` enum only accepts `ios`, `macos`, `android`, and
+  /// `universal` — `web` is not accepted (a Flutter Web submission with
+  /// `platform: "web"` is rejected with a schema-validation 400). The
+  /// client-only [FeedbackPlatform.web] value is therefore serialized as
+  /// `universal`, while `metadata.platform` keeps the precise runtime value
+  /// (`web`) for support triage.
   Map<String, dynamic> toJson({required String appKey, required String submittedAt}) {
     final meta = Map<String, String>.from(metadata);
     meta['sdk'] = 'cupthread-flutter';
@@ -249,7 +256,13 @@ class FeedbackDraft {
         'reporterName': reporterName!.trim(),
       if (reporterEmail != null && reporterEmail!.trim().isNotEmpty)
         'reporterEmail': reporterEmail!.trim(),
-      'platform': platform.wireValue,
+      // The API rejects `platform: "web"` at schema validation
+      // (`universal` is the only cross-platform wire value), so the
+      // client-only `web` descriptor maps to `universal` here;
+      // `metadata.platform` above preserves the precise runtime platform.
+      'platform': platform == FeedbackPlatform.web
+          ? FeedbackPlatform.universal.wireValue
+          : platform.wireValue,
       if (appVersion != null && appVersion!.trim().isNotEmpty)
         'appVersion': appVersion!.trim(),
       if (buildNumber != null && buildNumber!.trim().isNotEmpty)
