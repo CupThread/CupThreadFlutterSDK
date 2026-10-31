@@ -12,18 +12,25 @@ import 'package:cupthread_feedback/cupthread_feedback.dart';
 /// endpoint also only resolves `u_*` ids from board/comment payloads and
 /// requires the id to be URL-encoded since it is host-supplied.
 void main() {
+  /// Fixture mirroring the published `PublicUserProfileResponse` schema of
+  /// `GET /api/v1/users/{userId}/profile`: `publicApps` items carry
+  /// workspace/app slugs, and no `hideComments` flag is ever disclosed.
   const stubPayload = {
     'profile': {
       'clerkUserId': 'u_abc123',
       'displayName': 'Ada Lovelace',
       'bio': 'Building things.',
+      'createdAt': '2026-01-15T00:00:00.000Z',
     },
-    'apps': [
+    'publicApps': [
       {
         'id': 'app_1',
+        'workspaceSlug': 'acme',
+        'workspaceName': 'Acme Inc',
+        'appSlug': 'my-app',
         'name': 'My App',
-        'slug': 'my-app',
-        'requestCount': 7,
+        'description': 'A delightful app.',
+        'iconUrl': null,
       },
     ],
     'recentComments': [
@@ -33,11 +40,11 @@ void main() {
         'createdAt': '2026-05-02T00:00:00.000Z',
         'featureRequestId': 'fr_1',
         'featureRequestTitle': 'Add dark mode',
-        'appId': 'app_1',
+        'workspaceSlug': 'acme',
+        'appSlug': 'my-app',
         'appName': 'My App',
       },
     ],
-    'hideComments': false,
   };
 
   FeedbackClient clientWith(
@@ -75,9 +82,11 @@ void main() {
 
       expect(result.profile.clerkUserId, 'u_abc123');
       expect(result.profile.displayName, 'Ada Lovelace');
-      expect(result.apps.single.name, 'My App');
+      expect(result.publicApps.single.name, 'My App');
+      expect(result.publicApps.single.appSlug, 'my-app');
+      expect(result.publicApps.single.workspaceName, 'Acme Inc');
       expect(result.recentComments.single.body, 'Would love this!');
-      expect(result.hideComments, isFalse);
+      expect(result.recentComments.single.appSlug, 'my-app');
     });
 
     test('an explicit appKey argument overrides the configured default',
@@ -93,6 +102,34 @@ void main() {
       await client.fetchUserProfile('u_abc123', appKey: 'app_explicit');
 
       expect(capturedUrl!.queryParameters['appKey'], 'app_explicit');
+    });
+
+    test('parses the anonymous placeholder returned for opted-out users '
+        'and raw Clerk ids', () async {
+      final client = clientWith(MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'profile': {
+              'clerkUserId': 'user_rawClerkId',
+              'displayName': null,
+              'avatarUrl': null,
+              'bio': null,
+              'websiteUrl': null,
+              'createdAt': '2026-01-15T00:00:00.000Z',
+            },
+            'publicApps': [],
+            'recentComments': [],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }));
+
+      final result = await client.fetchUserProfile('user_rawClerkId');
+
+      expect(result.profile.displayName, isNull);
+      expect(result.publicApps, isEmpty);
+      expect(result.recentComments, isEmpty);
     });
 
     test('URL-encodes the host-supplied userId and appKey', () async {

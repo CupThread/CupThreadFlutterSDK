@@ -959,8 +959,12 @@ class FeedbackClient {
   ///
   /// [userId] must be the app-scoped public id (`u_<hex>`) taken from a
   /// board/comment payload (`authorClerkId`, `requesterClerkId`,
-  /// `recentCommenters[].clerkUserId`, …); the API does not resolve raw
-  /// Clerk ids on this endpoint and answers 404 for them.
+  /// `recentCommenters[].clerkUserId`, …). Raw Clerk ids (`user_*`) are not
+  /// resolved on this unauthenticated endpoint: they — like any unknown or
+  /// opted-out user — come back as an anonymous placeholder profile
+  /// (null display name, empty [PublicUserProfileResult.publicApps] and
+  /// `recentComments`) rather than a 404. Only unknown `u_*` identifiers
+  /// answer 404. Rate limited per client IP (429).
   ///
   /// The `appKey` query parameter is required by the API so app-scoped
   /// `u_*` identifiers can be resolved; it defaults to
