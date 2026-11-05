@@ -166,8 +166,10 @@ void main() {
     testWidgets('failed pull-to-refresh does not wipe out already-loaded entries',
         (tester) async {
       var fail = false;
+      var changelogRequests = 0;
       final client = _buildClient(MockClient((request) async {
         if (request.url.path.endsWith('/changelog')) {
+          changelogRequests++;
           if (fail) {
             return http.Response(jsonEncode({'error': 'transient 500'}), 500,
                 headers: {'content-type': 'application/json'});
@@ -189,14 +191,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Version 1.0 Release'), findsOneWidget);
+      expect(changelogRequests, equals(1));
 
       // Now flip to failing and trigger pull-to-refresh.
       fail = true;
+      final before = changelogRequests;
       final listView = find.byType(ListView);
       await tester.fling(listView, const Offset(0, 300), 1000);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
+
+      // Assert that a refresh request was executed.
+      expect(changelogRequests, greaterThan(before));
 
       // The entries are preserved, not replaced by the error screen.
       expect(find.text('Version 1.0 Release'), findsOneWidget);
@@ -302,8 +309,10 @@ void main() {
     testWidgets('failed reload of comments keeps already-loaded comments visible',
         (tester) async {
       var fail = false;
+      var commentRequests = 0;
       final client = _buildClient(MockClient((request) async {
         if (request.url.path.endsWith('/comments')) {
+          commentRequests++;
           if (fail) {
             return http.Response(jsonEncode({'error': 'server error'}), 500,
                 headers: {'content-type': 'application/json'});
@@ -337,12 +346,80 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Great idea!'), findsOneWidget);
+      expect(commentRequests, equals(1));
 
-      // Now trigger reload failure (e.g. by re-calling _loadComments via state or rebuild with new featureRequestId)
+      // Now trigger reload failure via the reload hook
       fail = true;
-      // Rebuilding with the same client when comments are loaded will keep the comments.
+      final before = commentRequests;
+      await tester.state<CommentsViewState>(find.byType(CommentsView)).reload();
+      await tester.pumpAndSettle();
+
+      expect(commentRequests, greaterThan(before));
       expect(find.text('Great idea!'), findsOneWidget);
       expect(find.text('Failed to load requests'), findsNothing);
+    });
+
+    testWidgets('updating featureRequestId reloads comments', (tester) async {
+      final client = _buildClient(MockClient((request) async {
+        if (request.url.path.contains('/fr_1/comments')) {
+          return http.Response(
+            jsonEncode({
+              'comments': [_commentItem('c_1', 'Comment on request 1')],
+              'total': 1,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        } else if (request.url.path.contains('/fr_2/comments')) {
+          return http.Response(
+            jsonEncode({
+              'comments': [_commentItem('c_2', 'Comment on request 2')],
+              'total': 1,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200,
+            headers: {'content-type': 'application/json'});
+      }));
+
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_1'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comment on request 1'), findsOneWidget);
+      expect(find.text('Comment on request 2'), findsNothing);
+
+      // Rebuild with a different featureRequestId
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_2'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comment on request 1'), findsNothing);
+      expect(find.text('Comment on request 2'), findsOneWidget);
     });
   });
 }

@@ -16,10 +16,10 @@ class CommentsView extends StatefulWidget {
   });
 
   @override
-  State<CommentsView> createState() => _CommentsViewState();
+  State<CommentsView> createState() => CommentsViewState();
 }
 
-class _CommentsViewState extends State<CommentsView> {
+class CommentsViewState extends State<CommentsView> {
   List<FeatureRequestComment> _comments = [];
   int? _totalComments;
   bool _isLoading = true;
@@ -37,6 +37,22 @@ class _CommentsViewState extends State<CommentsView> {
     super.initState();
     _loadComments();
   }
+
+  @override
+  void didUpdateWidget(CommentsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.featureRequestId != widget.featureRequestId) {
+      _comments = [];
+      _totalComments = null;
+      _isLoading = true;
+      _loadError = null;
+      _replyingTo = null;
+      _loadComments();
+    }
+  }
+
+  /// Reload comments from the server.
+  Future<void> reload() => _loadComments();
 
   @override
   void dispose() {
