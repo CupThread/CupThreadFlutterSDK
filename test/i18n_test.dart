@@ -262,6 +262,74 @@ void main() {
       expect(custom.featureRequests, 'Feature Requests');
     });
 
+    test('all 13 non-English locales translate issue #64 policy and kill-switch strings', () {
+      final nonEnglishLocales = <(String, CupThreadStrings)>[
+        ('zhHans', CupThreadStrings.zhHans),
+        ('ja', CupThreadStrings.ja),
+        ('fr', CupThreadStrings.fr),
+        ('es', CupThreadStrings.es),
+        ('de', CupThreadStrings.de),
+        ('it', CupThreadStrings.it),
+        ('pt', CupThreadStrings.pt),
+        ('zhHant', CupThreadStrings.zhHant),
+        ('ko', CupThreadStrings.ko),
+        ('pl', CupThreadStrings.pl),
+        ('no', CupThreadStrings.no),
+        ('tr', CupThreadStrings.tr),
+        ('vi', CupThreadStrings.vi),
+      ];
+
+      const english = CupThreadStrings.en;
+      final getters = <(String, String Function(CupThreadStrings))>[
+        ('featureUnavailable', (s) => s.featureUnavailable),
+        ('featureRequestsDisabled', (s) => s.featureRequestsDisabled),
+        ('roadmapDisabled', (s) => s.roadmapDisabled),
+        ('feedbackDisabled', (s) => s.feedbackDisabled),
+        ('changelogDisabled', (s) => s.changelogDisabled),
+        ('configLoadFailed', (s) => s.configLoadFailed),
+        ('attachmentTooLarge', (s) => s.attachmentTooLarge),
+      ];
+
+      for (final (name, locale) in nonEnglishLocales) {
+        for (final (key, getter) in getters) {
+          final translated = getter(locale);
+          final enValue = getter(english);
+          expect(translated, isNotEmpty, reason: '$name.$key must not be empty');
+          expect(translated, isNot(equals(enValue)),
+              reason: '$name.$key must not fall back to English default ("$enValue")');
+        }
+      }
+    });
+
+    test('copyWith overrides issue #64 policy, error, and attachment keys', () {
+      const base = CupThreadStrings.zhHans;
+      final modified = base.copyWith(
+        featureUnavailable: 'custom unavailable',
+        featureRequestsDisabled: 'custom requests disabled',
+        roadmapDisabled: 'custom roadmap disabled',
+        feedbackDisabled: 'custom feedback disabled',
+        changelogDisabled: 'custom changelog disabled',
+        configLoadFailed: 'custom config load failed',
+        attachmentTooLarge: 'custom attachment too large',
+        tooManyAttachments: 'custom too many attachments',
+      );
+
+      expect(modified.featureUnavailable, 'custom unavailable');
+      expect(modified.featureRequestsDisabled, 'custom requests disabled');
+      expect(modified.roadmapDisabled, 'custom roadmap disabled');
+      expect(modified.feedbackDisabled, 'custom feedback disabled');
+      expect(modified.changelogDisabled, 'custom changelog disabled');
+      expect(modified.configLoadFailed, 'custom config load failed');
+      expect(modified.attachmentTooLarge, 'custom attachment too large');
+      expect(modified.tooManyAttachments, 'custom too many attachments');
+
+      // Assert non-overridden fields retain original base values
+      expect(modified.proposeFeature, base.proposeFeature);
+      expect(modified.featureRequests, base.featureRequests);
+      expect(modified.submissionQuotaExceeded, base.submissionQuotaExceeded);
+      expect(modified.retry, base.retry);
+    });
+
     testWidgets('CupThreadTheme provides localized strings to context',
         (tester) async {
       final client = FeedbackClient(
