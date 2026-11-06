@@ -262,7 +262,9 @@ void main() {
       expect(custom.featureRequests, 'Feature Requests');
     });
 
-    test('all 13 non-English locales translate issue #64 policy and kill-switch strings', () {
+    test(
+        'all 13 non-English locales translate issue #64 policy and kill-switch strings',
+        () {
       final nonEnglishLocales = <(String, CupThreadStrings)>[
         ('zhHans', CupThreadStrings.zhHans),
         ('ja', CupThreadStrings.ja),
@@ -294,9 +296,135 @@ void main() {
         for (final (key, getter) in getters) {
           final translated = getter(locale);
           final enValue = getter(english);
-          expect(translated, isNotEmpty, reason: '$name.$key must not be empty');
+          expect(translated, isNotEmpty,
+              reason: '$name.$key must not be empty');
           expect(translated, isNot(equals(enValue)),
-              reason: '$name.$key must not fall back to English default ("$enValue")');
+              reason:
+                  '$name.$key must not fall back to English default ("$enValue")');
+        }
+      }
+    });
+
+    test('every built-in locale defines every UI string', () {
+      final locales = <(String, CupThreadStrings)>[
+        ('en', CupThreadStrings.en),
+        ('zhHans', CupThreadStrings.zhHans),
+        ('ja', CupThreadStrings.ja),
+        ('fr', CupThreadStrings.fr),
+        ('es', CupThreadStrings.es),
+        ('de', CupThreadStrings.de),
+        ('it', CupThreadStrings.it),
+        ('pt', CupThreadStrings.pt),
+        ('zhHant', CupThreadStrings.zhHant),
+        ('ko', CupThreadStrings.ko),
+        ('pl', CupThreadStrings.pl),
+        ('no', CupThreadStrings.no),
+        ('tr', CupThreadStrings.tr),
+        ('vi', CupThreadStrings.vi),
+      ];
+
+      // Exhaustive list of `final String` fields on CupThreadStrings. Field
+      // renames break this test at compile time, so the audit cannot silently
+      // stop covering a newly added string.
+      final fields = <(String, String Function(CupThreadStrings))>[
+        ('retry', (s) => s.retry),
+        ('cancel', (s) => s.cancel),
+        ('close', (s) => s.close),
+        ('anonymous', (s) => s.anonymous),
+        ('justNow', (s) => s.justNow),
+        ('minutesAgoSuffix', (s) => s.minutesAgoSuffix),
+        ('hoursAgoSuffix', (s) => s.hoursAgoSuffix),
+        ('daysAgoSuffix', (s) => s.daysAgoSuffix),
+        ('verificationRequired', (s) => s.verificationRequired),
+        ('featureRequests', (s) => s.featureRequests),
+        ('proposeFeature', (s) => s.proposeFeature),
+        ('proposeAnIdea', (s) => s.proposeAnIdea),
+        ('searchFeatureRequests', (s) => s.searchFeatureRequests),
+        ('all', (s) => s.all),
+        ('underReview', (s) => s.underReview),
+        ('planned', (s) => s.planned),
+        ('inProgress', (s) => s.inProgress),
+        ('completed', (s) => s.completed),
+        ('noFeatureRequestsFound', (s) => s.noFeatureRequestsFound),
+        ('beTheFirstToSuggest', (s) => s.beTheFirstToSuggest),
+        ('failedToLoadRequests', (s) => s.failedToLoadRequests),
+        ('loadMore', (s) => s.loadMore),
+        ('roadmap', (s) => s.roadmap),
+        ('noItemsInColumn', (s) => s.noItemsInColumn),
+        ('newFeatureRequest', (s) => s.newFeatureRequest),
+        ('titleLabel', (s) => s.titleLabel),
+        ('titleHint', (s) => s.titleHint),
+        ('detailsLabel', (s) => s.detailsLabel),
+        ('detailsHint', (s) => s.detailsHint),
+        ('yourNameOptional', (s) => s.yourNameOptional),
+        ('yourNameHint', (s) => s.yourNameHint),
+        ('submitRequest', (s) => s.submitRequest),
+        ('submitting', (s) => s.submitting),
+        ('featureRequestSubmitted', (s) => s.featureRequestSubmitted),
+        ('titleValidationMin3', (s) => s.titleValidationMin3),
+        ('detailsValidationMin5', (s) => s.detailsValidationMin5),
+        ('comments', (s) => s.comments),
+        ('writeAComment', (s) => s.writeAComment),
+        ('send', (s) => s.send),
+        ('posting', (s) => s.posting),
+        ('noCommentsYet', (s) => s.noCommentsYet),
+        ('vote', (s) => s.vote),
+        ('voted', (s) => s.voted),
+        ('sendFeedback', (s) => s.sendFeedback),
+        ('submitFeedback', (s) => s.submitFeedback),
+        ('feedbackSummaryHint', (s) => s.feedbackSummaryHint),
+        ('feedbackDetailsHint', (s) => s.feedbackDetailsHint),
+        ('emailForRepliesOptional', (s) => s.emailForRepliesOptional),
+        ('emailHint', (s) => s.emailHint),
+        ('feedbackSent', (s) => s.feedbackSent),
+        ('attachments', (s) => s.attachments),
+        ('addAttachment', (s) => s.addAttachment),
+        ('remove', (s) => s.remove),
+        ('attachmentDefaultName', (s) => s.attachmentDefaultName),
+        ('whatsNew', (s) => s.whatsNew),
+        ('subscribeToUpdates', (s) => s.subscribeToUpdates),
+        ('enterYourEmail', (s) => s.enterYourEmail),
+        ('subscribe', (s) => s.subscribe),
+        ('subscribed', (s) => s.subscribed),
+        ('gotIt', (s) => s.gotIt),
+        ('version', (s) => s.version),
+        ('userProfile', (s) => s.userProfile),
+        ('payingCustomer', (s) => s.payingCustomer),
+        ('freeTier', (s) => s.freeTier),
+        ('featureUnavailable', (s) => s.featureUnavailable),
+        ('featureRequestsDisabled', (s) => s.featureRequestsDisabled),
+        ('roadmapDisabled', (s) => s.roadmapDisabled),
+        ('feedbackDisabled', (s) => s.feedbackDisabled),
+        ('changelogDisabled', (s) => s.changelogDisabled),
+        ('configLoadFailed', (s) => s.configLoadFailed),
+        ('attachmentTooLarge', (s) => s.attachmentTooLarge),
+        ('tooManyAttachments', (s) => s.tooManyAttachments),
+        ('submissionQuotaExceeded', (s) => s.submissionQuotaExceeded),
+        ('subscriptionInactive', (s) => s.subscriptionInactive),
+        ('reply', (s) => s.reply),
+        ('replyingTo', (s) => s.replyingTo),
+        ('emailInvalid', (s) => s.emailInvalid),
+        ('subscribedToUpdates', (s) => s.subscribedToUpdates),
+        ('subscriptionFailed', (s) => s.subscriptionFailed),
+        ('commentPostFailed', (s) => s.commentPostFailed),
+        ('userNotFound', (s) => s.userNotFound),
+        ('appsSection', (s) => s.appsSection),
+        ('recentComments', (s) => s.recentComments),
+        ('commentOn', (s) => s.commentOn),
+        ('signInRequired', (s) => s.signInRequired),
+        ('signInRequiredToVote', (s) => s.signInRequiredToVote),
+        ('signInRequiredToComment', (s) => s.signInRequiredToComment),
+        (
+          'signInRequiredToSubmitFeedback',
+          (s) => s.signInRequiredToSubmitFeedback
+        ),
+        ('unexpectedError', (s) => s.unexpectedError),
+      ];
+
+      for (final (name, locale) in locales) {
+        for (final (key, getter) in fields) {
+          expect(getter(locale).trim(), isNotEmpty,
+              reason: '$name.$key must not be empty');
         }
       }
     });
