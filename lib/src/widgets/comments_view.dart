@@ -16,15 +16,24 @@ class CommentsView extends StatefulWidget {
   });
 
   @override
-  State<CommentsView> createState() => _CommentsViewState();
+  State<CommentsView> createState() => CommentsViewState();
 }
 
-class _CommentsViewState extends State<CommentsView> {
+class CommentsViewState extends State<CommentsView> {
   List<FeatureRequestComment> _comments = [];
   int? _totalComments;
   bool _isLoading = true;
+  Object? _loadError;
   bool _isPosting = false;
   FeatureRequestComment? _replyingTo;
+
+  /// Bumped whenever [CommentsView.featureRequestId] changes, so responses
+  /// from an earlier request cannot mutate the new request's state.
+  int _requestGeneration = 0;
+
+  /// Bumped on every load, so an older in-flight load cannot overwrite a
+  /// newer one for the same request.
+  int _loadGeneration = 0;
 
   /// Page cap for loading the thread, mirroring the client-side walk guard.
   static const int _maxCommentPages = 100;
@@ -38,6 +47,25 @@ class _CommentsViewState extends State<CommentsView> {
   }
 
   @override
+  void didUpdateWidget(CommentsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.featureRequestId != widget.featureRequestId) {
+      _requestGeneration++;
+      _comments = [];
+      _totalComments = null;
+      _isLoading = true;
+      _loadError = null;
+      _isPosting = false;
+      _textController.clear();
+      _replyingTo = null;
+      _loadComments();
+    }
+  }
+
+  /// Reload comments from the server.
+  Future<void> reload() => _loadComments();
+
+  @override
   void dispose() {
     _textController.dispose();
     super.dispose();
@@ -45,6 +73,9 @@ class _CommentsViewState extends State<CommentsView> {
 
   Future<void> _loadComments() async {
     final client = CupThreadTheme.clientOf(context);
+    final requestId = widget.featureRequestId;
+    final requestGeneration = _requestGeneration;
+    final loadGeneration = ++_loadGeneration;
     try {
       // Walk the paginated comments endpoint so long threads load completely,
       // capturing the server-reported thread total for the header count. The
@@ -57,7 +88,7 @@ class _CommentsViewState extends State<CommentsView> {
       int? total;
       for (var page = 0; hasMore && page < _maxCommentPages; page++) {
         final result =
-            await client.fetchCommentsPage(widget.featureRequestId, cursor: cursor);
+            await client.fetchCommentsPage(requestId, cursor: cursor);
         total ??= result.total;
         final next = result.nextCursor;
         final cannotAdvance = result.hasMore &&
@@ -70,17 +101,36 @@ class _CommentsViewState extends State<CommentsView> {
         cursor = next;
         if (cannotAdvance) break;
       }
-      if (mounted) {
+      if (_isCurrentLoad(requestId, requestGeneration, loadGeneration)) {
         setState(() {
           _comments = all;
           _totalComments = total;
+          _loadError = null;
           _isLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      if (_isCurrentLoad(requestId, requestGeneration, loadGeneration)) {
+        setState(() {
+          _loadError = e;
+          _isLoading = false;
+        });
+      }
     }
   }
+
+  bool _isCurrentLoad(
+    String requestId,
+    int requestGeneration,
+    int loadGeneration,
+  ) =>
+      _isCurrentRequest(requestId, requestGeneration) &&
+      loadGeneration == _loadGeneration;
+
+  bool _isCurrentRequest(String requestId, int generation) =>
+      mounted &&
+      widget.featureRequestId == requestId &&
+      generation == _requestGeneration;
 
   Future<void> _handlePost() async {
     final body = _textController.text.trim();
@@ -88,6 +138,8 @@ class _CommentsViewState extends State<CommentsView> {
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final requestId = widget.featureRequestId;
+    final requestGeneration = _requestGeneration;
 
     setState(() => _isPosting = true);
 
@@ -108,12 +160,12 @@ class _CommentsViewState extends State<CommentsView> {
       );
 
       final newComment = await client.postComment(
-        widget.featureRequestId,
+        requestId,
         draft,
         userToken: userToken,
       );
 
-      if (mounted) {
+      if (_isCurrentRequest(requestId, requestGeneration)) {
         setState(() {
           _comments.add(newComment);
           if (_totalComments != null) _totalComments = _totalComments! + 1;
@@ -123,19 +175,18 @@ class _CommentsViewState extends State<CommentsView> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isPosting = false);
-        final strings = CupThreadTheme.stringsOf(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e is TurnstileRequiredException
-                ? strings.verificationRequired
-                : e is AuthenticationRequiredException
-                    ? strings.signInRequiredToComment
-                    : strings.commentPostFailed),
-          ),
-        );
-      }
+      if (!mounted || !_isCurrentRequest(requestId, requestGeneration)) return;
+      setState(() => _isPosting = false);
+      final strings = CupThreadTheme.stringsOf(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e is TurnstileRequiredException
+              ? strings.verificationRequired
+              : e is AuthenticationRequiredException
+                  ? strings.signInRequiredToComment
+                  : strings.commentPostFailed),
+        ),
+      );
     }
   }
 
@@ -164,30 +215,70 @@ class _CommentsViewState extends State<CommentsView> {
               child: CircularProgressIndicator(color: colors.primary),
             ),
           )
-        else if (visibleComments.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              strings.noCommentsYet,
+        else if (_loadError != null && visibleComments.isEmpty)
+          _buildLoadError(colors, strings)
+        else ...[
+          if (visibleComments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                strings.noCommentsYet,
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: colors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          else
+            ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
+          const SizedBox(height: 12),
+          // The public API accepts comment writes from a Clerk end-user session
+          // only; the SDK's anonymous X-User-Token identity is always rejected
+          // with 401, so an anonymous session gets a sign-in notice instead of
+          // a compose box that can never succeed.
+          if (CupThreadTheme.isAnonymous(context))
+            _buildSignInNotice(colors, strings)
+          else
+            _buildComposeBox(colors, strings),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off,
+                size: 36, color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: 8),
+            Text(
+              strings.failedToLoadRequests,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: colors.textMuted,
-                fontSize: 13,
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          )
-        else
-          ...visibleComments.map((comment) => _buildCommentItem(comment, colors, strings)),
-        const SizedBox(height: 12),
-        // The public API accepts comment writes from a Clerk end-user session
-        // only; the SDK's anonymous X-User-Token identity is always rejected
-        // with 401, so an anonymous session gets a sign-in notice instead of
-        // a compose box that can never succeed.
-        if (CupThreadTheme.isAnonymous(context))
-          _buildSignInNotice(colors, strings)
-        else
-          _buildComposeBox(colors, strings),
-      ],
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _loadError = null;
+                });
+                _loadComments();
+              },
+              child: Text(strings.retry),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
