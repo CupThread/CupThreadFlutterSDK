@@ -180,11 +180,12 @@ class ChangelogSubscriptionResult {
 /// ### Example
 /// ```dart
 /// final uri = Uri.parse(unsubscribeLinkFromEmail);
-/// final result = await client.unsubscribeFromChangelogToken(
-///   uri.queryParameters['token'] ?? '',
-/// );
-/// if (result.unsubscribed) {
-///   print('Unsubscribed from email updates.');
+/// final token = uri.queryParameters['token'];
+/// if (token != null && token.trim().isNotEmpty) {
+///   final result = await client.unsubscribeFromChangelogToken(token);
+///   if (result.unsubscribed) {
+///     print('Unsubscribed from email updates.');
+///   }
 /// }
 /// ```
 class ChangelogUnsubscribeResult {
