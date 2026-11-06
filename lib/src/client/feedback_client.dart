@@ -876,12 +876,35 @@ class FeedbackClient {
     return ChangelogSubscriptionResult.fromJson(json);
   }
 
-  /// Unsubscribes an email from changelog notifications.
-  Future<ChangelogUnsubscribeResult> unsubscribeFromChangelog(String email) async {
+  /// Unsubscribes the address carried by a signed unsubscribe token.
+  ///
+  /// The token is only ever issued inside the unsubscribe link of a
+  /// changelog notification email; the API no longer accepts a bare email
+  /// address, so hosts must parse the token out of that link and pass it
+  /// here. Send it in the query string (default) to draw from the RFC 8058
+  /// one-click budget, or set [viaQuery] to `false` to send
+  /// `{"token": "..."}` in the JSON body.
+  ///
+  /// An authentic token is honored even after its `exp` timestamp and on
+  /// private apps; `403` means the token is missing or not valid for this
+  /// app (see issue #21). Throws [ArgumentError] for an empty or blank
+  /// [token] before any request is made.
+  Future<ChangelogUnsubscribeResult> unsubscribeFromChangelogToken(
+    String token, {
+    bool viaQuery = true,
+  }) async {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError.value(token, 'token', 'must not be empty');
+    }
+    final queryString = viaQuery
+        ? '?${Uri(queryParameters: {'token': trimmed}).query}'
+        : '';
     final json = await _sendJson(
       method: 'POST',
-      path: '/api/v1/public/apps/${config.appKey}/changelog/unsubscribe',
-      body: {'email': email.trim()},
+      path: '/api/v1/public/apps/${config.appKey}/changelog/unsubscribe'
+          '$queryString',
+      body: viaQuery ? null : {'token': trimmed},
       acceptedStatuses: const [200],
     );
     return ChangelogUnsubscribeResult.fromJson(json);
