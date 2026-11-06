@@ -27,6 +27,14 @@ class CommentsViewState extends State<CommentsView> {
   bool _isPosting = false;
   FeatureRequestComment? _replyingTo;
 
+  /// Bumped whenever [CommentsView.featureRequestId] changes, so responses
+  /// from an earlier request cannot mutate the new request's state.
+  int _requestGeneration = 0;
+
+  /// Bumped on every load, so an older in-flight load cannot overwrite a
+  /// newer one for the same request.
+  int _loadGeneration = 0;
+
   /// Page cap for loading the thread, mirroring the client-side walk guard.
   static const int _maxCommentPages = 100;
 
@@ -42,10 +50,13 @@ class CommentsViewState extends State<CommentsView> {
   void didUpdateWidget(CommentsView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.featureRequestId != widget.featureRequestId) {
+      _requestGeneration++;
       _comments = [];
       _totalComments = null;
       _isLoading = true;
       _loadError = null;
+      _isPosting = false;
+      _textController.clear();
       _replyingTo = null;
       _loadComments();
     }
@@ -62,6 +73,9 @@ class CommentsViewState extends State<CommentsView> {
 
   Future<void> _loadComments() async {
     final client = CupThreadTheme.clientOf(context);
+    final requestId = widget.featureRequestId;
+    final requestGeneration = _requestGeneration;
+    final loadGeneration = ++_loadGeneration;
     try {
       // Walk the paginated comments endpoint so long threads load completely,
       // capturing the server-reported thread total for the header count. The
@@ -74,7 +88,7 @@ class CommentsViewState extends State<CommentsView> {
       int? total;
       for (var page = 0; hasMore && page < _maxCommentPages; page++) {
         final result =
-            await client.fetchCommentsPage(widget.featureRequestId, cursor: cursor);
+            await client.fetchCommentsPage(requestId, cursor: cursor);
         total ??= result.total;
         final next = result.nextCursor;
         final cannotAdvance = result.hasMore &&
@@ -87,7 +101,7 @@ class CommentsViewState extends State<CommentsView> {
         cursor = next;
         if (cannotAdvance) break;
       }
-      if (mounted) {
+      if (_isCurrentLoad(requestId, requestGeneration, loadGeneration)) {
         setState(() {
           _comments = all;
           _totalComments = total;
@@ -96,7 +110,7 @@ class CommentsViewState extends State<CommentsView> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (_isCurrentLoad(requestId, requestGeneration, loadGeneration)) {
         setState(() {
           _loadError = e;
           _isLoading = false;
@@ -105,12 +119,27 @@ class CommentsViewState extends State<CommentsView> {
     }
   }
 
+  bool _isCurrentLoad(
+    String requestId,
+    int requestGeneration,
+    int loadGeneration,
+  ) =>
+      _isCurrentRequest(requestId, requestGeneration) &&
+      loadGeneration == _loadGeneration;
+
+  bool _isCurrentRequest(String requestId, int generation) =>
+      mounted &&
+      widget.featureRequestId == requestId &&
+      generation == _requestGeneration;
+
   Future<void> _handlePost() async {
     final body = _textController.text.trim();
     if (body.isEmpty) return;
 
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
+    final requestId = widget.featureRequestId;
+    final requestGeneration = _requestGeneration;
 
     setState(() => _isPosting = true);
 
@@ -131,12 +160,12 @@ class CommentsViewState extends State<CommentsView> {
       );
 
       final newComment = await client.postComment(
-        widget.featureRequestId,
+        requestId,
         draft,
         userToken: userToken,
       );
 
-      if (mounted) {
+      if (_isCurrentRequest(requestId, requestGeneration)) {
         setState(() {
           _comments.add(newComment);
           if (_totalComments != null) _totalComments = _totalComments! + 1;
@@ -146,19 +175,18 @@ class CommentsViewState extends State<CommentsView> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isPosting = false);
-        final strings = CupThreadTheme.stringsOf(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e is TurnstileRequiredException
-                ? strings.verificationRequired
-                : e is AuthenticationRequiredException
-                    ? strings.signInRequiredToComment
-                    : strings.commentPostFailed),
-          ),
-        );
-      }
+      if (!mounted || !_isCurrentRequest(requestId, requestGeneration)) return;
+      setState(() => _isPosting = false);
+      final strings = CupThreadTheme.stringsOf(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e is TurnstileRequiredException
+              ? strings.verificationRequired
+              : e is AuthenticationRequiredException
+                  ? strings.signInRequiredToComment
+                  : strings.commentPostFailed),
+        ),
+      );
     }
   }
 

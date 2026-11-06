@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -65,10 +66,14 @@ Map<String, dynamic> _changelogItem(String id, String title) {
   };
 }
 
-Map<String, dynamic> _commentItem(String id, String body) {
+Map<String, dynamic> _commentItem(
+  String id,
+  String body, {
+  String featureRequestId = 'fr_1',
+}) {
   return {
     'id': id,
-    'featureRequestId': 'fr_1',
+    'featureRequestId': featureRequestId,
     'body': body,
     'createdAt': '2026-05-01T00:00:00.000Z',
   };
@@ -375,7 +380,10 @@ void main() {
         } else if (request.url.path.contains('/fr_2/comments')) {
           return http.Response(
             jsonEncode({
-              'comments': [_commentItem('c_2', 'Comment on request 2')],
+              'comments': [
+                _commentItem('c_2', 'Comment on request 2',
+                    featureRequestId: 'fr_2'),
+              ],
               'total': 1,
               'hasMore': false,
               'nextCursor': null,
@@ -419,6 +427,224 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Comment on request 1'), findsNothing);
+      expect(find.text('Comment on request 2'), findsOneWidget);
+    });
+
+    testWidgets('discards a stale comments response after switching requests',
+        (tester) async {
+      final staleResponse = Completer<http.Response>();
+      final client = _buildClient(MockClient((request) {
+        if (request.url.path.contains('/fr_1/comments')) {
+          return staleResponse.future;
+        }
+        if (request.url.path.contains('/fr_2/comments')) {
+          return Future.value(http.Response(
+            jsonEncode({
+              'comments': [
+                _commentItem('c_2', 'Comment on request 2',
+                    featureRequestId: 'fr_2'),
+              ],
+              'total': 1,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+        }
+        return Future.value(http.Response('{}', 200,
+            headers: {'content-type': 'application/json'}));
+      }));
+
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_1'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pump();
+
+      // Switch to fr_2 while the fr_1 request is still in flight.
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_2'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Comment on request 2'), findsOneWidget);
+
+      staleResponse.complete(http.Response(
+        jsonEncode({
+          'comments': [_commentItem('c_1', 'Comment on request 1')],
+          'total': 1,
+          'hasMore': false,
+          'nextCursor': null,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comment on request 2'), findsOneWidget);
+      expect(find.text('Comment on request 1'), findsNothing);
+      expect(find.text('Failed to load requests'), findsNothing);
+    });
+
+    testWidgets('discards a stale comments failure after switching requests',
+        (tester) async {
+      final staleResponse = Completer<http.Response>();
+      final client = _buildClient(MockClient((request) {
+        if (request.url.path.contains('/fr_1/comments')) {
+          return staleResponse.future;
+        }
+        if (request.url.path.contains('/fr_2/comments')) {
+          return Future.value(http.Response(
+            jsonEncode({
+              'comments': [
+                _commentItem('c_2', 'Comment on request 2',
+                    featureRequestId: 'fr_2'),
+              ],
+              'total': 1,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+        }
+        return Future.value(http.Response('{}', 200,
+            headers: {'content-type': 'application/json'}));
+      }));
+
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_1'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pump();
+
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_2'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Comment on request 2'), findsOneWidget);
+
+      staleResponse.complete(http.Response(
+        jsonEncode({'error': 'stale failure'}),
+        500,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      // The stale failure must not replace the new request's loaded comments.
+      expect(find.text('Comment on request 2'), findsOneWidget);
+      expect(find.text('Failed to load requests'), findsNothing);
+      expect(find.byIcon(Icons.cloud_off), findsNothing);
+    });
+
+    testWidgets('discards a stale post result after switching requests',
+        (tester) async {
+      final postResponse = Completer<http.Response>();
+      final client = _buildClient(MockClient((request) {
+        if (request.method == 'POST') {
+          return postResponse.future;
+        }
+        if (request.url.path.contains('/fr_1/comments')) {
+          return Future.value(http.Response(
+            jsonEncode({
+              'comments': [],
+              'total': 0,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+        }
+        if (request.url.path.contains('/fr_2/comments')) {
+          return Future.value(http.Response(
+            jsonEncode({
+              'comments': [
+                _commentItem('c_2', 'Comment on request 2',
+                    featureRequestId: 'fr_2'),
+              ],
+              'total': 1,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+        }
+        return Future.value(http.Response('{}', 200,
+            headers: {'content-type': 'application/json'}));
+      }));
+
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_1'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Reply on request 1');
+      await tester.tap(find.text('Send'));
+      await tester.pump();
+
+      // Switch requests while the post is still in flight.
+      await tester.pumpWidget(
+        _wrap(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: CommentsView(featureRequestId: 'fr_2'),
+            ),
+          ),
+          client,
+          isAnonymousOverride: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      postResponse.complete(http.Response(
+        jsonEncode(_commentItem('c_posted', 'Reply on request 1')),
+        201,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      // The stale post must not append to fr_2's thread.
+      expect(find.text('Reply on request 1'), findsNothing);
       expect(find.text('Comment on request 2'), findsOneWidget);
     });
   });
