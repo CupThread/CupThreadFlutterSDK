@@ -4,6 +4,7 @@ import '../theme/cupthread_theme.dart';
 import 'badge.dart';
 import 'feature_request_detail_sheet.dart';
 import 'vote_button.dart';
+import 'vote_turnstile.dart';
 
 /// Screen presenting the app's Kanban roadmap board grouped by stage columns.
 class RoadmapBoardScreen extends StatefulWidget {
@@ -196,6 +197,16 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
 
+    // Turnstile preflight: casting a new vote on an app that requires
+    // anonymous-vote verification resolves the token before the optimistic
+    // update, so a missing token never causes a doomed request followed by a
+    // rollback flicker. Removing a vote is never verified.
+    String? voteToken;
+    if (voteNeedsTurnstilePreflight(config, isAnon, !target.hasVoted)) {
+      voteToken = await resolveVoteTurnstileToken(context, client);
+      if (voteToken == null) return;
+    }
+
     final nextVoted = !target.hasVoted;
     final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
@@ -212,7 +223,8 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     try {
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
-          : await client.castVote(target.id, userToken: userToken);
+          : await client.castVote(target.id,
+              userToken: userToken, turnstileToken: voteToken);
       if (mounted) {
         setState(() {
           _requests = _requests

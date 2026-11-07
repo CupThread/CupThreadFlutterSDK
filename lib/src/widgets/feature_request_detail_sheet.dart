@@ -7,6 +7,7 @@ import 'badge.dart';
 import 'comments_view.dart';
 import 'markdown_text.dart';
 import 'vote_button.dart';
+import 'vote_turnstile.dart';
 
 /// Bottom sheet presenting complete feature request details and discussion.
 class FeatureRequestDetailSheet extends StatefulWidget {
@@ -88,6 +89,15 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
 
+    // Turnstile preflight, mirroring the list screens: casting a new vote on
+    // an app that requires anonymous-vote verification resolves the token
+    // before the optimistic update. Removing a vote is never verified.
+    String? voteToken;
+    if (voteNeedsTurnstilePreflight(config, isAnon, !_item.hasVoted)) {
+      voteToken = await resolveVoteTurnstileToken(context, client);
+      if (voteToken == null) return;
+    }
+
     final previousItem = _item;
     final nextVoted = !_item.hasVoted;
     final nextCount = _item.voteCount + (nextVoted ? 1 : -1);
@@ -105,7 +115,8 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     try {
       final res = previousItem.hasVoted
           ? await client.removeVote(previousItem.id, userToken: userToken)
-          : await client.castVote(previousItem.id, userToken: userToken);
+          : await client.castVote(previousItem.id,
+              userToken: userToken, turnstileToken: voteToken);
       final confirmed = _item.copyWith(
         hasVoted: res.voted,
         voteCount: res.voteCount,

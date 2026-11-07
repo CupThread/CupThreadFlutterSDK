@@ -9,6 +9,7 @@ import 'badge.dart';
 import 'feature_request_compose_sheet.dart';
 import 'feature_request_detail_sheet.dart';
 import 'vote_button.dart';
+import 'vote_turnstile.dart';
 
 /// Screen displaying searchable feature requests board with filtering and creation modal.
 class FeatureRequestsScreen extends StatefulWidget {
@@ -238,6 +239,16 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
 
+    // Turnstile preflight: casting a new vote on an app that requires
+    // anonymous-vote verification resolves the token before the optimistic
+    // update, so a missing token never causes a doomed request followed by a
+    // rollback flicker. Removing a vote is never verified.
+    String? voteToken;
+    if (voteNeedsTurnstilePreflight(config, isAnon, !target.hasVoted)) {
+      voteToken = await resolveVoteTurnstileToken(context, client);
+      if (voteToken == null) return;
+    }
+
     final nextVoted = !target.hasVoted;
     final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
@@ -254,7 +265,8 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     try {
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
-          : await client.castVote(target.id, userToken: userToken);
+          : await client.castVote(target.id,
+              userToken: userToken, turnstileToken: voteToken);
       if (mounted) {
         setState(() {
           _items = _items

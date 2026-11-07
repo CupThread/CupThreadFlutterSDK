@@ -5,9 +5,18 @@ import '../models/models.dart';
 import '../utils/formatters.dart';
 import 'feedback_exception.dart';
 import 'sdk_attribute_signer.dart';
+import 'turnstile.dart';
 import 'user_token_store.dart';
 
 /// Optional provider function resolving a Cloudflare Turnstile token.
+///
+/// The token must be minted under the `(action, cdata)` binding the gated
+/// endpoint verifies — see [TurnstileChallenge] for the endpoint-to-binding
+/// table. When the app config publishes a `turnstile.siteKey`, hosts can
+/// render the portal's hosted challenge page through
+/// [FeedbackClientConfig.makeTurnstileChallengeUrl] (e.g. in an embedded
+/// WebView) and resolve the minted token here. Tokens are single-use: the
+/// provider is consulted once per gated call.
 typedef TurnstileTokenProvider = FutureOr<String?> Function();
 
 /// Configuration for FeedbackClient.
@@ -24,6 +33,12 @@ class FeedbackClientConfig {
   final Duration uploadTimeout;
   final TurnstileTokenProvider? turnstileTokenProvider;
 
+  /// Explicit URL of the portal's hosted Turnstile challenge page
+  /// (`…/turnstile/verify`), used by [makeTurnstileChallengeUrl] instead of
+  /// the origin derived from [baseUrl]. Deployment-specific portals — or a
+  /// self-hosted API origin whose portal lives elsewhere — set this.
+  final String? turnstileChallengeUrl;
+
   FeedbackClientConfig({
     required String baseUrl,
     required this.appKey,
@@ -33,12 +48,54 @@ class FeedbackClientConfig {
     this.requestTimeout = const Duration(seconds: 15),
     this.uploadTimeout = const Duration(seconds: 60),
     this.turnstileTokenProvider,
+    this.turnstileChallengeUrl,
   })  : sdkSigningSecret = sdkSigningSecret ?? signingSecret,
         baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
         defaultPlatform = defaultPlatform ?? FeedbackPlatform.current;
 
   /// Alias for [sdkSigningSecret].
   String? get signingSecret => sdkSigningSecret;
+
+  /// The hosted Turnstile challenge page URL for [challenge], with the widget
+  /// binding on the query string, or null when the [siteKey] is blank or a
+  /// page URL cannot be assembled.
+  ///
+  /// The page is a static document served by the CupThread portal; it renders
+  /// the widget with the parameters below and the minted token is consumed by
+  /// the host (e.g. through [turnstileTokenProvider]). Tokens are single-use
+  /// and short-lived, so the page is opened — and the token spent — once per
+  /// gated call.
+  ///
+  /// - [challenge]: The `(action, cdata)` binding the endpoint verifies —
+  ///   [TurnstileChallenge.feedback] for feedback intake and attachment
+  ///   upload sessions, [TurnstileChallenge.featureRequest] for proposals,
+  ///   [TurnstileChallenge.vote] for votes. A token minted under a different
+  ///   binding is rejected by the server.
+  /// - [siteKey]: The public site key from `PublicAppConfig.turnstile`.
+  /// - [theme]: Optional widget theme (`light`, `dark`); omitted lets the
+  ///   widget follow the system appearance.
+  /// - [locale]: Optional BCP-47 language tag for the widget's own copy
+  ///   (e.g. `zh-CN`).
+  Uri? makeTurnstileChallengeUrl(
+    TurnstileChallenge challenge, {
+    required String siteKey,
+    String? theme,
+    String? locale,
+  }) {
+    final trimmedKey = siteKey.trim();
+    if (trimmedKey.isEmpty) return null;
+    final page = turnstileChallengeUrl != null
+        ? Uri.tryParse(turnstileChallengeUrl!)
+        : deriveTurnstileChallengePageUrl(baseUrl);
+    if (page == null) return null;
+    return page.replace(queryParameters: {
+      'siteKey': trimmedKey,
+      'action': challenge.action,
+      'cdata': challenge.cdata,
+      if (theme != null && theme.trim().isNotEmpty) 'theme': theme.trim(),
+      if (locale != null && locale.trim().isNotEmpty) 'locale': locale.trim(),
+    });
+  }
 }
 
 /// Primary API client for CupThread platform.
@@ -655,11 +712,24 @@ class FeedbackClient {
   /// The endpoint (`POST /api/v1/feature-requests/:id/vote`) is insert-only and
   /// idempotent: repeating the request leaves an existing vote in place.
   /// To remove a vote, use [removeVote].
+  ///
+  /// On apps whose config enables `requireAnonymousVoteTurnstile`, anonymous
+  /// votes must present a Cloudflare Turnstile token or the endpoint rejects
+  /// the vote with 403 [TurnstileRequiredException]. [turnstileToken] — or,
+  /// when absent, `FeedbackClientConfig.turnstileTokenProvider` — supplies
+  /// it; mint the token for the [TurnstileAction.vote] binding with the app
+  /// key as `cdata` (the ship-notify binding also verifies when
+  /// [shipNotifyEmail] is set). The widget surfaces run this resolution as a
+  /// preflight before their optimistic update; direct callers get the same
+  /// resolution here. The provider is consulted once per call (tokens are
+  /// single-use).
   Future<VoteResult> castVote(
     String featureRequestId, {
     required String userToken,
     String? shipNotifyEmail,
+    String? turnstileToken,
   }) async {
+    final resolvedTurnstileToken = await _resolveTurnstileToken(turnstileToken);
     final body = <String, dynamic>{
       'appKey': config.appKey,
       'userToken': userToken,
@@ -667,6 +737,9 @@ class FeedbackClient {
     final trimmedEmail = shipNotifyEmail?.trim();
     if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
       body['shipNotifyEmail'] = trimmedEmail;
+    }
+    if (resolvedTurnstileToken != null && resolvedTurnstileToken.isNotEmpty) {
+      body['turnstileToken'] = resolvedTurnstileToken;
     }
 
     final json = await _sendJson(

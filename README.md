@@ -252,6 +252,45 @@ The effective platform is `FeedbackPlatform.current`, or the host's
 Until config resolves the gate fails open, and an empty `allowedPlatforms`
 list (host-built configs) means "no restriction".
 
+## Turnstile Human Verification
+
+Deployments can gate intake behind Cloudflare Turnstile. The config endpoint
+publishes two fields the SDK reads:
+
+| Field | Meaning |
+| ----- | ------- |
+| `PublicAppConfig.turnstile?.siteKey` | Public widget site key; present when the deployment serves hosted challenges at all |
+| `PublicAppConfig.requireAnonymousVoteTurnstile` | Anonymous votes must present a Turnstile token or the vote is rejected with 403 |
+
+Every gated endpoint verifies the token against the `(action, cdata)` pair
+the widget was rendered with (`cdata` is always the app key) — see the
+exported `TurnstileAction` / `TurnstileChallenge` types:
+
+| Endpoint | `action` |
+| -------- | -------- |
+| `POST /api/v1/feedback`, upload sessions | `feedback` |
+| `POST /api/v1/feature-requests` | `feature-request` |
+| `POST /api/v1/feature-requests/{id}/vote` | `vote` (`ship-notify` when `shipNotifyEmail` is set) |
+
+To complete verification inside a Flutter app:
+
+1. Read the site key from the typed config: `config.turnstile?.siteKey`.
+2. Build the hosted challenge page URL — a static portal document that
+   renders the widget and hands back the minted token — with
+   `FeedbackClientConfig.makeTurnstileChallengeUrl(TurnstileChallenge.vote(appKey), siteKey: ...)`:
+   it derives `https://app.cupthread.com/turnstile/verify` from the API base
+   URL (or honors an explicit `turnstileChallengeUrl`), and the host opens it
+   in an embedded WebView (`webview_flutter`) or an external browser.
+3. Resolve the minted token through `FeedbackClientConfig.turnstileTokenProvider`
+   (consulted once per gated call — tokens are single-use) or pass it
+   directly via the draft's / `castVote`'s `turnstileToken` parameter.
+
+The SDK's own surfaces already run the resolution: feedback, feature-request
+submission, uploads, changelog subscribe, and votes all consult the provider,
+and the voting screens preflight the token before the optimistic vote update
+(showing the localized verification notice instead of a doomed request when
+no token can be resolved).
+
 ---
 
 ## API Client Surface
@@ -265,7 +304,7 @@ list (host-built configs) means "no restriction".
 | `fetchVersions()` | `GET /api/v1/public/versions/{appKey}` | Fetch release versions |
 | `fetchFeatureRequests(...)` | `GET /api/v1/feature-requests` | List and search public feature requests |
 | `submitFeatureRequest(draft, userToken)` | `POST /api/v1/feature-requests` | Propose a new feature request |
-| `castVote(featureRequestId, userToken)` | `POST /api/v1/feature-requests/{id}/vote` | Cast an upvote (insert-only, idempotent) |
+| `castVote(featureRequestId, userToken, turnstileToken?)` | `POST /api/v1/feature-requests/{id}/vote` | Cast an upvote (insert-only, idempotent); resolves a Turnstile token through the provider when required |
 | `removeVote(featureRequestId, userToken)` | `DELETE /api/v1/feature-requests/{id}/vote` | Remove an upvote (idempotent) |
 | `fetchComments(featureRequestId)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch all discussion comments (follows cursor pagination) |
 | `fetchCommentsPage(featureRequestId, limit, cursor)` | `GET /api/v1/feature-requests/{id}/comments` | Fetch one page of comments (`total` / `hasMore` / `nextCursor`) |
