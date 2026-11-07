@@ -130,6 +130,19 @@ class FeedbackClient {
   final TokenStorageAdapter? _storageOverride;
   PublicAppConfig? _cachedAppConfig;
 
+  /// Serialized write queue for the persisted changelog seen set.
+  ///
+  /// [_updateSeenVersions] spans multiple `await`s (storage read → decode →
+  /// mutate → storage write), so two concurrent marks would both anchor on
+  /// the same stored value and the last `setItem` would silently drop the
+  /// other's keys — the lost mark re-shows the What's-New overlay on the
+  /// next launch (issue #107). Chaining each invocation behind the previous
+  /// one makes concurrent marks compose. Write failures are swallowed at the
+  /// chain level, matching the mutators' silent-failure contract, without
+  /// poisoning the queue — the same pattern [UserTokenStore._persist] uses
+  /// for the identity token.
+  Future<void> _seenWrite = Future<void>.value();
+
   FeedbackClient(
     this.config, {
     http.Client? httpClient,
@@ -1189,7 +1202,24 @@ class FeedbackClient {
   /// set in place, then the result is re-capped to the most recent
   /// [_maxSeenChangelogEntries] keys (insertion order) and persisted as a
   /// JSON array.
-  Future<void> _updateSeenVersions(void Function(Set<String> seen) update) async {
+  ///
+  /// Invocations are serialized through the [_seenWrite] queue so concurrent
+  /// `markChangelogSeen`/`markChangelogEntrySeen` calls compose instead of
+  /// racing on the same stored value (issue #107). A failed write completes
+  /// normally — the mutators swallow errors — and never breaks the queue for
+  /// subsequent marks.
+  Future<void> _updateSeenVersions(void Function(Set<String> seen) update) {
+    final previous = _seenWrite;
+    final guarded = previous
+        .then((_) => _readModifyWriteSeenVersions(update))
+        .catchError((Object _) {});
+    _seenWrite = guarded;
+    return guarded;
+  }
+
+  Future<void> _readModifyWriteSeenVersions(
+    void Function(Set<String> seen) update,
+  ) async {
     final val = await _storage.getItem(_changelogSeenKey);
     final seen = _decodeSeenVersions(val);
     update(seen);
