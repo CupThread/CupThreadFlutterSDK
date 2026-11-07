@@ -41,6 +41,8 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   final Set<String> _votingIds = {};
 
   PublicAppConfig? _lastConfig;
+  String? _lastUserToken;
+  bool? _lastIsAnonymous;
   bool _hasAttemptedLoad = false;
 
   @override
@@ -66,9 +68,27 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     if (_isPlatformGated()) return;
     if (_isAnonymousViewGated()) return;
 
-    if (!_hasAttemptedLoad || _lastConfig != appConfig) {
+    final userToken = CupThreadTheme.userTokenOf(context);
+    final isAnonymous = CupThreadTheme.isAnonymous(context);
+    if (!_hasAttemptedLoad ||
+        _lastConfig != appConfig ||
+        _lastUserToken != userToken ||
+        _lastIsAnonymous != isAnonymous) {
       _lastConfig = appConfig;
+      _lastUserToken = userToken;
+      _lastIsAnonymous = isAnonymous;
       _hasAttemptedLoad = true;
+      // A session change (e.g. signing in after an authentication error)
+      // must leave the stale error state, or the user stays trapped on
+      // sign-in guidance whose Retry was hidden precisely because a retry
+      // could not succeed under the old session. Mirrors
+      // FeatureRequestsScreen._checkAndLoad — the board consumes the same
+      // session-scoped rows (`hasVoted`, `isOwnRequest`) as the requests
+      // screen, so a reload under the new identity is required here too.
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
       _loadData();
     }
   }
