@@ -255,7 +255,7 @@ it.
 | `fetchChangelog()` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch published release notes (follows cursor pagination) |
 | `fetchChangelogPage(limit, cursor)` | `GET /api/v1/public/apps/{appKey}/changelog` | Fetch one page of release notes (`hasMore` / `nextCursor`) |
 | `subscribeToChangelog(email, userToken)` | `POST /api/v1/public/apps/{appKey}/changelog/subscribe` | Subscribe email to changelog |
-| `unsubscribeFromChangelog(email)` | `POST /api/v1/public/apps/{appKey}/changelog/unsubscribe` | Unsubscribe email from changelog |
+| `unsubscribeFromChangelogToken(token, viaQuery)` | `POST /api/v1/public/apps/{appKey}/changelog/unsubscribe` | Unsubscribe using the signed token from an emailed unsubscribe link (query string by default, JSON body when `viaQuery: false`) |
 | `updateUserAttributes(...)` | `PUT /api/v1/public/apps/{appKey}/user` | Report user attributes (paying, plan, MRR, currency with HMAC signing) |
 | `fetchUserProfile(userId)` | `GET /api/v1/users/{userId}/profile` | Fetch public user profile |
 

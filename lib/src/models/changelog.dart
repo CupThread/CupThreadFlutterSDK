@@ -174,12 +174,18 @@ class ChangelogSubscriptionResult {
 /// Confirmation result returned when unsubscribing from changelog updates.
 ///
 /// Returned by `POST /api/v1/public/apps/:appKey/changelog/unsubscribe`.
+/// The endpoint only accepts the signed token embedded in an unsubscribe
+/// link; extract it from that URL's `token` query parameter first.
 ///
 /// ### Example
 /// ```dart
-/// final result = await client.unsubscribeFromChangelog('user@example.com');
-/// if (result.unsubscribed) {
-///   print('Unsubscribed from email updates.');
+/// final uri = Uri.parse(unsubscribeLinkFromEmail);
+/// final token = uri.queryParameters['token'];
+/// if (token != null && token.trim().isNotEmpty) {
+///   final result = await client.unsubscribeFromChangelogToken(token);
+///   if (result.unsubscribed) {
+///     print('Unsubscribed from email updates.');
+///   }
 /// }
 /// ```
 class ChangelogUnsubscribeResult {
