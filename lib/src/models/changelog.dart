@@ -58,6 +58,12 @@ class ChangelogEntry {
   final String? versionLabel;
 
   /// ISO 8601 published date string.
+  ///
+  /// SDK surfaces that order entries (e.g. [FeedbackClient.fetchChangelog])
+  /// compare the parsed instant when the value parses as ISO-8601, falling
+  /// back to raw string comparison for non-ISO values, so timestamps that
+  /// differ in format (fractional seconds, non-UTC offsets) still order
+  /// chronologically.
   final String publishedAt;
 
   /// Feature requests shipped with this release note.

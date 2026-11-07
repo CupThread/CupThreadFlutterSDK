@@ -1084,6 +1084,10 @@ class FeedbackClient {
 
   /// Fetches all published changelog release notes, newest first.
   ///
+  /// Ordering compares the parsed `publishedAt` instant when the value
+  /// parses as ISO-8601, falling back to raw string comparison otherwise
+  /// (see [_comparePublishedAtDesc]).
+  ///
   /// Follows `hasMore` / `nextCursor` across pages so apps with more than
   /// 100 published entries still see their full history. Stops early when
   /// the server fails to advance the cursor (null, unchanged, or already
@@ -1111,7 +1115,7 @@ class FeedbackClient {
       cursor = next;
       if (cannotAdvance) break;
     }
-    all.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    all.sort(_comparePublishedAtDesc);
     return all;
   }
 
@@ -1145,6 +1149,11 @@ class FeedbackClient {
 
   /// Loads newest release entries and appearance for the What's-New overlay.
   ///
+  /// Entries are ordered newest first by the parsed `publishedAt` instant
+  /// (see [_comparePublishedAtDesc]), so `entries.first` — the key checked
+  /// against [hasSeenChangelog] when [onlyIfUnseen] is true — is the truly
+  /// latest release even when the server mixes ISO-8601 timestamp shapes.
+  ///
   /// [isAnonymous] must reflect the caller's session state and is required so
   /// every call site states its anonymity explicitly: when true and the resolved
   /// config disables [PublicAppConfig.allowAnonymousChangelog], returns null
@@ -1166,8 +1175,7 @@ class FeedbackClient {
       // displays — fetching later pages would only add latency and one more
       // request that could fail and hide the overlay entirely.
       final page = await fetchChangelogPage(limit: limit);
-      final entries = page.entries.toList()
-        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      final entries = page.entries.toList()..sort(_comparePublishedAtDesc);
       if (entries.isEmpty) return null;
 
       if (onlyIfUnseen) {
@@ -1458,6 +1466,32 @@ class FeedbackClient {
 
 /// One pre-allocated file slot of an upload session
 /// (`CreateUploadSessionResponse.files[i]`).
+/// Best-effort parse of an ISO-8601 timestamp into a UTC instant.
+DateTime? _tryParseInstant(String value) {
+  final parsed = DateTime.tryParse(value);
+  return parsed?.toUtc();
+}
+
+/// Orders changelog entries newest first by parsed instant.
+///
+/// Lexicographic comparison of ISO-8601 strings only matches chronological
+/// order when every value uses a byte-identical format: a fractional-second
+/// timestamp (`2026-11-07T12:00:00.500Z`) sorts before the same second
+/// without a fraction (`2026-11-07T12:00:00Z`) because `'.' < 'Z'`, and
+/// non-UTC offsets compare by local wall-clock bytes rather than the
+/// instant they denote (issue #87). Both shapes already appear in test
+/// fixtures and self-hosted deployments, so compare the parsed instants
+/// and fall back to the raw string comparison only when a value does not
+/// parse (e.g. hand-written fixtures with non-ISO dates).
+int _comparePublishedAtDesc(ChangelogEntry a, ChangelogEntry b) {
+  final aInstant = _tryParseInstant(a.publishedAt);
+  final bInstant = _tryParseInstant(b.publishedAt);
+  if (aInstant != null && bInstant != null) {
+    return bInstant.compareTo(aInstant);
+  }
+  return b.publishedAt.compareTo(a.publishedAt);
+}
+
 class _UploadSessionSlot {
   final String uploadId;
   final int? maxSizeBytes;
