@@ -119,6 +119,9 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   }
 
   Future<void> _loadData() async {
+    // Async completion paths (sheet callbacks) can invoke this after dispose;
+    // bail before any context lookups on a defunct element.
+    if (!mounted) return;
     final isEnabled = CupThreadTheme.isFeatureEnabled(
       context,
       (f) => f.roadmap,
@@ -738,6 +741,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                                         context,
                                         item: item,
                                         onVoteChange: (updated) {
+                                          if (!mounted) return;
                                           setState(() {
                                             _requests = _requests
                                                 .map((i) => i.id == updated.id
