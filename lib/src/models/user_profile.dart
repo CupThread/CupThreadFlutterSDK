@@ -142,12 +142,19 @@ class PublicUserProfileResult {
     this.recentComments = const [],
   });
 
+  /// Deserializes [PublicUserProfileResult] from a JSON map.
+  ///
+  /// Malformed elements inside `publicApps` / `recentComments` (null or
+  /// non-object entries) are skipped rather than fatal, matching the
+  /// null-tolerant field parsing used throughout the model layer.
   factory PublicUserProfileResult.fromJson(Map<String, dynamic> json) {
     final appsList = (json['publicApps'] as List<dynamic>? ?? [])
-        .map((a) => PublicAppSummary.fromJson(a as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(PublicAppSummary.fromJson)
         .toList();
     final commentsList = (json['recentComments'] as List<dynamic>? ?? [])
-        .map((c) => UserProfileComment.fromJson(c as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(UserProfileComment.fromJson)
         .toList();
 
     return PublicUserProfileResult(

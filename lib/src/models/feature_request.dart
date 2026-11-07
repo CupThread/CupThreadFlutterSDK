@@ -172,10 +172,15 @@ class FeatureRequestItem {
   }
 
   /// Deserializes [FeatureRequestItem] from a JSON map.
+  ///
+  /// Malformed elements inside `recentCommenters` (null or non-object
+  /// entries) are skipped rather than fatal, matching the null-tolerant
+  /// field parsing used throughout the model layer.
   factory FeatureRequestItem.fromJson(Map<String, dynamic> json) {
     final commentersRaw = json['recentCommenters'] as List<dynamic>? ?? [];
     final commenters = commentersRaw
-        .map((c) => RecentCommenter.fromJson(c as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(RecentCommenter.fromJson)
         .toList();
 
     return FeatureRequestItem(
@@ -334,20 +339,38 @@ class ListFeatureRequestsResult {
   /// Total count of matching feature requests across all pages.
   final int total;
 
+  /// Raw number of rows the server sent in this page's `requests[]`
+  /// array, including malformed elements that [requests] skips.
+  ///
+  /// Offset pagination must advance by this count, not by
+  /// [requests.length]: the server skips rows by its own raw count, so
+  /// after a dropped element, advancing by the filtered length would
+  /// re-fetch the row right after it.
+  final int pageRowCount;
+
   /// Creates a [ListFeatureRequestsResult] page container.
   const ListFeatureRequestsResult({
     required this.requests,
     required this.total,
+    this.pageRowCount = 0,
   });
 
   /// Deserializes [ListFeatureRequestsResult] from a JSON map.
+  ///
+  /// Malformed elements inside `requests` (null or non-object entries)
+  /// are skipped rather than fatal, matching the null-tolerant field
+  /// parsing used throughout the model layer. When the server omits
+  /// `total`, it falls back to the raw row count of this page.
   factory ListFeatureRequestsResult.fromJson(Map<String, dynamic> json) {
-    final list = (json['requests'] as List<dynamic>? ?? [])
-        .map((r) => FeatureRequestItem.fromJson(r as Map<String, dynamic>))
+    final rawRows = json['requests'] as List<dynamic>? ?? const [];
+    final list = rawRows
+        .whereType<Map<String, dynamic>>()
+        .map(FeatureRequestItem.fromJson)
         .toList();
     return ListFeatureRequestsResult(
       requests: list,
-      total: (json['total'] as num?)?.toInt() ?? list.length,
+      total: (json['total'] as num?)?.toInt() ?? rawRows.length,
+      pageRowCount: rawRows.length,
     );
   }
 }

@@ -104,10 +104,13 @@ class FeatureRequestCommentPage {
   ///
   /// Tolerates responses from servers that do not yet send pagination
   /// metadata: [total] defaults to null, [hasMore] to false and
-  /// [nextCursor] to null.
+  /// [nextCursor] to null. Malformed elements inside `comments` (null
+  /// or non-object entries) are skipped rather than fatal, matching
+  /// the null-tolerant field parsing used throughout the model layer.
   factory FeatureRequestCommentPage.fromJson(Map<String, dynamic> json) {
     final list = (json['comments'] as List<dynamic>? ?? [])
-        .map((c) => FeatureRequestComment.fromJson(c as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(FeatureRequestComment.fromJson)
         .toList();
     final cursor = json['nextCursor'] as String?;
     return FeatureRequestCommentPage(

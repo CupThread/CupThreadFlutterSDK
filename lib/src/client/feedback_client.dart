@@ -728,26 +728,36 @@ class FeedbackClient {
   }
 
   /// Fetches Kanban board columns.
+  ///
+  /// Malformed elements inside `columns` (null or non-object entries)
+  /// are skipped rather than fatal, matching the null-tolerant field
+  /// parsing used throughout the model layer.
   Future<List<BoardColumn>> fetchColumns() async {
     final json = await _sendJson(
       method: 'GET',
       path: '/api/v1/public/columns/${config.appKey}',
     );
     final list = (json['columns'] as List<dynamic>? ?? [])
-        .map((c) => BoardColumn.fromJson(c as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(BoardColumn.fromJson)
         .toList();
     list.sort((a, b) => a.position.compareTo(b.position));
     return list;
   }
 
   /// Fetches release versions.
+  ///
+  /// Malformed elements inside `versions` (null or non-object entries)
+  /// are skipped rather than fatal, matching the null-tolerant field
+  /// parsing used throughout the model layer.
   Future<List<AppVersion>> fetchVersions() async {
     final json = await _sendJson(
       method: 'GET',
       path: '/api/v1/public/versions/${config.appKey}',
     );
     final list = (json['versions'] as List<dynamic>? ?? [])
-        .map((v) => AppVersion.fromJson(v as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(AppVersion.fromJson)
         .toList();
     list.sort((a, b) => a.position.compareTo(b.position));
     return list;

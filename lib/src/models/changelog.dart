@@ -74,9 +74,14 @@ class ChangelogEntry {
   });
 
   /// Deserializes [ChangelogEntry] from a JSON map.
+  ///
+  /// Malformed elements inside `linkedRequests` (null or non-object
+  /// entries) are skipped rather than fatal, matching the null-tolerant
+  /// field parsing used throughout the model layer.
   factory ChangelogEntry.fromJson(Map<String, dynamic> json) {
     final list = (json['linkedRequests'] as List<dynamic>? ?? [])
-        .map((r) => ChangelogLinkedRequest.fromJson(r as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(ChangelogLinkedRequest.fromJson)
         .toList();
 
     return ChangelogEntry(
@@ -123,9 +128,13 @@ class ChangelogPage {
   ///
   /// Tolerates responses from servers that do not yet send pagination
   /// metadata: [hasMore] defaults to false and [nextCursor] to null.
+  /// Malformed elements inside `entries` (null or non-object entries)
+  /// are skipped rather than fatal, so one bad row cannot break the
+  /// whole What's-New surface.
   factory ChangelogPage.fromJson(Map<String, dynamic> json) {
     final list = (json['entries'] as List<dynamic>? ?? [])
-        .map((e) => ChangelogEntry.fromJson(e as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(ChangelogEntry.fromJson)
         .toList();
     final cursor = json['nextCursor'] as String?;
     return ChangelogPage(

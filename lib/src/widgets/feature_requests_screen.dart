@@ -35,6 +35,12 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   Object? _loadError;
   int _total = 0;
 
+  /// Raw rows consumed from the server so far (page row counts, including
+  /// malformed elements the model skipped). Offset pagination advances by
+  /// this, not by [_items.length], or a dropped element would misalign the
+  /// offset and repeat the row right after it.
+  int _rawOffset = 0;
+
   /// Monotonically increasing token for in-flight list requests. A response
   /// is applied only while its captured generation still matches, so a slow
   /// refresh or append can never clobber newer results.
@@ -162,6 +168,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         setState(() {
           _items = requestsRes.requests;
           _total = requestsRes.total;
+          _rawOffset = requestsRes.pageRowCount;
           _versions = versionsRes;
           _isLoading = false;
           _isLoadingMore = false;
@@ -183,7 +190,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_isLoadingMore || _items.length >= _total) return;
+    if (_isLoadingMore || _rawOffset >= _total) return;
     // Same policy gate as the initial load: the paged endpoint is equally
     // gated, so do not send requests anonymous sessions cannot succeed.
     if (_isAnonymousViewGated(listen: false)) return;
@@ -197,15 +204,18 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         userToken: userToken,
         versionId: _selectedVersionId,
         query: _query.isNotEmpty ? _query : null,
-        offset: _items.length,
+        offset: _rawOffset,
       );
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = [..._items, ...res.requests];
+          // Advance by the raw rows the server sent, not by the retained
+          // items: the server skips rows by its own raw count.
+          _rawOffset += res.pageRowCount;
           // An empty successful page means the server has no more rows even
           // if the reported total disagrees; stop paginating at what we have
           // or the same offset would be requested forever.
-          _total = res.requests.isEmpty ? _items.length : res.total;
+          _total = res.requests.isEmpty ? _rawOffset : res.total;
           _isLoadingMore = false;
         });
       }
@@ -628,7 +638,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     );
   }
 
-  bool get _hasMore => _items.length < _total;
+  bool get _hasMore => _rawOffset < _total;
 
   Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
     // Covers the window where config has not resolved yet but the gated API

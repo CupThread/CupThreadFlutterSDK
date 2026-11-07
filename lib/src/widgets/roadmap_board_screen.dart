@@ -28,6 +28,12 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   Object? _loadError;
   int _total = 0;
 
+  /// Raw rows consumed from the server so far (page row counts, including
+  /// malformed elements the model skipped). Offset pagination advances by
+  /// this, not by [_requests.length], or a dropped element would misalign
+  /// the offset and repeat the row right after it.
+  int _rawOffset = 0;
+
   /// Monotonically increasing token for in-flight board requests. A response
   /// is applied only while its captured generation still matches, so a stale
   /// page append can never follow a refresh that replaced the list.
@@ -121,6 +127,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
           _columns = cols;
           _requests = reqs;
           _total = (results[1] as ListFeatureRequestsResult).total;
+          _rawOffset = (results[1] as ListFeatureRequestsResult).pageRowCount;
           if (cols.isNotEmpty && _selectedColumnId == null) {
             _selectedColumnId = cols[0].id;
           }
@@ -145,7 +152,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_isLoadingMore || _requests.length >= _total) return;
+    if (_isLoadingMore || _rawOffset >= _total) return;
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
@@ -155,15 +162,18 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       final res = await client.fetchFeatureRequests(
         userToken: userToken,
         limit: 100,
-        offset: _requests.length,
+        offset: _rawOffset,
       );
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests = [..._requests, ...res.requests];
+          // Advance by the raw rows the server sent, not by the retained
+          // items: the server skips rows by its own raw count.
+          _rawOffset += res.pageRowCount;
           // An empty successful page means the server has no more rows even
           // if the reported total disagrees; stop paginating at what we have
           // or the same offset would be requested forever.
-          _total = res.requests.isEmpty ? _requests.length : res.total;
+          _total = res.requests.isEmpty ? _rawOffset : res.total;
           _isLoadingMore = false;
         });
       }
@@ -257,7 +267,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     }
   }
 
-  bool get _hasMore => _requests.length < _total;
+  bool get _hasMore => _rawOffset < _total;
 
   Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
     return Center(
