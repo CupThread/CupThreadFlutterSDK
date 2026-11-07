@@ -172,10 +172,15 @@ class FeatureRequestItem {
   }
 
   /// Deserializes [FeatureRequestItem] from a JSON map.
+  ///
+  /// Malformed elements inside `recentCommenters` (null or non-object
+  /// entries) are skipped rather than fatal, matching the null-tolerant
+  /// field parsing used throughout the model layer.
   factory FeatureRequestItem.fromJson(Map<String, dynamic> json) {
     final commentersRaw = json['recentCommenters'] as List<dynamic>? ?? [];
     final commenters = commentersRaw
-        .map((c) => RecentCommenter.fromJson(c as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(RecentCommenter.fromJson)
         .toList();
 
     return FeatureRequestItem(
@@ -341,9 +346,14 @@ class ListFeatureRequestsResult {
   });
 
   /// Deserializes [ListFeatureRequestsResult] from a JSON map.
+  ///
+  /// Malformed elements inside `requests` (null or non-object entries)
+  /// are skipped rather than fatal, matching the null-tolerant field
+  /// parsing used throughout the model layer.
   factory ListFeatureRequestsResult.fromJson(Map<String, dynamic> json) {
     final list = (json['requests'] as List<dynamic>? ?? [])
-        .map((r) => FeatureRequestItem.fromJson(r as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(FeatureRequestItem.fromJson)
         .toList();
     return ListFeatureRequestsResult(
       requests: list,
