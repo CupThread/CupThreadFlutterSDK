@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:cupthread_feedback/cupthread_feedback.dart';
+
+/// Storage adapter whose reads wait on a gate, to observe the cold-start
+/// restoration race deterministically.
+class _GatedStorage implements TokenStorageAdapter {
+  _GatedStorage(this._seeded);
+
+  final String? _seeded;
+  final Completer<void> gate = Completer<void>();
+  int readCount = 0;
+
+  @override
+  Future<String?> getItem(String key) async {
+    readCount++;
+    await gate.future;
+    return _seeded;
+  }
+
+  @override
+  Future<void> setItem(String key, String value) async {
+    _written[key] = value;
+  }
+
+  final Map<String, String> _written = {};
+}
+
+FeedbackClient _mockClient() {
+  return FeedbackClient(
+    FeedbackClientConfig(
+      baseUrl: 'https://api.cupthread.com',
+      appKey: 'app_test_123',
+    ),
+    httpClient: MockClient((request) async {
+      if (request.url.path.contains('/public/config/')) {
+        return http.Response('{}', 200,
+            headers: {'content-type': 'application/json'});
+      }
+      return http.Response('{"error":"not found"}', 404);
+    }),
+  );
+}
 
 /// Regression coverage for issue #96: the theme scope treated only `null`
 /// as anonymous, while the client's documented contract is "non-blank
@@ -80,6 +121,55 @@ void main() {
     UserTokenStore.configure(storage);
     return UserTokenStore.shared;
   }
+
+  testWidgets(
+      'token transitions during an unresolved storage read settle on the '
+      'stored identity', (tester) async {
+    // A real → blank → real → blank host sequence, all before the gated
+    // storage read resolves: every blank is a sign-out (re-gate + restore),
+    // every real token wins immediately, and once the read finally lands
+    // the resolved identity is the persisted token — a stale in-flight
+    // restore must not resurrect an identity the host has since replaced,
+    // and the final blank must not be shadowed by an earlier real token.
+    final storage = _GatedStorage('persisted-token-123');
+    UserTokenStore.configure(storage);
+
+    Widget hostWith(String? userToken) => MaterialApp(
+          home: CupThreadTheme(
+            client: _mockClient(),
+            userToken: userToken,
+            child: Builder(
+              builder: (context) => Text(
+                'token:${CupThreadTheme.userTokenOf(context)}',
+              ),
+            ),
+          ),
+        );
+
+    // Real token: published immediately, no storage read started.
+    await tester.pumpWidget(hostWith('usr_tok_first'));
+    expect(find.text('token:usr_tok_first'), findsOneWidget);
+    expect(storage.readCount, 0);
+
+    // Blank: a sign-out — re-gate (child deferred) and restore from storage.
+    await tester.pumpWidget(hostWith(''));
+    expect(find.textContaining('token:'), findsNothing);
+
+    // Real token again while the read is still parked.
+    await tester.pumpWidget(hostWith('usr_tok_second'));
+    expect(find.text('token:usr_tok_second'), findsOneWidget);
+
+    // Blank again while the read is still parked: re-gate; the restore
+    // must finish with the stored identity, not either real token.
+    await tester.pumpWidget(hostWith('  '));
+    expect(find.textContaining('token:'), findsNothing);
+    expect(storage.readCount, 1);
+
+    storage.gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('token:persisted-token-123'), findsOneWidget);
+  });
 
   testWidgets(
       'a blank userToken behaves like null on a sign-in-only board: '
