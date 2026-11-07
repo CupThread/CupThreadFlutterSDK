@@ -9,6 +9,15 @@ import 'sdk_theme.dart';
 export 'cupthread_strings.dart';
 export 'sdk_theme.dart';
 
+/// Whether [token] carries a usable identity. The client's contract is
+/// "non-blank wins" (`FeedbackClient._resolveIdentity` trims and treats a
+/// blank value as absent, and `_sendJson` omits the `X-User-Token` header
+/// for an empty string), so a blank — empty or whitespace-only — host
+/// token must behave exactly like `null`. Otherwise the scope would report
+/// an authenticated session while the client sends no identity header at
+/// all, leaving gated votes and boards in a doomed 401/403 loop.
+bool _hasIdentity(String? token) => token != null && token.trim().isNotEmpty;
+
 /// InheritedWidget providing CupThread theme colors, client, user token, and localized strings.
 class CupThreadThemeScope extends InheritedWidget {
   final FeedbackClient client;
@@ -81,7 +90,9 @@ class CupThreadTheme extends StatefulWidget {
   /// Overrides anonymous-state detection for the wrapped session.
   ///
   /// When null (default), the session is treated as anonymous if and only if
-  /// [userToken] is null. Scope-carrying modal routes pass the outer scope's
+  /// [userToken] carries no identity — null or a blank (empty/whitespace
+  /// only) value, matching the client's "non-blank wins" `X-User-Token`
+  /// contract. Scope-carrying modal routes pass the outer scope's
   /// value so sheets keep the host's authentication state even though a
   /// resolved token is always forwarded to them.
   final bool? isAnonymousOverride;
@@ -338,12 +349,19 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   void didUpdateWidget(CupThreadTheme oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userToken != widget.userToken) {
-      if (widget.userToken == null) {
-        // Switched back to anonymous: re-gate until the durable identity
-        // has been restored from storage.
-        setState(() => _resolvedToken = null);
+      final hadIdentity = _hasIdentity(oldWidget.userToken);
+      final hasIdentity = _hasIdentity(widget.userToken);
+      if (hasIdentity || hadIdentity) {
+        // null ↔ blank is a no-op: both mean anonymous under the same
+        // normalization, so neither a re-gate nor a storage read is
+        // warranted.
+        if (!hasIdentity) {
+          // Switched back to anonymous (null or a blank value): re-gate
+          // until the durable identity has been restored from storage.
+          setState(() => _resolvedToken = null);
+        }
+        _resolveToken();
       }
-      _resolveToken();
     }
     if (widget.config != oldWidget.config) {
       setState(() {
@@ -360,7 +378,7 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   }
 
   Future<void> _resolveToken() async {
-    if (widget.userToken != null) {
+    if (_hasIdentity(widget.userToken)) {
       if (mounted) setState(() => _resolvedToken = widget.userToken);
       return;
     }
@@ -368,7 +386,7 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
     if (!mounted) return;
     // An explicit userToken provided while the storage read was in flight
     // always wins over the restored anonymous identity.
-    if (widget.userToken != null) return;
+    if (_hasIdentity(widget.userToken)) return;
     setState(() => _resolvedToken = token);
   }
 
@@ -431,7 +449,7 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
       configError: _configError,
       retryConfig: _loadConfig,
       failClosed: widget.failClosed,
-      isAnonymous: widget.isAnonymousOverride ?? widget.userToken == null,
+      isAnonymous: widget.isAnonymousOverride ?? !_hasIdentity(widget.userToken),
       platformOverride: widget.platformOverride,
       strings: effectiveStrings,
       locale: effectiveLocale,
