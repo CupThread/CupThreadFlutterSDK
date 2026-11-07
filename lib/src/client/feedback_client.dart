@@ -693,6 +693,12 @@ class FeedbackClient {
         'Failed to parse JSON response from $uri',
         e,
       );
+    } catch (e) {
+      // Transport-level failure (SocketException, ClientException, …): the
+      // request never completed, so mirror _sendJson's network-failure
+      // mapping instead of letting uploadAttachment's catch-all mislabel it
+      // as an unreadable reply to a completed upload.
+      throw InvalidResponseException('Network failure requesting $uri', e);
     }
   }
 
