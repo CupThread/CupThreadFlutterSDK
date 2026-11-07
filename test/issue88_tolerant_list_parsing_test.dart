@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -253,6 +254,119 @@ void main() {
       expect(result.profile.clerkUserId, 'u_1');
       expect(result.publicApps.map((a) => a.id), ['app_1']);
       expect(result.recentComments.map((c) => c.id), ['cm_1']);
+    });
+  });
+
+  group('issue #88 — raw page progress keeps offset pagination aligned', () {
+    test('pageRowCount counts raw rows; absent total falls back to it', () {
+      final result = ListFeatureRequestsResult.fromJson({
+        'requests': [
+          {'id': 'fr_1'},
+          null,
+          'junk',
+          {'id': 'fr_2'},
+        ],
+      });
+
+      expect(result.requests.map((r) => r.id), ['fr_1', 'fr_2']);
+      expect(result.pageRowCount, 4,
+          reason: 'raw rows include the malformed elements');
+      expect(result.total, 4,
+          reason: 'without a server total, raw page progress is the fallback');
+    });
+
+    testWidgets(
+        'FeatureRequestsScreen requests the next offset by raw rows after a skipped element',
+        (tester) async {
+      final offsets = <String?>[];
+      var calls = 0;
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          offsets.add(request.url.queryParameters['offset']);
+          calls++;
+          if (calls == 1) {
+            // 3 raw rows, one malformed → 2 retained; 5 rows exist overall.
+            return http.Response(
+              jsonEncode({
+                'requests': [
+                  {'id': 'fr_1', 'title': 'First'},
+                  null,
+                  {'id': 'fr_2', 'title': 'Second'},
+                ],
+                'total': 5,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'requests': [
+                {'id': 'fr_3', 'title': 'Third'},
+              ],
+              'total': 5,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.contains('/versions')) {
+          return http.Response(jsonEncode({'versions': []}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        return http.Response('{}', 200,
+            headers: {'content-type': 'application/json'});
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: const PublicAppConfig(
+              appId: 'app_123',
+              appKey: 'app_test_123',
+              slug: 'test-app',
+              name: 'Test App',
+              allowPublic: true,
+              allowedPlatforms: [FeedbackPlatform.ios],
+              maxAttachmentBytes: 1048576,
+              allowAnonymousRoadmap: true,
+              allowAnonymousVote: true,
+              allowAnonymousFeedback: true,
+              allowAnonymousChangelog: true,
+              sdk: SdkAppearance(
+                features: SdkFeatures(featureRequests: true),
+              ),
+            ),
+            platformOverride: FeedbackPlatform.ios,
+            child: const FeatureRequestsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(offsets.first, '0',
+          reason: 'the first page starts at offset 0');
+
+      // Tap the Load more row and let the follow-up request settle.
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(offsets, hasLength(2));
+      expect(offsets[1], '3',
+          reason:
+              'the offset advances by the 3 raw rows the server sent — not '
+              'by the 2 retained items — so the row after the dropped '
+              'element is not repeated');
+      expect(find.text('Third'), findsOneWidget);
     });
   });
 }
