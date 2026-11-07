@@ -143,6 +143,62 @@ void main() {
       );
     });
 
+    test('a received-but-unusable reply keeps UnreadableUploadResponseException '
+        '(network catch must not swallow response-shape errors)', () async {
+      // A 200 whose body is valid JSON but not an object throws TypeError on
+      // the `as Map<String, dynamic>` cast — a parse-class failure of a
+      // received response, not a transport failure. It must keep its previous
+      // classification (uploadAttachment's catch-all) rather than the network
+      // mapping.
+      final mockClient = MockClient((request) async {
+        if (request.url.path.endsWith('/uploads/sessions')) {
+          return http.Response(
+            jsonEncode({
+              'session': {
+                'sessionId': 'ses_1',
+                'sessionToken': 'sess_tok',
+                'expiresAt': '2026-10-25T12:00:00Z',
+                'maxFileSizeBytes': 10485760,
+                'maxFiles': 8,
+              },
+              'files': [
+                {
+                  'clientFileId': 'file-1',
+                  'uploadId': 'upl_slot_1',
+                  'uploadUrl': '/api/v1/uploads/upl_slot_1',
+                  'maxSizeBytes': 10485760,
+                },
+              ],
+            }),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[1, 2, 3]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockClient,
+      );
+
+      await expectLater(
+        client.uploadAttachment(
+          bytes: [1, 2, 3],
+          filename: 'shot.png',
+          mimeType: 'image/png',
+          userToken: 'usr_1',
+        ),
+        throwsA(isA<UnreadableUploadResponseException>()),
+      );
+    });
+
     test('malformed-JSON 200 from the slot PUT still maps to '
         'InvalidResponseException (parse branch, not network branch)',
         () async {
