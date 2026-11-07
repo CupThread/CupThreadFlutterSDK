@@ -1121,14 +1121,18 @@ class FeedbackClient {
 
   /// Subscribes an email to changelog notifications.
   ///
-  /// Resolves a Cloudflare Turnstile token through
-  /// [FeedbackClientConfig.turnstileTokenProvider] exactly like the other
+  /// Resolves a Cloudflare Turnstile token exactly like the other
   /// intake-style writes (`submit`, `submitFeatureRequest`,
   /// `uploadAttachment`): on deployments with Turnstile configured, the
   /// endpoint rejects anonymous subscribe calls without a token with `403`,
   /// so a host that already implements the provider contract for feedback
-  /// intake gets subscribe verification for free. The provider is consulted
-  /// once per call (tokens are single-use).
+  /// intake gets subscribe verification for free. The token must be minted
+  /// for the [TurnstileAction.changelogSubscribe] binding with the app key
+  /// as `cdata`; the binding-aware
+  /// [FeedbackClientConfig.turnstileChallengeTokenProvider] receives exactly
+  /// that challenge, and the legacy [FeedbackClientConfig.turnstileTokenProvider]
+  /// is consulted otherwise. The provider is consulted once per call (tokens
+  /// are single-use).
   Future<ChangelogSubscriptionResult> subscribeToChangelog(
     String email, {
     required String userToken,
