@@ -177,6 +177,47 @@ void main() {
       expect(find.text(CupThreadStrings.en.retry), findsNothing);
     });
 
+    testWidgets('a stale failure landing after a newer load succeeded with '
+        'no entries must not drop the screen into the error state',
+        (tester) async {
+      // The error branch only renders while `_entries.isEmpty`, so a
+      // nonempty newer result can mask an accepted stale failure. Here the
+      // newer load succeeds with *empty* entries: if the stale failure were
+      // applied, the screen would fall into the error state. The normal
+      // (subscribe card) view must survive the stale failure.
+      final stale = Completer<http.Response>();
+      final fresh = Completer<http.Response>();
+      final client = completerClient(stale, fresh);
+
+      await tester.pumpWidget(host(client));
+      await tester.pump();
+      await tester.pumpWidget(host(client));
+      await tester.pump();
+
+      // The newer load succeeds with an empty changelog.
+      fresh.complete(http.Response(
+        jsonEncode({'entries': [], 'hasMore': false}),
+        200,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text(CupThreadStrings.en.subscribeToUpdates), findsOneWidget);
+
+      // The stale load then fails: the generation guard must drop it and
+      // the normal empty-changelog view stays.
+      stale.complete(http.Response(
+        jsonEncode({'error': 'server error'}),
+        500,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text(CupThreadStrings.en.subscribeToUpdates), findsOneWidget);
+      expect(find.byIcon(Icons.cloud_off), findsNothing);
+      expect(find.text('Failed to load requests'), findsNothing);
+      expect(find.text(CupThreadStrings.en.retry), findsNothing);
+    });
+
     testWidgets('a stale failure while the newer load is still pending must '
         'not truncate the loading spinner', (tester) async {
       final stale = Completer<http.Response>();
