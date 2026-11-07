@@ -30,6 +30,12 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
   PublicAppConfig? _lastConfig;
   bool _hasAttemptedLoad = false;
 
+  /// Monotonically increasing token for in-flight changelog loads. A
+  /// response is applied only while its captured generation still matches,
+  /// so a slow pull-to-refresh or a stale `_checkAndLoad` reload can never
+  /// clobber a newer load's entries, error, or loading state.
+  int _loadGeneration = 0;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -103,9 +109,11 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
     }
 
     final client = CupThreadTheme.clientOf(context);
+    final generation = ++_loadGeneration;
+
     try {
       final list = await client.fetchChangelog();
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _entries = list;
           _loadError = null;
@@ -113,7 +121,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _loadError = e;
           _isLoading = false;
