@@ -379,6 +379,16 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
         _loadConfig();
       }
     } else if (oldWidget.client != widget.client && widget.config == null) {
+      // The policy surface must belong to the client that serves it: never
+      // carry the previous client's config across a swap (a failed refresh on
+      // the new client would otherwise leave the old app's gates armed
+      // alongside the new client's error), and seed from the new client's
+      // cache when one is available so a slow refresh does not blank the
+      // gates the way a cold start would.
+      setState(() {
+        _appConfig = widget.client.cachedAppConfig;
+        _configError = null;
+      });
       _loadConfig();
     }
   }

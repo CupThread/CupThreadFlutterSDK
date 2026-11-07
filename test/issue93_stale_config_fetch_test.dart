@@ -212,6 +212,68 @@ void main() {
   });
 
   testWidgets(
+      'a client swap drops the old client\'s config — its policy never '
+      'outlives the swap, even when the new client\'s fetch fails',
+      (tester) async {
+    final backendA = _GatedConfigBackend();
+    final backendB = _GatedConfigBackend();
+    final clientA = _buildClient(backendA);
+    final clientB = _buildClient(backendB);
+
+    await tester.pumpWidget(_probe(clientA));
+    // Client A's config loads.
+    backendA.outcomes.add('config-a');
+    backendA.gateFor(0).complete();
+    await tester.pumpAndSettle();
+    expect(_probeText(tester),
+        contains('name:config-a|loading:false|error:none|client:app_93'));
+
+    // Swap to client B (no cached config) while B's fetch then fails.
+    await tester.pumpWidget(_probe(clientB));
+    backendB.outcomes.add(StateError('client b offline'));
+    backendB.gateFor(0).complete();
+    await tester.pumpAndSettle();
+
+    expect(_probeText(tester),
+        contains('name:none|loading:false|error:InvalidResponseException'));
+  });
+
+  testWidgets(
+      'a client swap seeds from the new client\'s cached config before its '
+      'refresh completes', (tester) async {
+    final backendA = _GatedConfigBackend();
+    final backendB = _GatedConfigBackend();
+    final clientA = _buildClient(backendA);
+    final clientB = _buildClient(backendB);
+
+    // Client B already has a cached config from an earlier fetch.
+    backendB.outcomes.add('config-b-cached');
+    backendB.gateFor(0).complete();
+    await clientB.fetchAppConfig();
+
+    await tester.pumpWidget(_probe(clientA));
+    await tester.pumpAndSettle();
+
+    // Swap to B while A's fetch is still pending and B's force-refresh is
+    // gated: the cached config must be visible immediately.
+    await tester.pumpWidget(_probe(clientB));
+    await tester.pumpAndSettle();
+    expect(_probeText(tester),
+        contains('name:config-b-cached|loading:true|error:none|client:app_93'));
+
+    // The refresh supersedes the cache, and A's stale response — released
+    // last — is still ignored.
+    backendB.outcomes.add('config-b-refreshed');
+    backendB.gateFor(1).complete();
+    await tester.pumpAndSettle();
+    backendA.outcomes.add('config-a');
+    backendA.gateFor(0).complete();
+    await tester.pumpAndSettle();
+    expect(_probeText(tester),
+        contains('name:config-b-refreshed|loading:false|error:none'));
+  });
+
+  testWidgets(
       'retryConfig supersedes the earlier in-flight load — the last current '
       'writer wins, not the last writer', (tester) async {
     final backend = _GatedConfigBackend();
