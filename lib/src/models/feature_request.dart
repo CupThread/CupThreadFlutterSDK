@@ -325,12 +325,19 @@ class VoteResult {
 
 /// Paginated list response for feature requests.
 ///
-/// Returned by `GET /api/v1/feature-requests`.
+/// Returned by `GET /api/v1/feature-requests`. When the response carries
+/// keyset metadata, follow [nextCursor] to fetch subsequent pages while
+/// [hasMore] is true — cursor pages stay stable when moderation approves,
+/// hides, or reorders rows between fetches, which offset pages do not.
 ///
 /// ### Example
 /// ```dart
 /// final result = await client.fetchFeatureRequests(userToken: token);
 /// print('Showing ${result.requests.length} of ${result.total} requests.');
+/// if (result.hasMore && result.nextCursor != null) {
+///   final next = await client.fetchFeatureRequests(
+///       userToken: token, cursor: result.nextCursor);
+/// }
 /// ```
 class ListFeatureRequestsResult {
   /// List of feature request items returned for the current page.
@@ -348,11 +355,26 @@ class ListFeatureRequestsResult {
   /// re-fetch the row right after it.
   final int pageRowCount;
 
+  /// Whether more requests are available beyond this page.
+  ///
+  /// The API sends this field only for cursor-based requests; a legacy
+  /// response without it parses as `false` so callers keep working.
+  final bool hasMore;
+
+  /// Opaque keyset cursor for the next page, or null on the last page.
+  ///
+  /// Pass it back via `fetchFeatureRequests(cursor: …)`; the cursor form
+  /// omits the legacy `offset` parameter, which the API marks as
+  /// deprecated for deep pages.
+  final String? nextCursor;
+
   /// Creates a [ListFeatureRequestsResult] page container.
   const ListFeatureRequestsResult({
     required this.requests,
     required this.total,
     this.pageRowCount = 0,
+    this.hasMore = false,
+    this.nextCursor,
   });
 
   /// Deserializes [ListFeatureRequestsResult] from a JSON map.
@@ -360,17 +382,22 @@ class ListFeatureRequestsResult {
   /// Malformed elements inside `requests` (null or non-object entries)
   /// are skipped rather than fatal, matching the null-tolerant field
   /// parsing used throughout the model layer. When the server omits
-  /// `total`, it falls back to the raw row count of this page.
+  /// `total`, it falls back to the raw row count of this page. Pagination
+  /// metadata is tolerant too — [hasMore] defaults to false and
+  /// [nextCursor] to null when a legacy server omits them.
   factory ListFeatureRequestsResult.fromJson(Map<String, dynamic> json) {
     final rawRows = json['requests'] as List<dynamic>? ?? const [];
     final list = rawRows
         .whereType<Map<String, dynamic>>()
         .map(FeatureRequestItem.fromJson)
         .toList();
+    final cursor = json['nextCursor'] as String?;
     return ListFeatureRequestsResult(
       requests: list,
       total: (json['total'] as num?)?.toInt() ?? rawRows.length,
       pageRowCount: rawRows.length,
+      hasMore: json['hasMore'] as bool? ?? false,
+      nextCursor: (cursor != null && cursor.isNotEmpty) ? cursor : null,
     );
   }
 }

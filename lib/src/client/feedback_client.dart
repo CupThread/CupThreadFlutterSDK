@@ -764,18 +764,34 @@ class FeedbackClient {
   }
 
   /// Fetches paged feature requests.
+  ///
+  /// Maps to `GET /api/v1/feature-requests`. Pagination follows the API's
+  /// documented contract: `limit` is clamped to 1–200, and passing a
+  /// non-empty [cursor] walks the keyset pages the server mints in
+  /// `ListFeatureRequestsResult.nextCursor` — the `cursor` query parameter
+  /// is then sent and the legacy `offset` omitted, because the API marks
+  /// `offset` as deprecated for deep pages and sending both is ambiguous.
+  /// Without a cursor the call uses the legacy `offset` parameter as
+  /// before, so existing callers are unaffected. The returned
+  /// [ListFeatureRequestsResult] exposes `hasMore`/`nextCursor` verbatim
+  /// (tolerant defaults when a server omits the metadata).
   Future<ListFeatureRequestsResult> fetchFeatureRequests({
     required String userToken,
     int limit = 50,
     int offset = 0,
     String? versionId,
     String? query,
+    String? cursor,
   }) async {
     final params = <String, String>{
       'appKey': config.appKey,
-      'limit': limit.toString(),
-      'offset': offset.toString(),
+      'limit': limit.clamp(1, 200).toString(),
     };
+    if (cursor != null && cursor.isNotEmpty) {
+      params['cursor'] = cursor;
+    } else {
+      params['offset'] = offset.toString();
+    }
     if (versionId != null && versionId.isNotEmpty) {
       params['versionId'] = versionId;
     }
