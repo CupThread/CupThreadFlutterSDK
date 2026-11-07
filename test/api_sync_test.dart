@@ -9,6 +9,25 @@ import 'package:cupthread_feedback/cupthread_feedback.dart';
 void main() {
   const turnstileBody = 'Human verification (Turnstile) is required';
 
+  /// A cached config whose `turnstile != null` — the deployment shape on
+  /// which the intake endpoints verify tokens and providers are consulted
+  /// (issues #81/#85).
+  const gatedConfig = PublicAppConfig(
+    appId: 'app_123',
+    appKey: 'app_test_123',
+    slug: 'test-app',
+    name: 'Test App',
+    allowPublic: true,
+    allowedPlatforms: [FeedbackPlatform.ios],
+    maxAttachmentBytes: 1048576,
+    allowAnonymousRoadmap: true,
+    allowAnonymousVote: true,
+    allowAnonymousFeedback: true,
+    allowAnonymousChangelog: true,
+    turnstile: TurnstileConfig(siteKey: 'sk'),
+    sdk: SdkAppearance(),
+  );
+
   test('submit decodes the optional warningCode', () async {
     final mockClient = MockClient((request) async {
       return http.Response(
@@ -97,6 +116,8 @@ void main() {
           },
         ),
         httpClient: mockClient,
+        // Gated so the provider is actually consulted (issue #85).
+        initialConfig: gatedConfig,
       );
 
       const draft = FeedbackDraft(
@@ -136,6 +157,8 @@ void main() {
           },
         ),
         httpClient: mockClient,
+        // Gated so the explicit-token short-circuit is exercised (issue #85).
+        initialConfig: gatedConfig,
       );
 
       const draft = FeedbackDraft(
@@ -171,6 +194,8 @@ void main() {
           turnstileTokenProvider: () => '   ',
         ),
         httpClient: mockClient,
+        // Gated so the provider is actually consulted (issue #85).
+        initialConfig: gatedConfig,
       );
 
       await client.submit(const FeedbackDraft(
@@ -202,6 +227,8 @@ void main() {
           turnstileTokenProvider: () => 'tok_feature_req_turnstile',
         ),
         httpClient: mockClient,
+        // Gated so the provider is actually consulted (issue #85).
+        initialConfig: gatedConfig,
       );
 
       await client.submitFeatureRequest(
@@ -321,6 +348,8 @@ void main() {
           },
         ),
         httpClient: mockClient,
+        // Gated so the provider is actually consulted (issue #85).
+        initialConfig: gatedConfig,
       );
 
       const draft = FeedbackDraft(
@@ -469,7 +498,19 @@ void main() {
       final bodies = <Map<String, dynamic>>[];
       final mockClient = MockClient((request) async {
         if (request.url.path.contains('/public/config/')) {
-          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+          // Turnstile-configured, so the composer's retry consults the
+          // configured provider (issue #85).
+          return http.Response(
+            jsonEncode({
+              'appKey': 'app_test_123',
+              'slug': 'test-app',
+              'name': 'Test App',
+              'turnstile': {'siteKey': 'sk'},
+              'sdk': {},
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
         if (bodies.length == 1) {

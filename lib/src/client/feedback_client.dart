@@ -366,14 +366,30 @@ class FeedbackClient {
   /// presents the same identity that created the upload sessions — the
   /// intake endpoint finalizes uploads only for their uploading identity
   /// (SEC-28) and would otherwise reject with `uploader_mismatch`.
+  ///
+  /// Like [castVote], [subscribeToChangelog] and [uploadAttachment], a
+  /// Turnstile provider is consulted only when the cached config publishes a
+  /// Turnstile site key: minting a token can be an interactive flow and
+  /// tokens are single-use, so an ungated submission never pops one for a
+  /// request the server would accept without it (issue #85). An explicit
+  /// [FeedbackDraft.turnstileToken] attaches in every case. Without a cached
+  /// config the call stays fail-open and a gated server answers with the
+  /// canonical typed `403` → [TurnstileRequiredException].
   Future<FeedbackSubmissionResult> submit(
     FeedbackDraft draft, {
     String? userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(
-      draft.turnstileToken,
-      challenge: TurnstileChallenge.feedback(config.appKey),
-    );
+    // A provider is consulted only when the cached config shows a
+    // Turnstile-configured deployment — the intake endpoint verifies a
+    // token only there — so an ungated submission never pops a
+    // possibly-interactive challenge (issue #85); the draft's explicit
+    // token always attaches.
+    final turnstileToken = _cachedAppConfig?.turnstile != null
+        ? await _resolveTurnstileToken(
+            draft.turnstileToken,
+            challenge: TurnstileChallenge.feedback(config.appKey),
+          )
+        : draft.turnstileToken?.trim();
     final hasSessionUploads = draft.attachments.any(
       (a) => a.uploadId != null && a.uploadId!.trim().isNotEmpty,
     );
@@ -767,14 +783,26 @@ class FeedbackClient {
   }
 
   /// Proposes a new feature request.
+  ///
+  /// Like [submit], a Turnstile provider is consulted only when the cached
+  /// config publishes a Turnstile site key — an ungated proposal never pops
+  /// a possibly-interactive challenge (issue #85), and an explicit
+  /// [FeatureRequestDraft.turnstileToken] attaches in every case. Without a
+  /// cached config the call stays fail-open and a gated server answers with
+  /// the canonical typed `403` → [TurnstileRequiredException].
   Future<FeatureRequestSubmissionResult> submitFeatureRequest(
     FeatureRequestDraft draft, {
     required String userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(
-      draft.turnstileToken,
-      challenge: TurnstileChallenge.featureRequest(config.appKey),
-    );
+    // Mirror [submit]: a provider runs only when the cached config shows a
+    // Turnstile-configured deployment (issue #85); the draft's explicit
+    // token always attaches.
+    final turnstileToken = _cachedAppConfig?.turnstile != null
+        ? await _resolveTurnstileToken(
+            draft.turnstileToken,
+            challenge: TurnstileChallenge.featureRequest(config.appKey),
+          )
+        : draft.turnstileToken?.trim();
     final body = draft.toJson(appKey: config.appKey, requesterToken: userToken);
     if (turnstileToken != null && turnstileToken.isNotEmpty) {
       body['turnstileToken'] = turnstileToken;
