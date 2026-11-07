@@ -423,7 +423,9 @@ void main() {
           challenges.add(challenge);
           return 'tok_bound';
         },
-        config: voteConfig(),
+        // Turnstile-configured, so every gated intake path — including the
+        // subscribe endpoint since issue #81 — consults the provider.
+        config: voteConfig(withTurnstile: true),
       );
 
       await client.castVote('fr_1', userToken: 'user_1');

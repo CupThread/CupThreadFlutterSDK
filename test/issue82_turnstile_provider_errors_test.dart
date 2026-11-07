@@ -204,6 +204,9 @@ void main() {
           );
         }),
         provider: () async => throw StateError('provider bug'),
+        // Gated so the provider is actually consulted (issue #81): the
+        // throw must still count as an unresolved token.
+        config: voteConfig(),
       );
 
       final result = await client.subscribeToChangelog(
@@ -245,6 +248,9 @@ void main() {
           );
         }),
         provider: () async => throw StateError('token minting exploded'),
+        // Gated so the provider is actually consulted (issue #81): the
+        // throw must still count as an unresolved token.
+        config: voteConfig(),
       );
 
       final attachment = await client.uploadAttachment(
