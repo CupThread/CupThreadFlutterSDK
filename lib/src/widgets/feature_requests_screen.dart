@@ -136,6 +136,9 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   }
 
   Future<void> _loadData() async {
+    // Async completion paths (sheet callbacks) can invoke this after dispose;
+    // bail before any context lookups on a defunct element.
+    if (!mounted) return;
     final isEnabled = CupThreadTheme.isFeatureEnabled(
       context,
       (f) => f.featureRequests,
@@ -557,7 +560,8 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
             tooltip: strings.proposeFeature,
             onPressed: () =>
                 FeatureRequestComposeSheet.show(context).then((res) {
-              if (res != null) _loadData();
+              if (!mounted || res == null) return;
+              _loadData();
             }),
           ),
         ],
@@ -644,7 +648,8 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                                   onPressed: () =>
                                       FeatureRequestComposeSheet.show(context)
                                           .then((res) {
-                                    if (res != null) _loadData();
+                                    if (!mounted || res == null) return;
+                                    _loadData();
                                   }),
                                   icon: const Icon(Icons.add, size: 18),
                                   label: Text(strings.proposeAnIdea),
@@ -794,6 +799,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
           context,
           item: item,
           onVoteChange: (updated) {
+            if (!mounted) return;
             setState(() {
               _items =
                   _items.map((i) => i.id == updated.id ? updated : i).toList();
