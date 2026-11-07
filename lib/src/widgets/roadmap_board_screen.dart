@@ -159,8 +159,15 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
           _total = page.total;
           _rawOffset = page.pageRowCount;
           _nextCursor = page.nextCursor;
-          if (cols.isNotEmpty && _selectedColumnId == null) {
-            _selectedColumnId = cols[0].id;
+          // Reconcile the selection against the fresh column set: a column
+          // deleted or hidden server-side between loads must not leave
+          // `_selectedColumnId` pointing at a dead id, or the tab bar
+          // highlights nothing while the list falls back to the first
+          // column's items. Keep the user's selection when the column still
+          // exists — that is the common reload case.
+          if (_selectedColumnId == null ||
+              !cols.any((c) => c.id == _selectedColumnId)) {
+            _selectedColumnId = cols.isNotEmpty ? cols[0].id : null;
           }
           _isLoading = false;
           _isLoadingMore = false;
