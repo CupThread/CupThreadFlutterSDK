@@ -99,6 +99,7 @@ class CupThreadStrings {
   final String unsupportedFileType;
   final String attachmentAlreadyUsed;
   final String uploadIdentityMismatch;
+  final String directAttachmentForbidden;
 
   // Errors, Sign-in & Profile Sections
   final String reply;
@@ -212,6 +213,9 @@ class CupThreadStrings {
         'That attachment was already submitted. Please attach the file again.',
     this.uploadIdentityMismatch =
         "We couldn't attach your files. Please attach them again and resend.",
+    this.directAttachmentForbidden =
+        "That attachment can't be submitted directly. "
+        'Please remove it and attach the file again.',
     this.reply = 'Reply',
     this.replyingTo = 'Replying to {name}',
     this.emailInvalid = 'Please enter a valid email address.',
@@ -257,6 +261,7 @@ class CupThreadStrings {
     unsupportedFileType: '不支持该文件类型，请另选其他文件。',
     attachmentAlreadyUsed: '该附件已随之前的提交发送，请重新添加附件。',
     uploadIdentityMismatch: '附件未能关联到本次提交，请重新添加附件后再发送。',
+    directAttachmentForbidden: '该附件无法直接提交，请移除后重新添加附件。',
 
     featureRequests: '功能建议',
     proposeFeature: '提交建议',
@@ -355,6 +360,7 @@ class CupThreadStrings {
     unsupportedFileType: 'このファイル形式はサポートされていません。別のファイルを選択してください。',
     attachmentAlreadyUsed: 'その添付ファイルは既に送信済みです。添付し直してください。',
     uploadIdentityMismatch: '添付ファイルを送信できませんでした。添付し直してお送りください。',
+    directAttachmentForbidden: 'その添付ファイルは直接送信できません。削除してから添付し直してください。',
 
     featureRequests: '機能リクエスト',
     proposeFeature: '機能を提案',
@@ -453,6 +459,7 @@ class CupThreadStrings {
     unsupportedFileType: "Ce type de fichier n'est pas pris en charge. Veuillez choisir un autre fichier.",
     attachmentAlreadyUsed: 'Cette pièce jointe a déjà été envoyée. Veuillez la joindre à nouveau.',
     uploadIdentityMismatch: 'Impossible de joindre vos fichiers. Veuillez les joindre à nouveau et renvoyer.',
+    directAttachmentForbidden: 'Cette pièce jointe ne peut pas être envoyée directement. Veuillez la retirer et la joindre à nouveau.',
 
     featureRequests: 'Demandes de fonctionnalités',
     proposeFeature: 'Proposer une fonctionnalité',
@@ -552,6 +559,7 @@ class CupThreadStrings {
     unsupportedFileType: 'No se admite ese tipo de archivo. Elige otro archivo.',
     attachmentAlreadyUsed: 'Ese adjunto ya fue enviado. Vuelve a adjuntarlo.',
     uploadIdentityMismatch: 'No pudimos adjuntar tus archivos. Vuelve a adjuntarlos y reenvía.',
+    directAttachmentForbidden: 'Ese adjunto no se puede enviar directamente. Quítalo y vuelve a adjuntarlo.',
 
     featureRequests: 'Solicitudes de funciones',
     proposeFeature: 'Proponer función',
@@ -650,6 +658,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Dieser Dateityp wird nicht unterstützt. Bitte wählen Sie eine andere Datei.',
     attachmentAlreadyUsed: 'Dieser Anhang wurde bereits übermittelt. Bitte hängen Sie ihn erneut an.',
     uploadIdentityMismatch: 'Ihre Dateien konnten nicht angehängt werden. Bitte hängen Sie sie erneut an und senden Sie erneut.',
+    directAttachmentForbidden: 'Dieser Anhang kann nicht direkt übermittelt werden. Bitte entfernen Sie ihn und hängen Sie ihn erneut an.',
 
     featureRequests: 'Funktionswünsche',
     proposeFeature: 'Funktion vorschlagen',
@@ -750,6 +759,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Questo tipo di file non è supportato. Scegli un file diverso.',
     attachmentAlreadyUsed: 'Questo allegato è già stato inviato. Allegalo di nuovo.',
     uploadIdentityMismatch: 'Impossibile allegare i tuoi file. Allegali di nuovo e reinvia.',
+    directAttachmentForbidden: 'Questo allegato non può essere inviato direttamente. Rimuovilo e allegalo di nuovo.',
 
     featureRequests: 'Richieste di funzionalità',
     proposeFeature: 'Proponi una funzionalità',
@@ -848,6 +858,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Não há suporte para esse tipo de arquivo. Escolha outro arquivo.',
     attachmentAlreadyUsed: 'Esse anexo já foi enviado. Anexe-o novamente.',
     uploadIdentityMismatch: 'Não foi possível anexar seus arquivos. Anexe-os novamente e reenvie.',
+    directAttachmentForbidden: 'Esse anexo não pode ser enviado diretamente. Remova-o e anexe-o novamente.',
 
     featureRequests: 'Solicitações de recursos',
     proposeFeature: 'Propor recurso',
@@ -946,6 +957,7 @@ class CupThreadStrings {
     unsupportedFileType: '不支援該檔案類型，請另選其他檔案。',
     attachmentAlreadyUsed: '該附件已隨先前的提交送出，請重新加入附件。',
     uploadIdentityMismatch: '附件未能關聯到本次提交，請重新加入附件後再傳送。',
+    directAttachmentForbidden: '該附件無法直接提交，請移除後重新加入附件。',
 
     featureRequests: '功能建議',
     proposeFeature: '提交建議',
@@ -1044,6 +1056,7 @@ class CupThreadStrings {
     unsupportedFileType: '지원되지 않는 파일 형식입니다. 다른 파일을 선택해 주세요.',
     attachmentAlreadyUsed: '해당 첨부 파일은 이미 전송되었습니다. 첨부 파일을 다시 추가해 주세요.',
     uploadIdentityMismatch: '파일을 첨부하지 못했습니다. 첨부 파일을 다시 추가한 후 보내 주세요.',
+    directAttachmentForbidden: '해당 첨부 파일은 직접 전송할 수 없습니다. 제거한 후 첨부 파일을 다시 추가해 주세요.',
 
     featureRequests: '기능 요청',
     proposeFeature: '기능 제안하기',
@@ -1142,6 +1155,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Ten typ pliku nie jest obsługiwany. Wybierz inny plik.',
     attachmentAlreadyUsed: 'Ten załącznik został już wysłany. Załącz go ponownie.',
     uploadIdentityMismatch: 'Nie udało się dołączyć plików. Dołącz je ponownie i wyślij jeszcze raz.',
+    directAttachmentForbidden: 'Tego załącznika nie można wysłać bezpośrednio. Usuń go i załącz ponownie.',
 
     featureRequests: 'Propozycje funkcji',
     proposeFeature: 'Zaproponuj funkcję',
@@ -1240,6 +1254,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Den filtypen støttes ikke. Velg en annen fil.',
     attachmentAlreadyUsed: 'Dette vedlegget er allerede sendt. Legg det ved på nytt.',
     uploadIdentityMismatch: 'Vi klarte ikke å legge ved filene dine. Legg dem ved på nytt og send igjen.',
+    directAttachmentForbidden: 'Dette vedlegget kan ikke sendes direkte. Fjern det og legg det ved på nytt.',
 
     featureRequests: 'Funksjonsønsker',
     proposeFeature: 'Foreslå funksjon',
@@ -1338,6 +1353,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Bu dosya türü desteklenmiyor. Lütfen başka bir dosya seçin.',
     attachmentAlreadyUsed: 'Bu ek zaten gönderildi. Lütfen eki yeniden ekleyin.',
     uploadIdentityMismatch: 'Dosyalarınız eklenemedi. Lütfen ekleri yeniden ekleyip tekrar gönderin.',
+    directAttachmentForbidden: 'Bu ek doğrudan gönderilemez. Lütfen eki kaldırın ve yeniden ekleyin.',
 
     featureRequests: 'Özellik istekleri',
     proposeFeature: 'Özellik öner',
@@ -1436,6 +1452,7 @@ class CupThreadStrings {
     unsupportedFileType: 'Không hỗ trợ loại tệp này. Vui lòng chọn tệp khác.',
     attachmentAlreadyUsed: 'Tệp đính kèm này đã được gửi trước đó. Vui lòng đính kèm lại.',
     uploadIdentityMismatch: 'Không thể đính kèm tệp của bạn. Vui lòng đính kèm lại rồi gửi.',
+    directAttachmentForbidden: 'Tệp đính kèm này không thể gửi trực tiếp. Vui lòng xóa và đính kèm lại.',
 
     featureRequests: 'Yêu cầu tính năng',
     proposeFeature: 'Đề xuất tính năng',
@@ -1577,9 +1594,9 @@ class CupThreadStrings {
         FeedbackRejectionReason.unsupportedFileType => unsupportedFileType,
         FeedbackRejectionReason.fileTooLarge => attachmentTooLarge,
         FeedbackRejectionReason.uploaderMismatch => uploadIdentityMismatch,
-        FeedbackRejectionReason.alreadyUsed ||
+        FeedbackRejectionReason.alreadyUsed => attachmentAlreadyUsed,
         FeedbackRejectionReason.directAttachmentForbidden =>
-          attachmentAlreadyUsed,
+          directAttachmentForbidden,
       };
     }
     if (error is FeatureDisabledException) return featureUnavailable;
@@ -1682,6 +1699,7 @@ class CupThreadStrings {
     String? unsupportedFileType,
     String? attachmentAlreadyUsed,
     String? uploadIdentityMismatch,
+    String? directAttachmentForbidden,
   }) {
     return CupThreadStrings(
       retry: retry ?? this.retry,
@@ -1772,6 +1790,8 @@ class CupThreadStrings {
           attachmentAlreadyUsed ?? this.attachmentAlreadyUsed,
       uploadIdentityMismatch:
           uploadIdentityMismatch ?? this.uploadIdentityMismatch,
+      directAttachmentForbidden:
+          directAttachmentForbidden ?? this.directAttachmentForbidden,
       reply: reply ?? this.reply,
       replyingTo: replyingTo ?? this.replyingTo,
       emailInvalid: emailInvalid ?? this.emailInvalid,

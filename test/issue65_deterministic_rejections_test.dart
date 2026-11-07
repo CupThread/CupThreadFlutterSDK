@@ -304,6 +304,20 @@ void main() {
       );
     });
 
+    test('JSON endpoints keep a 415 generic (no file to replace)', () async {
+      final client = clientWith(
+        MockClient((request) async {
+          return http.Response('Unsupported Media Type', 415);
+        }),
+      );
+
+      expect(
+        await submitError(client),
+        isA<UnexpectedStatusException>()
+            .having((e) => e.status, 'status', 415),
+      );
+    });
+
     test('unknown 400 code still surfaces as UnexpectedStatusException',
         () async {
       final client = clientWith(
@@ -403,7 +417,7 @@ void main() {
         strings.localizedErrorMessage(
           rejection(FeedbackRejectionReason.directAttachmentForbidden),
         ),
-        strings.attachmentAlreadyUsed,
+        strings.directAttachmentForbidden,
       );
     });
 
@@ -425,6 +439,8 @@ void main() {
           isNot(CupThreadStrings.en.attachmentAlreadyUsed));
       expect(strings.uploadIdentityMismatch,
           isNot(CupThreadStrings.en.uploadIdentityMismatch));
+      expect(strings.directAttachmentForbidden,
+          isNot(CupThreadStrings.en.directAttachmentForbidden));
     });
   });
 }

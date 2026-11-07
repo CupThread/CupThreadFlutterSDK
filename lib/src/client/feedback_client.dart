@@ -120,12 +120,20 @@ class FeedbackClient {
 
   /// Maps the intake endpoints' deterministic, code-bearing rejections to a
   /// typed [FeedbackRejectionException]: the `code` field of
-  /// `{"error": ..., "code": ...}` bodies decides (never the message text),
-  /// and the 415 upload content-scan rejection is matched on the status
-  /// alone because it carries no code. Returns null for anything else so
-  /// unknown codes and other statuses keep surfacing as a generic
-  /// unexpected-status error.
-  static FeedbackRejectionException? _rejection(int status, String responseBody) {
+  /// `{"error": ..., "code": ...}` bodies decides (never the message text).
+  ///
+  /// The status-only 415 content-scan rejection is matched only when
+  /// [statusOnly415] is set (the raw-bytes slot `PUT`, where 415 always
+  /// means the stored bytes failed inspection); JSON endpoints keep RFC
+  /// semantics, where a 415 says nothing about an attachment.
+  ///
+  /// Returns null for anything else so unknown codes and other statuses
+  /// keep surfacing as a generic unexpected-status error.
+  static FeedbackRejectionException? _rejection(
+    int status,
+    String responseBody, {
+    bool statusOnly415 = false,
+  }) {
     String? code;
     if (responseBody.isNotEmpty) {
       try {
@@ -140,6 +148,8 @@ class FeedbackClient {
     switch (status) {
       case 415:
         // Content inspection on the stored bytes: deterministic, no code.
+        // Only meaningful on the slot PUT (see [statusOnly415]).
+        if (!statusOnly415) return null;
         return FeedbackRejectionException(
           reason: FeedbackRejectionReason.contentRejected,
           status: status,
@@ -480,7 +490,11 @@ class FeedbackClient {
         throw AttachmentTooLargeException(bytes.length, limit ?? bytes.length);
       }
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final rejection = _rejection(response.statusCode, response.body);
+        final rejection = _rejection(
+          response.statusCode,
+          response.body,
+          statusOnly415: true,
+        );
         if (rejection != null) {
           throw rejection;
         }
