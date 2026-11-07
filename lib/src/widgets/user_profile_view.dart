@@ -23,24 +23,42 @@ class _UserProfileViewState extends State<UserProfileView> {
   bool _isLoading = true;
   Object? _error;
 
+  /// Bumped whenever [UserProfileView.userId] changes or a retry starts, so
+  /// a response captured under an earlier id or load can never mutate the
+  /// currently displayed user's state.
+  int _loadGeneration = 0;
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
   }
 
+  @override
+  void didUpdateWidget(UserProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _data = null;
+      _isLoading = true;
+      _error = null;
+      _loadProfile();
+    }
+  }
+
   Future<void> _loadProfile() async {
     final client = CupThreadTheme.clientOf(context);
+    final userId = widget.userId;
+    final loadGeneration = ++_loadGeneration;
     try {
-      final res = await client.fetchUserProfile(widget.userId);
-      if (mounted) {
+      final res = await client.fetchUserProfile(userId);
+      if (_isCurrentLoad(userId, loadGeneration)) {
         setState(() {
           _data = res;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (_isCurrentLoad(userId, loadGeneration)) {
         setState(() {
           // A 404 means the id is unknown or not an app-scoped `u_*` id;
           // fall through to the dedicated "user not found" copy instead of
@@ -51,6 +69,11 @@ class _UserProfileViewState extends State<UserProfileView> {
       }
     }
   }
+
+  bool _isCurrentLoad(String userId, int loadGeneration) =>
+      mounted &&
+      widget.userId == userId &&
+      loadGeneration == _loadGeneration;
 
   @override
   Widget build(BuildContext context) {
@@ -75,11 +98,42 @@ class _UserProfileViewState extends State<UserProfileView> {
           ? Center(child: CircularProgressIndicator(color: colors.primary))
           : _error != null || _data == null
               ? Center(
-                  child: Text(
-                    _error != null
-                        ? strings.localizedErrorMessage(_error!)
-                        : strings.userNotFound,
-                    style: TextStyle(color: colors.textPrimary),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_error != null) ...[
+                          Icon(Icons.cloud_off,
+                              size: 36,
+                              color: Theme.of(context).colorScheme.error),
+                          const SizedBox(height: 8),
+                        ],
+                        Text(
+                          _error != null
+                              ? strings.localizedErrorMessage(_error!)
+                              : strings.userNotFound,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colors.textPrimary),
+                        ),
+                        // Retry only makes sense for a transient failure; an
+                        // unknown-id 404 renders static "user not found" copy.
+                        if (_error != null) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _isLoading = true;
+                                _error = null;
+                              });
+                              _loadProfile();
+                            },
+                            child: Text(strings.retry),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 )
               : SingleChildScrollView(
