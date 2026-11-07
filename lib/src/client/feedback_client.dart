@@ -322,6 +322,13 @@ class FeedbackClient {
   /// one request); otherwise, or when no binding-aware provider is
   /// configured, the legacy [FeedbackClientConfig.turnstileTokenProvider]
   /// resolves the token.
+  ///
+  /// A provider that throws is treated exactly like one that yields no
+  /// token — mirroring the widget preflight in `vote_turnstile.dart` — so
+  /// the call proceeds without a token and a gated server rejects it with
+  /// the canonical [TurnstileRequiredException] instead of the provider's
+  /// error escaping the intake method as a raw, non-[FeedbackException]
+  /// exception (issue #82).
   Future<String?> _resolveTurnstileToken(
     String? explicit, {
     TurnstileChallenge? challenge,
@@ -331,15 +338,23 @@ class FeedbackClient {
     if (challenge != null) {
       final challengeProvider = config.turnstileChallengeTokenProvider;
       if (challengeProvider != null) {
-        final token = (await challengeProvider(challenge))?.trim();
-        if (token != null && token.isNotEmpty) return token;
+        try {
+          final token = (await challengeProvider(challenge))?.trim();
+          if (token != null && token.isNotEmpty) return token;
+        } catch (_) {
+          // A throwing provider counts as an unresolved token (issue #82).
+        }
         return null;
       }
     }
     final provider = config.turnstileTokenProvider;
     if (provider == null) return null;
-    final token = (await provider())?.trim();
-    if (token != null && token.isNotEmpty) return token;
+    try {
+      final token = (await provider())?.trim();
+      if (token != null && token.isNotEmpty) return token;
+    } catch (_) {
+      // A throwing provider counts as an unresolved token (issue #82).
+    }
     return null;
   }
 
