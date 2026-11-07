@@ -49,9 +49,12 @@ class BadgeChip extends StatelessWidget {
   /// chip colors) for null, empty, wrong-length, or non-hex values. Total on
   /// purpose: `columnColor` is unvalidated server data and a throwing parse
   /// here would crash the whole screen build (issue #91).
+  ///
+  /// Only a single leading `#` is stripped; any other non-hex character
+  /// (including an embedded `#`) makes the value fall back to the theme.
   Color? _parseColor(String? hex) {
     if (hex == null || hex.isEmpty) return null;
-    final clean = hex.replaceAll('#', '');
+    final clean = hex.startsWith('#') ? hex.substring(1) : hex;
     if (clean.length == 6) {
       final value = int.tryParse('FF$clean', radix: 16);
       if (value != null) return Color(value);

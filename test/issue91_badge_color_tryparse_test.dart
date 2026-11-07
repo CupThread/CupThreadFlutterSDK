@@ -59,6 +59,20 @@ void main() {
       expect(badgeTextColor(tester), fallbackColors.chipText);
     });
 
+    testWidgets('an embedded # makes the value fall back instead of '
+        'silently parsing around it', (tester) async {
+      // '12#3456' must NOT be normalized to '123456' — an embedded '#'
+      // is a non-hex character, so the badge uses the theme fallback.
+      await tester.pumpWidget(host(const BadgeChip(
+        label: 'Blocked',
+        colorHex: '12#3456',
+      )));
+
+      expect(tester.takeException(), isNull);
+      expect(badgeTextColor(tester), fallbackColors.chipText);
+      expect(badgeBackground(tester), fallbackColors.chipBg);
+    });
+
     testWidgets('wrong-length, empty, and null colorHex keep the fallback',
         (tester) async {
       for (final colorHex in <String?>['3B8', 'FFFFFFFF', '', null]) {
@@ -187,6 +201,72 @@ void main() {
       await tester.pumpAndSettle();
 
       // The card — and its stage badge — render despite the malformed color.
+      expect(tester.takeException(), isNull);
+      expect(find.text('Dark mode for the board'), findsOneWidget);
+      expect(find.text('In Progress'), findsOneWidget);
+    });
+  });
+
+  group('issue #91: the detail sheet renders when the server sends a '
+      'malformed columnColor', () {
+    testWidgets('FeatureRequestDetailSheet renders the stage badge for a '
+        'non-hex columnColor', (tester) async {
+      const item = FeatureRequestItem(
+        id: 'fr_1',
+        appId: 'app_123',
+        title: 'Dark mode for the board',
+        description: 'Please.',
+        status: 'in_progress',
+        columnName: 'In Progress',
+        // Malformed server value: 6 chars, not hex.
+        columnColor: 'colors',
+        approved: true,
+        voteCount: 3,
+        hasVoted: false,
+        isOwnRequest: false,
+        createdAt: '2026-11-01T12:00:00Z',
+        updatedAt: '2026-11-01T12:00:00Z',
+      );
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: MockClient((request) async {
+          if (request.url.path.contains('/comments')) {
+            return http.Response(
+              jsonEncode({'comments': []}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: CupThreadTheme(
+          client: client,
+          child: Scaffold(
+            body: Builder(
+              builder: (ctx) => Center(
+                child: TextButton(
+                  onPressed: () =>
+                      FeatureRequestDetailSheet.show(ctx, item: item),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // The sheet — and its stage badge — render despite the malformed color.
       expect(tester.takeException(), isNull);
       expect(find.text('Dark mode for the board'), findsOneWidget);
       expect(find.text('In Progress'), findsOneWidget);
