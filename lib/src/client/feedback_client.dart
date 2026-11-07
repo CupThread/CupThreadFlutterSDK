@@ -620,8 +620,14 @@ class FeedbackClient {
     final uri = Uri.parse(
       '${config.baseUrl}/api/v1/uploads/${Uri.encodeComponent(session.slot.uploadId)}',
     );
+    // The transport-failure mapping must scope to the PUT request only:
+    // response-body decoding and field parsing run outside this catch, so a
+    // received-but-unusable reply (wrong-shape JSON → TypeError) keeps its
+    // previous classification through uploadAttachment's catch-all instead
+    // of being mislabeled as a network failure.
+    http.Response response;
     try {
-      final response = await _httpClient
+      response = await _httpClient
           .put(
             uri,
             headers: {
@@ -631,7 +637,16 @@ class FeedbackClient {
             body: bytes,
           )
           .timeout(timeout);
-
+    } on TimeoutException {
+      rethrow;
+    } catch (e) {
+      // Transport-level failure (SocketException, ClientException, …): the
+      // request never completed, so mirror _sendJson's network-failure
+      // mapping instead of letting uploadAttachment's catch-all mislabel it
+      // as an unreadable reply to a completed upload.
+      throw InvalidResponseException('Network failure requesting $uri', e);
+    }
+    try {
       if (response.statusCode == 401) {
         throw const AuthenticationRequiredException();
       }
@@ -685,8 +700,6 @@ class FeedbackClient {
         size: (json['sizeBytes'] as num?)?.toInt() ?? bytes.length,
       );
     } on FeedbackException {
-      rethrow;
-    } on TimeoutException {
       rethrow;
     } on FormatException catch (e) {
       throw InvalidResponseException(
