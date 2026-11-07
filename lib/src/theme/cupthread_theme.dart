@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../client/feedback_client.dart';
 import '../client/user_token_store.dart';
 import '../models/config.dart';
+import '../models/platform.dart';
 import 'cupthread_strings.dart';
 import 'sdk_theme.dart';
 
@@ -26,6 +27,7 @@ class CupThreadThemeScope extends InheritedWidget {
   final VoidCallback? retryConfig;
   final bool failClosed;
   final bool isAnonymous;
+  final FeedbackPlatform? platformOverride;
   final CupThreadStrings strings;
   final Locale? locale;
 
@@ -42,6 +44,7 @@ class CupThreadThemeScope extends InheritedWidget {
     this.retryConfig,
     this.failClosed = true,
     this.isAnonymous = true,
+    this.platformOverride,
     required this.strings,
     this.locale,
     required super.child,
@@ -59,6 +62,7 @@ class CupThreadThemeScope extends InheritedWidget {
         configError != oldWidget.configError ||
         failClosed != oldWidget.failClosed ||
         isAnonymous != oldWidget.isAnonymous ||
+        platformOverride != oldWidget.platformOverride ||
         strings != oldWidget.strings ||
         locale != oldWidget.locale;
   }
@@ -82,6 +86,16 @@ class CupThreadTheme extends StatefulWidget {
   /// resolved token is always forwarded to them.
   final bool? isAnonymousOverride;
 
+  /// Overrides host-platform detection for the wrapped subtree.
+  ///
+  /// [FeedbackPlatform.current] is a host-bound static, so tests and hosts
+  /// that know better than the default detection (embedders, platform
+  /// shims) can pin the effective platform used by the
+  /// [CupThreadTheme.isPlatformAllowed] policy gate. When null (default),
+  /// the gate falls back to [FeedbackPlatform.current]. Scope-carrying
+  /// modal routes forward this value like other host overrides.
+  final FeedbackPlatform? platformOverride;
+
   final Widget child;
 
   const CupThreadTheme({
@@ -94,6 +108,7 @@ class CupThreadTheme extends StatefulWidget {
     this.config,
     this.failClosed = true,
     this.isAnonymousOverride,
+    this.platformOverride,
     required this.child,
   });
 
@@ -223,6 +238,41 @@ class CupThreadTheme extends StatefulWidget {
     return !effectiveFailClosed;
   }
 
+  /// Whether the SDK is authorized to run on the effective platform.
+  ///
+  /// Evaluates the server-controlled [PublicAppConfig.allowedPlatforms]
+  /// policy against the effective platform — [CupThreadTheme.platformOverride]
+  /// when set, [FeedbackPlatform.current] otherwise. Use it to explain why a
+  /// surface renders nothing:
+  ///
+  /// ```dart
+  /// if (!CupThreadTheme.isPlatformAllowed(context)) {
+  ///   return PlatformUnavailableNotice();
+  /// }
+  /// ```
+  ///
+  /// Fail-open semantics, mirroring the other render-time policy gates:
+  ///
+  /// - No scope, or config not yet resolved: returns true so behavior is
+  ///   unchanged until the policy arrives from the server.
+  /// - Empty `allowedPlatforms` (host-built configs): treated as "no
+  ///   restriction".
+  /// - Otherwise allowed only when the list contains the effective platform.
+  ///   Note the API's wire enum (`ios`, `macos`, `android`, `universal`) has
+  ///   no `web` value, so a non-empty policy always gates Flutter Web.
+  static bool isPlatformAllowed(BuildContext context, {bool listen = true}) {
+    final scope = listen
+        ? context.dependOnInheritedWidgetOfExactType<CupThreadThemeScope>()
+        : (context.getInheritedWidgetOfExactType<CupThreadThemeScope>() ??
+            context.dependOnInheritedWidgetOfExactType<CupThreadThemeScope>());
+    if (scope == null) return true;
+    final config = scope.appConfig;
+    if (config == null) return true;
+    final effective = scope.platformOverride ?? FeedbackPlatform.current;
+    return config.allowedPlatforms.isEmpty ||
+        config.allowedPlatforms.contains(effective);
+  }
+
   /// Re-installs the ambient CupThread scope around [child] so modal routes
   /// (bottom sheets, dialogs) present identical UI to the host application.
   ///
@@ -253,6 +303,7 @@ class CupThreadTheme extends StatefulWidget {
       config: scope.appConfig,
       failClosed: scope.failClosed,
       isAnonymousOverride: scope.isAnonymous,
+      platformOverride: scope.platformOverride,
       child: child,
     );
   }
@@ -381,6 +432,7 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
       retryConfig: _loadConfig,
       failClosed: widget.failClosed,
       isAnonymous: widget.isAnonymousOverride ?? widget.userToken == null,
+      platformOverride: widget.platformOverride,
       strings: effectiveStrings,
       locale: effectiveLocale,
       child: widget.child,

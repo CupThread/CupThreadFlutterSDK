@@ -22,6 +22,10 @@ class FeatureRequestComposeSheet extends StatefulWidget {
       (f) => f.featureRequests,
     );
     if (!isEnabled) return Future.value(null);
+    // The server's `allowedPlatforms` policy gates compose too: on an
+    // unauthorized platform no submission can succeed, so never present the
+    // sheet (mirrors the silent kill-switch behavior above).
+    if (!CupThreadTheme.isPlatformAllowed(context)) return Future.value(null);
 
     // Capture the host scope (theme, strings, locale, session, config,
     // policies) before pushing the route so the sheet renders identically.

@@ -88,6 +88,10 @@ class CupThreadStrings {
   final String roadmapDisabled;
   final String feedbackDisabled;
   final String changelogDisabled;
+
+  /// Shown when the server's `allowedPlatforms` policy does not authorize
+  /// the current platform (see `CupThreadTheme.isPlatformAllowed`).
+  final String platformUnavailable;
   final String configLoadFailed;
   final String attachmentTooLarge;
   final String tooManyAttachments;
@@ -197,6 +201,7 @@ class CupThreadStrings {
     this.roadmapDisabled = 'Roadmap is currently disabled.',
     this.feedbackDisabled = 'Feedback submission is currently disabled.',
     this.changelogDisabled = 'Changelog is currently disabled.',
+    this.platformUnavailable = 'Not available on this platform.',
     this.configLoadFailed = 'Failed to load configuration.',
     this.attachmentTooLarge = 'Attachment exceeds the maximum allowed size.',
     this.tooManyAttachments = 'Too many attachments (max 8).',
@@ -255,6 +260,7 @@ class CupThreadStrings {
     roadmapDisabled: '路线图当前已禁用。',
     feedbackDisabled: '反馈提交功能当前已禁用。',
     changelogDisabled: '更新日志当前已禁用。',
+    platformUnavailable: '此功能在当前平台不可用。',
     configLoadFailed: '加载配置失败。',
     attachmentTooLarge: '附件大小超出最大允许限制。',
     attachmentRejected: '该文件未通过内容检查，请移除该文件或另选其他文件。',
@@ -354,6 +360,7 @@ class CupThreadStrings {
     roadmapDisabled: 'ロードマップは現在無効になっています。',
     feedbackDisabled: 'フィードバックの送信は現在無効になっています。',
     changelogDisabled: '更新履歴は現在無効になっています。',
+    platformUnavailable: 'このプラットフォームでは利用できません。',
     configLoadFailed: '設定の読み込みに失敗しました。',
     attachmentTooLarge: '添付ファイルのサイズが上限を超えています。',
     attachmentRejected: 'そのファイルは内容検査で拒否されました。削除するか、別のファイルを選択してください。',
@@ -453,6 +460,7 @@ class CupThreadStrings {
     roadmapDisabled: 'La feuille de route est actuellement désactivée.',
     feedbackDisabled: "L'envoi de commentaires est actuellement désactivé.",
     changelogDisabled: 'Le journal des modifications est actuellement désactivé.',
+    platformUnavailable: 'Indisponible sur cette plateforme.',
     configLoadFailed: 'Échec du chargement de la configuration.',
     attachmentTooLarge: 'La pièce jointe dépasse la taille maximale autorisée.',
     attachmentRejected: "Ce fichier a été refusé par l'inspection du contenu. Veuillez le retirer ou en choisir un autre.",
@@ -553,6 +561,7 @@ class CupThreadStrings {
     roadmapDisabled: 'La hoja de ruta está actualmente deshabilitada.',
     feedbackDisabled: 'El envío de comentarios está actualmente deshabilitado.',
     changelogDisabled: 'El registro de cambios está actualmente deshabilitado.',
+    platformUnavailable: 'No disponible en esta plataforma.',
     configLoadFailed: 'Error al cargar la configuración.',
     attachmentTooLarge: 'El archivo adjunto supera el tamaño máximo permitido.',
     attachmentRejected: 'Ese archivo fue rechazado por la inspección de contenido. Quítalo o elige otro archivo.',
@@ -652,6 +661,7 @@ class CupThreadStrings {
     roadmapDisabled: 'Die Roadmap ist derzeit deaktiviert.',
     feedbackDisabled: 'Das Einreichen von Feedback ist derzeit deaktiviert.',
     changelogDisabled: 'Das Änderungsprotokoll ist derzeit deaktiviert.',
+    platformUnavailable: 'Auf dieser Plattform nicht verfügbar.',
     configLoadFailed: 'Konfiguration konnte nicht geladen werden.',
     attachmentTooLarge: 'Der Anhang überschreitet die maximal zulässige Größe.',
     attachmentRejected: 'Diese Datei wurde bei der Inhaltsprüfung abgelehnt. Bitte entfernen Sie sie oder wählen Sie eine andere Datei.',
@@ -753,6 +763,7 @@ class CupThreadStrings {
     roadmapDisabled: 'La roadmap è attualmente disabilitata.',
     feedbackDisabled: "L'invio di feedback è attualmente disabilitato.",
     changelogDisabled: 'Il registro delle modifiche è attualmente disabilitato.',
+    platformUnavailable: 'Non disponibile su questa piattaforma.',
     configLoadFailed: 'Impossibile caricare la configurazione.',
     attachmentTooLarge: "L'allegato supera la dimensione massima consentita.",
     attachmentRejected: 'Questo file è stato rifiutato dall\'ispezione dei contenuti. Rimuovilo o scegli un file diverso.',
@@ -852,6 +863,7 @@ class CupThreadStrings {
     roadmapDisabled: 'O roteiro está desativado no momento.',
     feedbackDisabled: 'O envio de feedback está desativado no momento.',
     changelogDisabled: 'O registro de alterações está desativado no momento.',
+    platformUnavailable: 'Indisponível nesta plataforma.',
     configLoadFailed: 'Falha ao carregar a configuração.',
     attachmentTooLarge: 'O anexo excede o tamanho máximo permitido.',
     attachmentRejected: 'Esse arquivo foi rejeitado na inspeção de conteúdo. Remova-o ou escolha outro arquivo.',
@@ -951,6 +963,7 @@ class CupThreadStrings {
     roadmapDisabled: '路線圖目前已停用。',
     feedbackDisabled: '意見回饋提交功能目前已停用。',
     changelogDisabled: '更新日誌目前已停用。',
+    platformUnavailable: '此功能在目前平台無法使用。',
     configLoadFailed: '載入設定失敗。',
     attachmentTooLarge: '附件大小超過最大允許限制。',
     attachmentRejected: '該檔案未通過內容檢查，請移除該檔案或另選其他檔案。',
@@ -1050,6 +1063,7 @@ class CupThreadStrings {
     roadmapDisabled: '로드맵이 현재 비활성화되어 있습니다.',
     feedbackDisabled: '피드백 제출이 현재 비활성화되어 있습니다.',
     changelogDisabled: '변경 내역이 현재 비활성화되어 있습니다.',
+    platformUnavailable: '이 플랫폼에서는 사용할 수 없습니다.',
     configLoadFailed: '설정을 불러오지 못했습니다.',
     attachmentTooLarge: '첨부 파일 크기가 최대 허용치를 초과했습니다.',
     attachmentRejected: '해당 파일이 콘텐츠 검사에서 거부되었습니다. 파일을 제거하거나 다른 파일을 선택해 주세요.',
@@ -1149,6 +1163,7 @@ class CupThreadStrings {
     roadmapDisabled: 'Harmonogram prac jest obecnie wyłączony.',
     feedbackDisabled: 'Przesyłanie opinii jest obecnie wyłączone.',
     changelogDisabled: 'Dziennik zmian jest obecnie wyłączony.',
+    platformUnavailable: 'Niedostępne na tej platformie.',
     configLoadFailed: 'Nie udało się załadować konfiguracji.',
     attachmentTooLarge: 'Załącznik przekracza maksymalny dozwolony rozmiar.',
     attachmentRejected: 'Ten plik został odrzucony przez kontrolę treści. Usuń go lub wybierz inny plik.',
@@ -1248,6 +1263,7 @@ class CupThreadStrings {
     roadmapDisabled: 'Veikartet er for øyeblikket deaktivert.',
     feedbackDisabled: 'Tilbakemeldinger er for øyeblikket deaktivert.',
     changelogDisabled: 'Endringsloggen er for øyeblikket deaktivert.',
+    platformUnavailable: 'Ikke tilgjengelig på denne plattformen.',
     configLoadFailed: 'Kunne ikke laste inn konfigurasjonen.',
     attachmentTooLarge: 'Vedlegget overskrider maksimal tillatt størrelse.',
     attachmentRejected: 'Den filen ble avvist av innholdskontrollen. Fjern den eller velg en annen fil.',
@@ -1347,6 +1363,7 @@ class CupThreadStrings {
     roadmapDisabled: 'Yol haritası şu anda devre dışı.',
     feedbackDisabled: 'Geri bildirim gönderimi şu anda devre dışı.',
     changelogDisabled: 'Değişiklik günlüğü şu anda devre dışı.',
+    platformUnavailable: 'Bu platformda kullanılamaz.',
     configLoadFailed: 'Yapılandırma yüklenemedi.',
     attachmentTooLarge: 'Ek, izin verilen maksimum boyutu aşıyor.',
     attachmentRejected: 'Bu dosya içerik incelemesinde reddedildi. Lütfen dosyayı kaldırın veya başka bir dosya seçin.',
@@ -1446,6 +1463,7 @@ class CupThreadStrings {
     roadmapDisabled: 'Lộ trình hiện đang bị tắt.',
     feedbackDisabled: 'Gửi phản hồi hiện đang bị tắt.',
     changelogDisabled: 'Nhật ký thay đổi hiện đang bị tắt.',
+    platformUnavailable: 'Không khả dụng trên nền tảng này.',
     configLoadFailed: 'Không thể tải cấu hình.',
     attachmentTooLarge: 'Tệp đính kèm vượt quá kích thước tối đa cho phép.',
     attachmentRejected: 'Tệp này không qua được kiểm tra nội dung. Vui lòng xóa tệp hoặc chọn tệp khác.',
@@ -1674,6 +1692,7 @@ class CupThreadStrings {
     String? roadmapDisabled,
     String? feedbackDisabled,
     String? changelogDisabled,
+    String? platformUnavailable,
     String? configLoadFailed,
     String? attachmentTooLarge,
     String? tooManyAttachments,
@@ -1778,6 +1797,7 @@ class CupThreadStrings {
       roadmapDisabled: roadmapDisabled ?? this.roadmapDisabled,
       feedbackDisabled: feedbackDisabled ?? this.feedbackDisabled,
       changelogDisabled: changelogDisabled ?? this.changelogDisabled,
+      platformUnavailable: platformUnavailable ?? this.platformUnavailable,
       configLoadFailed: configLoadFailed ?? this.configLoadFailed,
       attachmentTooLarge: attachmentTooLarge ?? this.attachmentTooLarge,
       tooManyAttachments: tooManyAttachments ?? this.tooManyAttachments,

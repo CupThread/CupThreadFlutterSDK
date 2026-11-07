@@ -84,6 +84,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(featureRequests: false),
+            platformOverride: FeedbackPlatform.ios,
             child: const FeatureRequestsScreen(),
           ),
         ),
@@ -138,6 +139,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(featureRequests: true),
+            platformOverride: FeedbackPlatform.ios,
             child: const FeatureRequestsScreen(),
           ),
         ),
@@ -188,6 +190,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(roadmap: false),
+            platformOverride: FeedbackPlatform.ios,
             child: const RoadmapBoardScreen(),
           ),
         ),
@@ -230,6 +233,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(changelog: false),
+            platformOverride: FeedbackPlatform.ios,
             child: const WhatsNewScreen(),
           ),
         ),
@@ -260,6 +264,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(feedback: false),
+            platformOverride: FeedbackPlatform.ios,
             child: Builder(
               builder: (ctx) => ElevatedButton(
                 onPressed: () async {
@@ -298,6 +303,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: createMockConfig(featureRequests: false),
+            platformOverride: FeedbackPlatform.ios,
             child: Builder(
               builder: (ctx) => ElevatedButton(
                 onPressed: () async {
@@ -457,6 +463,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             child: Scaffold(
               body: FeedbackComposer(
                 onPickAttachment: () async => oversizedAttachment,
@@ -567,6 +574,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: const FeatureRequestsScreen(),
           ),
@@ -612,6 +620,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: const Scaffold(
               body: FeedbackComposer(),
@@ -667,6 +676,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: const RoadmapBoardScreen(),
           ),
@@ -720,6 +730,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: 'test-token', // authenticated control
             child: const RoadmapBoardScreen(),
           ),
@@ -759,6 +770,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: const WhatsNewScreen(),
           ),
@@ -799,6 +811,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: 'test-token', // authenticated control
             child: const WhatsNewScreen(),
           ),
@@ -838,6 +851,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: Builder(
               builder: (ctx) => ElevatedButton(
@@ -900,6 +914,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: 'test-token', // authenticated control
             child: Builder(
               builder: (ctx) => ElevatedButton(
@@ -1129,6 +1144,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: const FeatureRequestsScreen(),
           ),
@@ -1181,6 +1197,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: 'user-token-1', // authenticated user
             child: const FeatureRequestsScreen(),
           ),
@@ -1230,6 +1247,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: null, // anonymous user
             child: Builder(
               builder: (ctx) => ElevatedButton(
@@ -1289,6 +1307,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             userToken: 'user-token-1', // authenticated user
             child: Builder(
               builder: (ctx) => ElevatedButton(

@@ -61,6 +61,7 @@ void main() {
         home: CupThreadTheme(
           client: client,
           config: config,
+          platformOverride: FeedbackPlatform.ios,
           userToken: userToken,
           child: const FeatureRequestsScreen(),
         ),
@@ -261,6 +262,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: openConfig,
+            platformOverride: FeedbackPlatform.ios,
             userToken: userToken,
             child: const FeatureRequestsScreen(),
           ),

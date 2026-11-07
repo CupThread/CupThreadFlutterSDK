@@ -66,6 +66,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
 
     if (configError != null && appConfig == null && !isEnabled) return;
     if (!isEnabled) return;
+    if (_isPlatformGated()) return;
     if (_isAnonymousViewGated()) return;
 
     final userToken = CupThreadTheme.userTokenOf(context);
@@ -104,6 +105,15 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         CupThreadTheme.isAnonymous(context);
   }
 
+  /// Whether the server's `allowedPlatforms` policy gates this screen: with
+  /// config resolved, the effective platform is not authorized to run the
+  /// SDK at all. Mirrors `RoadmapBoardScreen._isPlatformGated` — every
+  /// surface this screen offers (browse, vote, comment, propose) is
+  /// unauthorized here, so no request can succeed under the policy.
+  bool _isPlatformGated({bool listen = true}) {
+    return !CupThreadTheme.isPlatformAllowed(context, listen: listen);
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -122,6 +132,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       return;
     }
     if (_isAnonymousViewGated(listen: false)) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    if (_isPlatformGated(listen: false)) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -365,6 +379,45 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 const SizedBox(height: 16),
                 Text(
                   strings.featureRequestsDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isPlatformGated()) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.featureRequests,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.devices, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.platformUnavailable,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textSecondary,
