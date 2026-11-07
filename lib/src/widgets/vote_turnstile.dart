@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../client/feedback_client.dart';
+import '../client/turnstile.dart';
 import '../models/models.dart';
 import '../theme/cupthread_theme.dart';
 
@@ -27,7 +28,13 @@ bool voteNeedsTurnstilePreflight(
     isCastingNewVote;
 
 /// Resolves a Turnstile token for an anonymous vote through the client's
-/// configured provider.
+/// configured providers, mirroring the client's own resolution precedence:
+/// the binding-aware `FeedbackClientConfig.turnstileChallengeTokenProvider`
+/// receives exactly `TurnstileChallenge.vote(appKey)` and is consulted first
+/// (an empty result ends resolution — the binding-agnostic provider is not
+/// consulted too, which could surface two verification flows for one vote);
+/// otherwise the legacy `FeedbackClientConfig.turnstileTokenProvider`
+/// resolves the token.
 ///
 /// Returns null — after surfacing the localized verification notice — when
 /// no provider is configured, the provider yields nothing, or it throws.
@@ -40,13 +47,27 @@ Future<String?> resolveVoteTurnstileToken(
   final messenger = ScaffoldMessenger.maybeOf(context);
   final verificationCopy =
       CupThreadTheme.stringsOf(context).verificationRequired;
-  final provider = client.config.turnstileTokenProvider;
+  final config = client.config;
+  final challengeProvider = config.turnstileChallengeTokenProvider;
   String? token;
-  if (provider != null) {
+  if (challengeProvider != null) {
     try {
-      token = (await provider())?.trim();
+      token = (await challengeProvider(
+        TurnstileChallenge.vote(config.appKey),
+      ))
+          ?.trim();
     } catch (_) {
       token = null;
+    }
+    if (token != null && token.isNotEmpty) return token;
+  } else {
+    final provider = config.turnstileTokenProvider;
+    if (provider != null) {
+      try {
+        token = (await provider())?.trim();
+      } catch (_) {
+        token = null;
+      }
     }
   }
   if (token != null && token.isNotEmpty) return token;
