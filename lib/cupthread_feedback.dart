@@ -6,6 +6,7 @@ export 'src/models/models.dart';
 // Export Client & Exceptions
 export 'src/client/feedback_client.dart';
 export 'src/client/feedback_exception.dart';
+export 'src/client/turnstile.dart';
 export 'src/client/user_token_store.dart';
 export 'src/client/sdk_attribute_signer.dart';
 

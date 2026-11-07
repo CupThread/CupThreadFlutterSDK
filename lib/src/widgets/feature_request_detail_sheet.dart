@@ -7,6 +7,7 @@ import 'badge.dart';
 import 'comments_view.dart';
 import 'markdown_text.dart';
 import 'vote_button.dart';
+import 'vote_turnstile.dart';
 
 /// Bottom sheet presenting complete feature request details and discussion.
 class FeatureRequestDetailSheet extends StatefulWidget {
@@ -88,24 +89,44 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
 
-    final previousItem = _item;
-    final nextVoted = !_item.hasVoted;
-    final nextCount = _item.voteCount + (nextVoted ? 1 : -1);
-    final optimistic = _item.copyWith(
-      hasVoted: nextVoted,
-      voteCount: nextCount < 0 ? 0 : nextCount,
-    );
-
+    // Lock the sheet first so taps during a pending Turnstile preflight
+    // cannot start overlapping verification or vote requests. The lock is
+    // released on every exit path below.
     setState(() {
-      _item = optimistic;
       _isVoting = true;
     });
-    widget.onVoteChange?.call(optimistic);
 
+    // The pre-vote snapshot: null until the optimistic update ran, so a
+    // preflight that bailed early has nothing to roll back.
+    FeatureRequestItem? previousItem;
     try {
+      // Turnstile preflight, mirroring the list screens: casting a new vote
+      // on an app that requires anonymous-vote verification resolves the
+      // token before the optimistic update. Removing a vote is never
+      // verified.
+      String? voteToken;
+      if (voteNeedsTurnstilePreflight(config, isAnon, !_item.hasVoted)) {
+        voteToken = await resolveVoteTurnstileToken(context, client);
+        if (!mounted || voteToken == null) return;
+      }
+
+      previousItem = _item;
+      final nextVoted = !_item.hasVoted;
+      final nextCount = _item.voteCount + (nextVoted ? 1 : -1);
+      final optimistic = _item.copyWith(
+        hasVoted: nextVoted,
+        voteCount: nextCount < 0 ? 0 : nextCount,
+      );
+
+      setState(() {
+        _item = optimistic;
+      });
+      widget.onVoteChange?.call(optimistic);
+
       final res = previousItem.hasVoted
           ? await client.removeVote(previousItem.id, userToken: userToken)
-          : await client.castVote(previousItem.id, userToken: userToken);
+          : await client.castVote(previousItem.id,
+              userToken: userToken, turnstileToken: voteToken);
       final confirmed = _item.copyWith(
         hasVoted: res.voted,
         voteCount: res.voteCount,
@@ -113,17 +134,22 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
       if (mounted) {
         setState(() {
           _item = confirmed;
-          _isVoting = false;
         });
         widget.onVoteChange?.call(confirmed);
       }
     } catch (_) {
-      if (mounted) {
+      // Copy out so the null check promotes: a local written inside a try
+      // block is not promotable in the catch clause.
+      final rollbackTarget = previousItem;
+      if (mounted && rollbackTarget != null) {
         setState(() {
-          _item = previousItem;
-          _isVoting = false;
+          _item = rollbackTarget;
         });
-        widget.onVoteChange?.call(previousItem);
+        widget.onVoteChange?.call(rollbackTarget);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isVoting = false);
       }
     }
   }

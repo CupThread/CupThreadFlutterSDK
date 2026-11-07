@@ -225,6 +225,34 @@ class SdkAppearance {
   };
 }
 
+/// Cloudflare Turnstile settings published by the deployment.
+///
+/// Present on [PublicAppConfig.turnstile] only when the deployment publishes
+/// a Turnstile site key. Its presence is the documented signal that a
+/// deployment can serve native hosted-challenge challenges at all; an absent
+/// (or null-site-key) configuration means intake needs a host-supplied token
+/// provider via `FeedbackClientConfig.turnstileTokenProvider`.
+class TurnstileConfig {
+  /// The public Turnstile widget site key, when the deployment publishes one.
+  ///
+  /// Site keys are public by design: native clients render the widget (or the
+  /// portal's hosted challenge page, see
+  /// `FeedbackClientConfig.makeTurnstileChallengeUrl`) with it to mint tokens.
+  final String? siteKey;
+
+  /// Creates a [TurnstileConfig] instance.
+  const TurnstileConfig({this.siteKey});
+
+  /// Deserializes [TurnstileConfig] from a nullable JSON map.
+  factory TurnstileConfig.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const TurnstileConfig();
+    return TurnstileConfig(siteKey: json['siteKey'] as String?);
+  }
+
+  /// Serializes [TurnstileConfig] to a JSON map.
+  Map<String, dynamic> toJson() => {'siteKey': siteKey};
+}
+
 /// Public application configuration returned by `GET /api/v1/public/config/:appKey`.
 ///
 /// Contains branding, permissions, allowed platforms, and SDK appearance settings.
@@ -290,6 +318,27 @@ class PublicAppConfig {
   /// Whether unauthenticated users can browse the changelog.
   final bool allowAnonymousChangelog;
 
+  /// Cloudflare Turnstile settings published by the deployment, when it
+  /// publishes a site key at all.
+  ///
+  /// Read `turnstile?.siteKey` to render (or server-mint) verification tokens
+  /// for the Turnstile-gated intake endpoints; see
+  /// `FeedbackClientConfig.makeTurnstileChallengeUrl` for the hosted
+  /// challenge page binding. Null means the deployment publishes no site key
+  /// and native hosted challenges are unavailable — intake then needs a
+  /// host-supplied `FeedbackClientConfig.turnstileTokenProvider`.
+  final TurnstileConfig? turnstile;
+
+  /// Whether anonymous votes must present a Turnstile verification token
+  /// before they are accepted (server rejects the vote with 403 otherwise).
+  ///
+  /// The SDK's voting surfaces resolve a token through the preflight in
+  /// `FeatureRequestsScreen` / `RoadmapBoardScreen` and
+  /// `FeedbackClient.castVote` resolves one through
+  /// `FeedbackClientConfig.turnstileTokenProvider`; hosts can also mint a
+  /// token themselves and pass it via the `turnstileToken` parameter.
+  final bool requireAnonymousVoteTurnstile;
+
   /// SDK appearance and customization options.
   final SdkAppearance sdk;
 
@@ -309,6 +358,8 @@ class PublicAppConfig {
     required this.allowAnonymousVote,
     required this.allowAnonymousFeedback,
     required this.allowAnonymousChangelog,
+    this.turnstile,
+    this.requireAnonymousVoteTurnstile = false,
     required this.sdk,
   });
 
@@ -319,6 +370,7 @@ class PublicAppConfig {
         .map((p) => FeedbackPlatform.fromWire(p.toString()))
         .whereType<FeedbackPlatform>()
         .toList();
+    final turnstileJson = json['turnstile'] as Map<String, dynamic>?;
 
     return PublicAppConfig(
       appId: json['appId'] as String? ?? json['id'] as String? ?? '',
@@ -335,6 +387,11 @@ class PublicAppConfig {
       allowAnonymousVote: json['allowAnonymousVote'] as bool? ?? true,
       allowAnonymousFeedback: json['allowAnonymousFeedback'] as bool? ?? true,
       allowAnonymousChangelog: json['allowAnonymousChangelog'] as bool? ?? true,
+      turnstile: turnstileJson == null
+          ? null
+          : TurnstileConfig.fromJson(turnstileJson),
+      requireAnonymousVoteTurnstile:
+          json['requireAnonymousVoteTurnstile'] as bool? ?? false,
       sdk: SdkAppearance.fromJson(json['sdk'] as Map<String, dynamic>?),
     );
   }
