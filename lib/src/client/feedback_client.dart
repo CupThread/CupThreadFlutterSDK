@@ -1464,8 +1464,6 @@ class FeedbackClient {
   }
 }
 
-/// One pre-allocated file slot of an upload session
-/// (`CreateUploadSessionResponse.files[i]`).
 /// Best-effort parse of an ISO-8601 timestamp into a UTC instant.
 DateTime? _tryParseInstant(String value) {
   final parsed = DateTime.tryParse(value);
@@ -1492,6 +1490,8 @@ int _comparePublishedAtDesc(ChangelogEntry a, ChangelogEntry b) {
   return b.publishedAt.compareTo(a.publishedAt);
 }
 
+/// One pre-allocated file slot of an upload session
+/// (`CreateUploadSessionResponse.files[i]`).
 class _UploadSessionSlot {
   final String uploadId;
   final int? maxSizeBytes;
