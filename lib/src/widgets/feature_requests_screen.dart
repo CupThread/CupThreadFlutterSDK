@@ -284,12 +284,27 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
           ? await client.removeVote(target.id, userToken: userToken)
           : await client.castVote(target.id,
               userToken: userToken, turnstileToken: voteToken);
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _items = _items
               .map((i) => i.id == target.id
                   ? i.copyWith(hasVoted: res.voted, voteCount: res.voteCount)
                   : i)
+              .toList();
+        });
+      } else if (mounted) {
+        // A refresh replaced the list while the vote was in flight. The
+        // response's `voted` belongs to the session that cast the vote —
+        // applying it would overwrite the reloaded identity's `hasVoted` —
+        // but `voteCount` is global, so a stale response still reconciles
+        // the count without touching the new session's voted state.
+        setState(() {
+          _items = _items
+              .map(
+                (i) => i.id == target.id
+                    ? i.copyWith(voteCount: res.voteCount)
+                    : i,
+              )
               .toList();
         });
       }

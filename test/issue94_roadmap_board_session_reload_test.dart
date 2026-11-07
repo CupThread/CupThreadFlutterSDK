@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -129,5 +130,193 @@ void main() {
     expect(requestsServed.value, 2);
     // The board now renders the authenticated identity's row state.
     expect(find.text('6'), findsOneWidget);
+  });
+
+  testWidgets('a vote response landing after the reload does not overwrite '
+      'the new identity rows', (tester) async {
+    // An anonymous vote is in flight when the host signs the user in and
+    // the board reloads under the signed-in identity. The response's
+    // `voted` belongs to the anonymous session and must not replace the
+    // reloaded row's `hasVoted`; the global `voteCount` still reconciles.
+    final voteResponse = Completer<http.Response>();
+    final requestsServed = ValueNotifier<int>(0);
+    final client = FeedbackClient(
+      FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+      ),
+      initialConfig: config,
+      httpClient: MockClient((request) async {
+        if (request.url.path.contains('/columns/')) {
+          return http.Response(
+            jsonEncode({
+              'columns': [
+                {'id': 'col_1', 'name': 'Planned', 'position': 0}
+              ]
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/api/v1/feature-requests') {
+          requestsServed.value += 1;
+          final signedIn = requestsServed.value >= 2;
+          return http.Response(
+            jsonEncode({
+              'requests': [
+                {
+                  'id': 'fr_1',
+                  'appId': 'app_123',
+                  'title': 'Dark mode support',
+                  'description': 'Add full dark mode theme',
+                  'status': 'under_review',
+                  'columnName': 'Planned',
+                  'columnColor': '#3B82F6',
+                  'columnId': 'col_1',
+                  'approved': true,
+                  'voteCount': signedIn ? 6 : 5,
+                  'hasVoted': false,
+                  'isOwnRequest': false,
+                  'createdAt': '2026-09-01T12:00:00Z',
+                  'updatedAt': '2026-09-01T12:00:00Z',
+                },
+              ],
+              'totalCount': 1,
+              'hasMore': false,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+          return voteResponse.future;
+        }
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    VoteButton voteButton(WidgetTester tester) =>
+        tester.widget<VoteButton>(find.byType(VoteButton));
+
+    // Anonymous session: row shows the anonymous vote state.
+    await tester.pumpWidget(host(client, userToken: null));
+    await tester.pumpAndSettle();
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 5);
+
+    // Tap to vote: the optimistic update applies, then the vote request
+    // parks on the completer.
+    await tester.tap(find.byType(VoteButton));
+    await tester.pump();
+
+    // The user signs in while the vote is in flight: the board reloads
+    // under the signed-in identity (rows show its unvoted state, count 6).
+    await tester.pumpWidget(host(client, userToken: 'usr_tok_signed_in'));
+    await tester.pumpAndSettle();
+    expect(requestsServed.value, 2);
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 6);
+
+    // The stale anonymous vote response lands: `voted: true` is the
+    // anonymous identity's state and must NOT replace the signed-in row's
+    // `hasVoted`, while the global count reconciles to 7.
+    voteResponse.complete(http.Response(
+      jsonEncode({'voted': true, 'voteCount': 7}),
+      200,
+      headers: {'content-type': 'application/json'},
+    ));
+    await tester.pumpAndSettle();
+
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 7);
+  });
+
+  testWidgets('FeatureRequestsScreen: a vote response landing after the '
+      'reload does not overwrite the new identity rows', (tester) async {
+    // Same race as the board test, on the requests screen whose vote
+    // handler shares the identical apply-response code path.
+    final voteResponse = Completer<http.Response>();
+    final requestsServed = ValueNotifier<int>(0);
+    final client = FeedbackClient(
+      FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+      ),
+      initialConfig: config,
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests') {
+          requestsServed.value += 1;
+          final signedIn = requestsServed.value >= 2;
+          return http.Response(
+            jsonEncode({
+              'requests': [
+                {
+                  'id': 'fr_1',
+                  'appId': 'app_123',
+                  'title': 'Dark mode support',
+                  'description': 'Add full dark mode theme',
+                  'status': 'under_review',
+                  'approved': true,
+                  'voteCount': signedIn ? 6 : 5,
+                  'hasVoted': false,
+                  'isOwnRequest': false,
+                  'createdAt': '2026-09-01T12:00:00Z',
+                  'updatedAt': '2026-09-01T12:00:00Z',
+                },
+              ],
+              'totalCount': 1,
+              'hasMore': false,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.contains('/versions')) {
+          return http.Response(jsonEncode({'versions': []}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+          return voteResponse.future;
+        }
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    Widget listHost(String? userToken) => MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            config: config,
+            platformOverride: FeedbackPlatform.ios,
+            userToken: userToken,
+            child: const FeatureRequestsScreen(),
+          ),
+        );
+
+    VoteButton voteButton(WidgetTester tester) =>
+        tester.widget<VoteButton>(find.byType(VoteButton));
+
+    await tester.pumpWidget(listHost(null));
+    await tester.pumpAndSettle();
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 5);
+
+    await tester.tap(find.byType(VoteButton));
+    await tester.pump();
+
+    await tester.pumpWidget(listHost('usr_tok_signed_in'));
+    await tester.pumpAndSettle();
+    expect(requestsServed.value, 2);
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 6);
+
+    voteResponse.complete(http.Response(
+      jsonEncode({'voted': true, 'voteCount': 7}),
+      200,
+      headers: {'content-type': 'application/json'},
+    ));
+    await tester.pumpAndSettle();
+
+    expect(voteButton(tester).hasVoted, isFalse);
+    expect(voteButton(tester).voteCount, 7);
   });
 }
