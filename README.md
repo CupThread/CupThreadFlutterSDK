@@ -234,6 +234,24 @@ with a localized sign-in state instead of a guaranteed-to-fail network call):
 it (a private app's config endpoint returns 404), so the SDK does not consume
 it.
 
+## Platform Authorization Policy
+
+`allowedPlatforms` on `PublicAppConfig` lists the platforms the Developer
+Console authorizes the SDK to run on (`ios`, `macos`, `android`,
+`universal` — the wire enum has no `web` value). Once config resolves, the
+SDK enforces it client-side via `CupThreadTheme.isPlatformAllowed`:
+
+| Enforced by | Behavior on an unauthorized platform |
+| ----------- | ------------------------------------ |
+| `FeatureRequestsScreen`, `RoadmapBoardScreen`, `WhatsNewScreen` | Localized "not available on this platform" state; no list/board/changelog fetch |
+| `FeedbackComposer.showModal` | Returns `null` without presenting the sheet |
+| `ChangelogOverlay.show` | Returns without presenting or fetching |
+
+The effective platform is `FeedbackPlatform.current`, or the host's
+`CupThreadTheme(platformOverride: ...)` pin (useful for tests and embedders).
+Until config resolves the gate fails open, and an empty `allowedPlatforms`
+list (host-built configs) means "no restriction".
+
 ---
 
 ## API Client Surface

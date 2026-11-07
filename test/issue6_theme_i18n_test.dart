@@ -101,6 +101,7 @@ void main() {
           home: CupThreadTheme(
             client: _mockClient(failSubscription: false),
             userToken: 'user_token_abc',
+            platformOverride: FeedbackPlatform.ios,
             theme: SdkTheme.dark,
             child: const Scaffold(body: FeedbackComposer()),
           ),
@@ -153,6 +154,7 @@ void main() {
           home: CupThreadTheme(
             client: _mockClient(failSubscription: false),
             userToken: 'user_token_abc',
+            platformOverride: FeedbackPlatform.ios,
             strings: CupThreadStrings.ja,
             child: const WhatsNewScreen(),
           ),
@@ -176,6 +178,7 @@ void main() {
           home: CupThreadTheme(
             client: _mockClient(failSubscription: true),
             userToken: 'user_token_abc',
+            platformOverride: FeedbackPlatform.ios,
             child: const WhatsNewScreen(),
           ),
         ),

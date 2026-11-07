@@ -47,6 +47,7 @@ Widget _wrap(Widget child, FeedbackClient client, {bool? isAnonymousOverride}) {
     home: CupThreadTheme(
       client: client,
       config: _testConfig(),
+      platformOverride: FeedbackPlatform.ios,
       userToken: isAnonymousOverride == false ? 'user_tok_1' : 'user_token_abc',
       isAnonymousOverride: isAnonymousOverride,
       child: child,

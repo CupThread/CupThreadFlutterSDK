@@ -24,6 +24,8 @@ class ChangelogOverlay extends StatelessWidget {
   ///
   /// Does nothing when the anonymous changelog-view policy gates the caller:
   /// with config resolved, anonymous sessions never fetch or present entries.
+  /// Also does nothing when the server's `allowedPlatforms` policy does not
+  /// authorize the effective platform (see `CupThreadTheme.isPlatformAllowed`).
   static Future<void> show(
     BuildContext context, {
     bool onlyIfUnseen = false,
@@ -34,6 +36,11 @@ class ChangelogOverlay extends StatelessWidget {
       (f) => f.changelog,
     );
     if (!isEnabled) return;
+
+    // The server's `allowedPlatforms` policy gates the overlay too: on an
+    // unauthorized platform the changelog surface never presents and never
+    // fetches (mirrors the anonymous-policy gate below).
+    if (!CupThreadTheme.isPlatformAllowed(context)) return;
 
     final config = CupThreadTheme.configOf(context);
     if (config != null &&

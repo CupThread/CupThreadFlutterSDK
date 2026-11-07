@@ -50,6 +50,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
 
     if (configError != null && appConfig == null && !isEnabled) return;
     if (!isEnabled) return;
+    if (_isPlatformGated()) return;
     if (_isAnonymousViewGated()) return;
 
     if (!_hasAttemptedLoad || _lastConfig != appConfig) {
@@ -69,6 +70,13 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
         CupThreadTheme.isAnonymous(context);
   }
 
+  /// Whether the server's `allowedPlatforms` policy gates this screen: with
+  /// config resolved, the effective platform is not authorized to run the
+  /// SDK at all. Mirrors the anonymous-view gate above.
+  bool _isPlatformGated({bool listen = true}) {
+    return !CupThreadTheme.isPlatformAllowed(context, listen: listen);
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -86,6 +94,10 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
       return;
     }
     if (_isAnonymousViewGated(listen: false)) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    if (_isPlatformGated(listen: false)) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -253,6 +265,45 @@ class _WhatsNewScreenState extends State<WhatsNewScreen> {
                 const SizedBox(height: 16),
                 Text(
                   strings.changelogDisabled,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isPlatformGated()) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.card,
+          elevation: 0,
+          title: Text(
+            widget.title ?? strings.whatsNew,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.devices, size: 48, color: colors.textMuted),
+                const SizedBox(height: 16),
+                Text(
+                  strings.platformUnavailable,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textSecondary,

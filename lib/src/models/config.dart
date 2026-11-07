@@ -265,6 +265,14 @@ class PublicAppConfig {
   final bool allowPublic;
 
   /// List of platforms where the SDK is authorized to run.
+  ///
+  /// Enforced client-side once config resolves: the SDK surfaces gate
+  /// rendering and network calls via `CupThreadTheme.isPlatformAllowed`
+  /// when the effective platform ([FeedbackPlatform.current], or the host's
+  /// `CupThreadTheme.platformOverride`) is not in this list. An empty list
+  /// means "no restriction" (host-built configs); the wire enum
+  /// (`ios`, `macos`, `android`, `universal`) has no `web` value, so a
+  /// non-empty policy always gates Flutter Web.
   final List<FeedbackPlatform> allowedPlatforms;
 
   /// Maximum allowed size in bytes for uploaded attachments (default 10 MB).

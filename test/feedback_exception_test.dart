@@ -101,6 +101,7 @@ void main() {
           home: CupThreadTheme(
             client: client,
             config: config,
+            platformOverride: FeedbackPlatform.ios,
             child: const Scaffold(
               body: FeedbackComposer(),
             ),
