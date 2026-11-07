@@ -34,6 +34,15 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   /// the offset and repeat the row right after it.
   int _rawOffset = 0;
 
+  /// Opaque keyset cursor returned by the most recently applied page, or
+  /// null when the server does not paginate with cursors (legacy offset
+  /// mode) or said there is no next page. Non-null switches load-more to
+  /// cursor pagination, whose pages stay stable when moderation approves,
+  /// hides, or reorders rows between fetches. Mirrors
+  /// `FeatureRequestsScreen._nextCursor` — both screens consume the same
+  /// paged endpoint.
+  String? _nextCursor;
+
   /// Monotonically increasing token for in-flight board requests. A response
   /// is applied only while its captured generation still matches, so a stale
   /// page append can never follow a refresh that replaced the list.
@@ -140,14 +149,16 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
 
       final cols =
           (results[0] as List<BoardColumn>).where((c) => c.isVisible).toList();
-      final reqs = (results[1] as ListFeatureRequestsResult).requests;
+      final page = results[1] as ListFeatureRequestsResult;
+      final reqs = page.requests;
 
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _columns = cols;
           _requests = reqs;
-          _total = (results[1] as ListFeatureRequestsResult).total;
-          _rawOffset = (results[1] as ListFeatureRequestsResult).pageRowCount;
+          _total = page.total;
+          _rawOffset = page.pageRowCount;
+          _nextCursor = page.nextCursor;
           if (cols.isNotEmpty && _selectedColumnId == null) {
             _selectedColumnId = cols[0].id;
           }
@@ -172,10 +183,11 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (_isLoadingMore || _rawOffset >= _total) return;
+    if (_isLoadingMore || !_hasMore) return;
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
+    final sentCursor = _nextCursor;
 
     setState(() => _isLoadingMore = true);
     try {
@@ -183,17 +195,33 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         userToken: userToken,
         limit: 100,
         offset: _rawOffset,
+        // When the server mints cursors, follow the keyset page instead of
+        // the legacy offset: cursor pages cannot skip or duplicate rows
+        // when moderation reorders them between fetches. Sending both
+        // parameters would be ambiguous, so the client omits `offset`
+        // whenever a cursor is present. Mirrors
+        // `FeatureRequestsScreen._loadMore` — both screens consume the
+        // same paged endpoint.
+        cursor: sentCursor,
       );
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests = [..._requests, ...res.requests];
           // Advance by the raw rows the server sent, not by the retained
-          // items: the server skips rows by its own raw count.
+          // items: the server skips rows by its own raw count. Kept in
+          // step even while cursor-walking so a server without metadata
+          // can fall back to the offset walk at any point.
           _rawOffset += res.pageRowCount;
           // An empty successful page means the server has no more rows even
           // if the reported total disagrees; stop paginating at what we have
           // or the same offset would be requested forever.
           _total = res.requests.isEmpty ? _rawOffset : res.total;
+          // Follow the server's cursor, but never hop to the cursor we just
+          // consumed — a server re-sending it would make every further tap
+          // re-append the same page. An empty page ends cursor walking too.
+          var next = res.nextCursor;
+          if (res.requests.isEmpty || next == sentCursor) next = null;
+          _nextCursor = next;
           _isLoadingMore = false;
         });
       }
@@ -302,7 +330,14 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     }
   }
 
-  bool get _hasMore => _rawOffset < _total;
+  /// Whether more pages can be loaded.
+  ///
+  /// A non-null [_nextCursor] means the server itself said there is a next
+  /// page and handed us the keyset hop, which outranks the legacy
+  /// `offset < total` heuristic — the reported total can disagree with the
+  /// keyset position when rows are moderated between pages. Otherwise fall
+  /// back to the legacy offset comparison.
+  bool get _hasMore => _nextCursor != null || _rawOffset < _total;
 
   Widget _buildLoadError(CupThreadColors colors, CupThreadStrings strings) {
     return Center(
