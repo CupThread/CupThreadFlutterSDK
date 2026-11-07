@@ -40,6 +40,7 @@ void main() {
 
   FeedbackClient clientWithIdentityScopedRows({
     required ValueNotifier<int> fetchCount,
+    List<String?>? tokensSeen,
   }) {
     return FeedbackClient(
       FeedbackClientConfig(
@@ -61,12 +62,13 @@ void main() {
         }
         if (request.url.path == '/api/v1/feature-requests') {
           fetchCount.value += 1;
-          final n = fetchCount.value;
-          // The server answers per identity: the anonymous session has not
-          // voted (5), the authenticated one already has (6). Call-count
-          // keyed because the client resolves its own anonymous
-          // `X-User-Token` when none is supplied.
-          final isSignedInIdentity = n >= 2;
+          // The server answers per identity keyed on the request's
+          // `X-User-Token`: the anonymous session keeps its client-resolved
+          // token, so a reload that went out under the wrong identity would
+          // fail the signed-in row assertions below.
+          final token = request.headers['X-User-Token'];
+          tokensSeen?.add(token);
+          final isSignedInIdentity = token == 'usr_tok_signed_in';
           return http.Response(
             jsonEncode({
               'requests': [
@@ -112,7 +114,14 @@ void main() {
   testWidgets('a session change reloads the board with the new identity rows',
       (tester) async {
     final requestsServed = ValueNotifier<int>(0);
-    final client = clientWithIdentityScopedRows(fetchCount: requestsServed);
+    final tokensSeen = <String?>[];
+    final client = clientWithIdentityScopedRows(
+      fetchCount: requestsServed,
+      tokensSeen: tokensSeen,
+    );
+
+    VoteButton voteButton(WidgetTester tester) =>
+        tester.widget<VoteButton>(find.byType(VoteButton));
 
     // Anonymous session: one fetch, rows show the anonymous vote state.
     await tester.pumpWidget(host(client, userToken: null));
@@ -121,6 +130,7 @@ void main() {
     expect(requestsServed.value, 1);
     expect(find.text('Dark mode support'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
+    expect(voteButton(tester).hasVoted, isFalse);
 
     // The host signs the user in and rebuilds the scope with the same
     // config instance — the session change alone must trigger a reload.
@@ -128,8 +138,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(requestsServed.value, 2);
+    // The reload went out under the signed-in identity, not the anonymous
+    // token the client resolves on its own.
+    expect(tokensSeen[0], isNot('usr_tok_signed_in'));
+    expect(tokensSeen[1], 'usr_tok_signed_in');
     // The board now renders the authenticated identity's row state.
     expect(find.text('6'), findsOneWidget);
+    expect(voteButton(tester).hasVoted, isTrue);
   });
 
   testWidgets('a vote response landing after the reload does not overwrite '
