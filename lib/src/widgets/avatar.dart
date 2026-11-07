@@ -35,8 +35,13 @@ class Avatar extends StatelessWidget {
   }
 
   Widget _buildFallback(dynamic colors) {
-    final initial = (name != null && name!.trim().isNotEmpty)
-        ? name!.trim().substring(0, 1).toUpperCase()
+    final trimmed = name?.trim() ?? '';
+    // First user-perceived character, not the first UTF-16 code unit: a
+    // lone high surrogate renders as U+FFFD. `characters` (re-exported by
+    // flutter/widgets) keeps emoji, flags, ZWJ sequences, and combining
+    // marks intact.
+    final initial = trimmed.isNotEmpty
+        ? trimmed.characters.first.toUpperCase()
         : '?';
 
     return Container(
