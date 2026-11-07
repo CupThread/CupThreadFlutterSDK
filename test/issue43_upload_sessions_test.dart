@@ -33,6 +33,7 @@ void main() {
     int sessionStatus = 201,
     int putStatus = 200,
     FeedbackClientConfig? config,
+    PublicAppConfig? initialConfig,
   }) {
     final requests = <http.BaseRequest>[];
     final mockClient = MockClient((request) async {
@@ -91,6 +92,7 @@ void main() {
             appKey: 'app_test_123',
           ),
       httpClient: mockClient,
+      initialConfig: initialConfig,
     );
     return (client: client, requests: requests);
   }
@@ -387,6 +389,24 @@ void main() {
           baseUrl: 'https://api.cupthread.com',
           appKey: 'app_test_123',
           turnstileTokenProvider: () async => 'turnstile_tok',
+        ),
+        // The session endpoint verifies a token only on Turnstile-configured
+        // deployments (issue #81), so the consultation runs against a gated
+        // cached config.
+        initialConfig: const PublicAppConfig(
+          appId: 'app_123',
+          appKey: 'app_test_123',
+          slug: 'test-app',
+          name: 'Test App',
+          allowPublic: true,
+          allowedPlatforms: [FeedbackPlatform.ios],
+          maxAttachmentBytes: 1048576,
+          allowAnonymousRoadmap: true,
+          allowAnonymousVote: true,
+          allowAnonymousFeedback: true,
+          allowAnonymousChangelog: true,
+          turnstile: TurnstileConfig(siteKey: 'sk'),
+          sdk: SdkAppearance(),
         ),
       );
 

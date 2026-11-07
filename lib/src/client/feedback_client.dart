@@ -423,9 +423,13 @@ class FeedbackClient {
   /// 1. `POST /api/v1/uploads/sessions` pre-allocates one file slot bound to
   ///    the caller's identity. Anonymous callers must present an identity —
   ///    [userToken] when given, the shared [UserTokenStore] identity
-  ///    otherwise — and an app-required Turnstile token is resolved through
-  ///    `FeedbackClientConfig.turnstileTokenProvider` (the session endpoint
-  ///    shares the feedback challenge binding).
+  ///    otherwise. On deployments whose cached config publishes a Turnstile
+  ///    site key, an app-required Turnstile token is resolved through
+  ///    `FeedbackClientConfig.turnstileChallengeTokenProvider` (the session
+  ///    endpoint shares the feedback challenge binding) or the legacy
+  ///    `FeedbackClientConfig.turnstileTokenProvider`; without a cached
+  ///    config — or on a deployment that publishes no site key — no provider
+  ///    is consulted and the request proceeds without a token (issue #81).
   /// 2. `PUT /api/v1/uploads/{uploadId}` streams the bytes into the slot,
   ///    authorized by the session's bearer token.
   ///
@@ -467,10 +471,18 @@ class FeedbackClient {
     final effectiveTimeout = timeout ?? config.uploadTimeout;
     // Upload sessions intentionally reuse the feedback action: the server
     // pins the session gate to the same (action, cdata) binding as intake.
-    final turnstileToken = await _resolveTurnstileToken(
-      null,
-      challenge: TurnstileChallenge.feedback(config.appKey),
-    );
+    // A provider is consulted only when the cached config shows a
+    // Turnstile-configured deployment — the session endpoint rejects calls
+    // without a token only there — so an ungated upload never pops a
+    // possibly-interactive challenge (issue #81); without a cached config
+    // the call stays fail-open and a gated server answers with the canonical
+    // typed 403 → TurnstileRequiredException.
+    final turnstileToken = _cachedAppConfig?.turnstile != null
+        ? await _resolveTurnstileToken(
+            null,
+            challenge: TurnstileChallenge.feedback(config.appKey),
+          )
+        : null;
     // Upload sessions are always bound to an uploader identity; fall back to
     // the shared store so anonymous flows keep a stable identity across
     // session creation and the finalizing submission.
@@ -1136,9 +1148,7 @@ class FeedbackClient {
 
   /// Subscribes an email to changelog notifications.
   ///
-  /// Resolves a Cloudflare Turnstile token exactly like the other
-  /// intake-style writes (`submit`, `submitFeatureRequest`,
-  /// `uploadAttachment`): on deployments with Turnstile configured, the
+  /// On deployments whose cached config publishes a Turnstile site key, the
   /// endpoint rejects anonymous subscribe calls without a token with `403`,
   /// so a host that already implements the provider contract for feedback
   /// intake gets subscribe verification for free. The token must be minted
@@ -1148,14 +1158,27 @@ class FeedbackClient {
   /// that challenge, and the legacy [FeedbackClientConfig.turnstileTokenProvider]
   /// is consulted otherwise. The provider is consulted once per call (tokens
   /// are single-use).
+  ///
+  /// Like [castVote], a provider is consulted only when the call may
+  /// actually require a token: without a cached config — or on a deployment
+  /// that publishes no site key — no provider runs and the request proceeds
+  /// without a token, relying on a gated server's typed `403`
+  /// [TurnstileRequiredException] instead of popping a possibly-interactive
+  /// challenge for nothing (issue #81).
   Future<ChangelogSubscriptionResult> subscribeToChangelog(
     String email, {
     required String userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(
-      null,
-      challenge: TurnstileChallenge.changelogSubscribe(config.appKey),
-    );
+    // The subscribe endpoint verifies a token only on Turnstile-configured
+    // deployments, so a provider is consulted only when the cached config
+    // shows one — an ungated call never pops a possibly-interactive
+    // challenge (issue #81).
+    final turnstileToken = _cachedAppConfig?.turnstile != null
+        ? await _resolveTurnstileToken(
+            null,
+            challenge: TurnstileChallenge.changelogSubscribe(config.appKey),
+          )
+        : null;
     final json = await _sendJson(
       method: 'POST',
       path: '/api/v1/public/apps/${config.appKey}/changelog/subscribe',

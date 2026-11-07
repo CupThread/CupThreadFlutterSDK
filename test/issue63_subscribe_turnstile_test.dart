@@ -13,11 +13,34 @@ import 'package:cupthread_feedback/cupthread_feedback.dart';
 /// path. The subscribe call now resolves a token through the same
 /// `_resolveTurnstileToken` helper and includes it in the request body when
 /// non-empty.
+///
+/// Since the issue #81 fix, a provider is consulted only when the cached app
+/// config shows a Turnstile-configured deployment — the consultation tests
+/// below therefore run against a gated `initialConfig`.
 void main() {
+  /// A cached config whose `turnstile != null` — the deployment shape the
+  /// subscribe endpoint verifies tokens on.
+  PublicAppConfig gatedConfig() => const PublicAppConfig(
+        appId: 'app_123',
+        appKey: 'app_test_123',
+        slug: 'test-app',
+        name: 'Test App',
+        allowPublic: true,
+        allowedPlatforms: [FeedbackPlatform.ios],
+        maxAttachmentBytes: 1048576,
+        allowAnonymousRoadmap: true,
+        allowAnonymousVote: true,
+        allowAnonymousFeedback: true,
+        allowAnonymousChangelog: true,
+        turnstile: TurnstileConfig(siteKey: 'sk'),
+        sdk: SdkAppearance(),
+      );
+
   FeedbackClient clientWith(
     MockClient fn, {
     String appKey = 'app_test_123',
     String Function()? turnstileTokenProvider,
+    PublicAppConfig? config,
   }) =>
       FeedbackClient(
         FeedbackClientConfig(
@@ -26,6 +49,7 @@ void main() {
           turnstileTokenProvider: turnstileTokenProvider,
         ),
         httpClient: fn,
+        initialConfig: config,
       );
 
   group('issue #63 — subscribeToChangelog Turnstile token', () {
@@ -42,6 +66,7 @@ void main() {
           );
         }),
         turnstileTokenProvider: () => 'tok_subscribe_turnstile',
+        config: gatedConfig(),
       );
 
       final result = await client.subscribeToChangelog(
@@ -92,6 +117,7 @@ void main() {
         }),
         // Provider mirrors real-world token exhaustion: empty value.
         turnstileTokenProvider: () => '   ',
+        config: gatedConfig(),
       );
 
       await client.subscribeToChangelog(
@@ -118,6 +144,7 @@ void main() {
           providerCalls++;
           return 'tok_$providerCalls';
         },
+        config: gatedConfig(),
       );
 
       await client.subscribeToChangelog(
