@@ -261,4 +261,75 @@ class CupThreadColors {
         return isDarkMode ? dark : light;
     }
   }
+
+  /// Value equality over every palette token.
+  ///
+  /// [CupThreadThemeScope.updateShouldNotify] compares the resolved palette
+  /// to decide whether dependent subtrees must rebuild. The SDK's own
+  /// widgets feed it the canonical `const` palettes returned by [resolve],
+  /// which are `identical` across builds — but [CupThreadThemeScope] is
+  /// public, so hosts that construct it directly may hand it a
+  /// fresh-but-identical instance on every build. Comparing tokens by value
+  /// keeps the rebuild-suppression machinery sound for that path too,
+  /// mirroring how Flutter's own [ColorScheme] treats two palettes with the
+  /// same colors as equal.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CupThreadColors &&
+        other.background == background &&
+        other.card == card &&
+        other.cardBorder == cardBorder &&
+        other.textPrimary == textPrimary &&
+        other.textSecondary == textSecondary &&
+        other.textMuted == textMuted &&
+        other.primary == primary &&
+        other.primaryHover == primaryHover &&
+        other.primaryText == primaryText &&
+        other.border == border &&
+        other.inputBg == inputBg &&
+        other.inputBorder == inputBorder &&
+        other.accent == accent &&
+        other.voteActiveBg == voteActiveBg &&
+        other.voteActiveText == voteActiveText &&
+        other.voteInactiveBg == voteInactiveBg &&
+        other.voteInactiveText == voteInactiveText &&
+        other.chipBg == chipBg &&
+        other.chipText == chipText &&
+        other.divider == divider &&
+        other.danger == danger &&
+        other.dangerBg == dangerBg &&
+        other.dangerBorder == dangerBorder;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        // Object.hash accepts 20 arguments at most: fold the first 20 tokens
+        // into one hash and combine it with the remaining danger trio.
+        Object.hash(
+          background,
+          card,
+          cardBorder,
+          textPrimary,
+          textSecondary,
+          textMuted,
+          primary,
+          primaryHover,
+          primaryText,
+          border,
+          inputBg,
+          inputBorder,
+          accent,
+          voteActiveBg,
+          voteActiveText,
+          voteInactiveBg,
+          voteInactiveText,
+          chipBg,
+          chipText,
+          divider,
+        ),
+        danger,
+        dangerBg,
+        dangerBorder,
+      );
 }
