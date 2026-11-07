@@ -14,6 +14,7 @@
 /// | `POST /api/v1/feature-requests` | [TurnstileAction.featureRequest] | app key |
 /// | `POST /api/v1/feature-requests/:id/vote` | [TurnstileAction.vote] | app key |
 /// | `POST /api/v1/feature-requests/:id/vote` + `shipNotifyEmail` | [TurnstileAction.shipNotify] | app key |
+/// | `POST /api/v1/public/apps/:appKey/changelog/subscribe` | [TurnstileAction.changelogSubscribe] | app key |
 ///
 /// Upload sessions intentionally reuse the feedback action: the server pins
 /// the upload-session gate to the same `(action, cdata)` binding as feedback
@@ -45,6 +46,9 @@ abstract final class TurnstileAction {
   /// Binding for the ship-notification opt-in carried on a vote
   /// (`POST /api/v1/feature-requests/:id/vote` with `shipNotifyEmail`).
   static const String shipNotify = 'ship-notify';
+
+  /// Binding for `POST /api/v1/public/apps/:appKey/changelog/subscribe`.
+  static const String changelogSubscribe = 'changelog-subscribe';
 }
 
 /// The Cloudflare Turnstile widget binding a gated intake endpoint expects.
@@ -82,6 +86,11 @@ class TurnstileChallenge {
   /// (`POST /api/v1/feature-requests/:id/vote` with `shipNotifyEmail`).
   const TurnstileChallenge.shipNotify(String appKey)
       : this(action: TurnstileAction.shipNotify, cdata: appKey);
+
+  /// The binding for changelog email subscription
+  /// (`POST /api/v1/public/apps/:appKey/changelog/subscribe`).
+  const TurnstileChallenge.changelogSubscribe(String appKey)
+      : this(action: TurnstileAction.changelogSubscribe, cdata: appKey);
 }
 
 /// The hosted Turnstile challenge page path served by the CupThread portal.

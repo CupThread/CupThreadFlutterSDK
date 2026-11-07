@@ -17,7 +17,24 @@ import 'user_token_store.dart';
 /// [FeedbackClientConfig.makeTurnstileChallengeUrl] (e.g. in an embedded
 /// WebView) and resolve the minted token here. Tokens are single-use: the
 /// provider is consulted once per gated call.
+///
+/// Because this provider receives no endpoint context, hosts serving more
+/// than one gated surface should prefer
+/// [FeedbackClientConfig.turnstileChallengeTokenProvider], which is handed
+/// the exact binding the call verifies and is consulted first.
 typedef TurnstileTokenProvider = FutureOr<String?> Function();
+
+/// Optional provider function resolving a Cloudflare Turnstile token for a
+/// specific widget binding.
+///
+/// Consulted by the client with the [TurnstileChallenge] the failing call
+/// verifies — e.g. [TurnstileAction.feedback] with the app key as `cdata`
+/// for feedback intake, [TurnstileAction.vote] for votes. Preferred over
+/// [TurnstileTokenProvider] whenever it is configured; when it yields no
+/// token the call proceeds without one (the legacy provider is not consulted
+/// to avoid surfacing two verification flows for one request).
+typedef TurnstileChallengeTokenProvider = FutureOr<String?> Function(
+    TurnstileChallenge challenge);
 
 /// Configuration for FeedbackClient.
 class FeedbackClientConfig {
@@ -32,11 +49,13 @@ class FeedbackClientConfig {
   final Duration requestTimeout;
   final Duration uploadTimeout;
   final TurnstileTokenProvider? turnstileTokenProvider;
+  final TurnstileChallengeTokenProvider? turnstileChallengeTokenProvider;
 
   /// Explicit URL of the portal's hosted Turnstile challenge page
   /// (`…/turnstile/verify`), used by [makeTurnstileChallengeUrl] instead of
   /// the origin derived from [baseUrl]. Deployment-specific portals — or a
-  /// self-hosted API origin whose portal lives elsewhere — set this.
+  /// self-hosted API origin whose portal lives elsewhere — set this. Must be
+  /// an absolute URL (scheme and host); anything else is treated as unset.
   final String? turnstileChallengeUrl;
 
   FeedbackClientConfig({
@@ -48,6 +67,7 @@ class FeedbackClientConfig {
     this.requestTimeout = const Duration(seconds: 15),
     this.uploadTimeout = const Duration(seconds: 60),
     this.turnstileTokenProvider,
+    this.turnstileChallengeTokenProvider,
     this.turnstileChallengeUrl,
   })  : sdkSigningSecret = sdkSigningSecret ?? signingSecret,
         baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
@@ -87,7 +107,12 @@ class FeedbackClientConfig {
     final page = turnstileChallengeUrl != null
         ? Uri.tryParse(turnstileChallengeUrl!)
         : deriveTurnstileChallengePageUrl(baseUrl);
-    if (page == null) return null;
+    // A relative override (or one without a host) cannot be loaded by a
+    // WebView or browser — treat it as unset rather than returning a URL
+    // that can never open the challenge page.
+    if (page == null || page.scheme.isEmpty || page.host.isEmpty) {
+      return null;
+    }
     return page.replace(queryParameters: {
       'siteKey': trimmedKey,
       'action': challenge.action,
@@ -287,10 +312,30 @@ class FeedbackClient {
     }
   }
 
-  /// Resolves the Turnstile token to attach to an intake submission:
-  /// draft-level token wins over the configured provider.
-  Future<String?> _resolveTurnstileToken(String? explicit) async {    final trimmed = explicit?.trim();
+  /// Resolves the Turnstile token to attach to an intake call: an explicit
+  /// token wins over the configured providers.
+  ///
+  /// With a [challenge], the binding-aware
+  /// [FeedbackClientConfig.turnstileChallengeTokenProvider] is consulted
+  /// first (an empty result ends resolution — the binding-agnostic provider
+  /// is not consulted too, which could surface two verification flows for
+  /// one request); otherwise, or when no binding-aware provider is
+  /// configured, the legacy [FeedbackClientConfig.turnstileTokenProvider]
+  /// resolves the token.
+  Future<String?> _resolveTurnstileToken(
+    String? explicit, {
+    TurnstileChallenge? challenge,
+  }) async {
+    final trimmed = explicit?.trim();
     if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    if (challenge != null) {
+      final challengeProvider = config.turnstileChallengeTokenProvider;
+      if (challengeProvider != null) {
+        final token = (await challengeProvider(challenge))?.trim();
+        if (token != null && token.isNotEmpty) return token;
+        return null;
+      }
+    }
     final provider = config.turnstileTokenProvider;
     if (provider == null) return null;
     final token = (await provider())?.trim();
@@ -310,7 +355,10 @@ class FeedbackClient {
     FeedbackDraft draft, {
     String? userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(draft.turnstileToken);
+    final turnstileToken = await _resolveTurnstileToken(
+      draft.turnstileToken,
+      challenge: TurnstileChallenge.feedback(config.appKey),
+    );
     final hasSessionUploads = draft.attachments.any(
       (a) => a.uploadId != null && a.uploadId!.trim().isNotEmpty,
     );
@@ -402,7 +450,12 @@ class FeedbackClient {
     }
 
     final effectiveTimeout = timeout ?? config.uploadTimeout;
-    final turnstileToken = await _resolveTurnstileToken(null);
+    // Upload sessions intentionally reuse the feedback action: the server
+    // pins the session gate to the same (action, cdata) binding as intake.
+    final turnstileToken = await _resolveTurnstileToken(
+      null,
+      challenge: TurnstileChallenge.feedback(config.appKey),
+    );
     // Upload sessions are always bound to an uploader identity; fall back to
     // the shared store so anonymous flows keep a stable identity across
     // session creation and the finalizing submission.
@@ -691,7 +744,10 @@ class FeedbackClient {
     FeatureRequestDraft draft, {
     required String userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(draft.turnstileToken);
+    final turnstileToken = await _resolveTurnstileToken(
+      draft.turnstileToken,
+      challenge: TurnstileChallenge.featureRequest(config.appKey),
+    );
     final body = draft.toJson(appKey: config.appKey, requesterToken: userToken);
     if (turnstileToken != null && turnstileToken.isNotEmpty) {
       body['turnstileToken'] = turnstileToken;
@@ -713,15 +769,18 @@ class FeedbackClient {
   /// idempotent: repeating the request leaves an existing vote in place.
   /// To remove a vote, use [removeVote].
   ///
-  /// On apps whose config enables `requireAnonymousVoteTurnstile`, anonymous
-  /// votes must present a Cloudflare Turnstile token or the endpoint rejects
-  /// the vote with 403 [TurnstileRequiredException]. [turnstileToken] — or,
-  /// when absent, `FeedbackClientConfig.turnstileTokenProvider` — supplies
-  /// it; mint the token for the [TurnstileAction.vote] binding with the app
-  /// key as `cdata` (the ship-notify binding also verifies when
-  /// [shipNotifyEmail] is set). The widget surfaces run this resolution as a
-  /// preflight before their optimistic update; direct callers get the same
-  /// resolution here. The provider is consulted once per call (tokens are
+  /// On apps whose cached config enables `requireAnonymousVoteTurnstile`,
+  /// anonymous votes must present a Cloudflare Turnstile token or the
+  /// endpoint rejects the vote with 403 [TurnstileRequiredException]; the
+  /// ship-notify check applies the same requirement when [shipNotifyEmail]
+  /// is set on boards where Turnstile is configured. Only then is a provider
+  /// consulted — an ungated vote never pops a possibly-interactive challenge.
+  /// [turnstileToken] (or, when absent, the config's
+  /// `turnstileChallengeTokenProvider` with the [TurnstileAction.vote]
+  /// binding — [TurnstileAction.shipNotify] when [shipNotifyEmail] is set —
+  /// else the legacy `turnstileTokenProvider`) supplies it. The widget
+  /// surfaces run this resolution as a preflight before their optimistic
+  /// update. The provider is consulted once per call (tokens are
   /// single-use).
   Future<VoteResult> castVote(
     String featureRequestId, {
@@ -729,14 +788,34 @@ class FeedbackClient {
     String? shipNotifyEmail,
     String? turnstileToken,
   }) async {
-    final resolvedTurnstileToken = await _resolveTurnstileToken(turnstileToken);
+    final trimmedEmail = shipNotifyEmail?.trim();
+    final notifyEmail =
+        trimmedEmail != null && trimmedEmail.isNotEmpty ? trimmedEmail : null;
+
+    // An explicit token always attaches; a provider is consulted only when
+    // the vote may actually require a token (verification-gated anonymous
+    // votes, or the ship-notify check on Turnstile-configured boards).
+    final appConfig = _cachedAppConfig;
+    final voteGated = appConfig?.requireAnonymousVoteTurnstile ?? false;
+    final shipNotifyGated = notifyEmail != null && appConfig?.turnstile != null;
+    String? resolvedTurnstileToken;
+    if (voteGated || shipNotifyGated) {
+      resolvedTurnstileToken = await _resolveTurnstileToken(
+        turnstileToken,
+        challenge: notifyEmail != null
+            ? TurnstileChallenge.shipNotify(config.appKey)
+            : TurnstileChallenge.vote(config.appKey),
+      );
+    } else {
+      resolvedTurnstileToken = turnstileToken?.trim();
+    }
+
     final body = <String, dynamic>{
       'appKey': config.appKey,
       'userToken': userToken,
     };
-    final trimmedEmail = shipNotifyEmail?.trim();
-    if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
-      body['shipNotifyEmail'] = trimmedEmail;
+    if (notifyEmail != null) {
+      body['shipNotifyEmail'] = notifyEmail;
     }
     if (resolvedTurnstileToken != null && resolvedTurnstileToken.isNotEmpty) {
       body['turnstileToken'] = resolvedTurnstileToken;
@@ -1054,7 +1133,10 @@ class FeedbackClient {
     String email, {
     required String userToken,
   }) async {
-    final turnstileToken = await _resolveTurnstileToken(null);
+    final turnstileToken = await _resolveTurnstileToken(
+      null,
+      challenge: TurnstileChallenge.changelogSubscribe(config.appKey),
+    );
     final json = await _sendJson(
       method: 'POST',
       path: '/api/v1/public/apps/${config.appKey}/changelog/subscribe',

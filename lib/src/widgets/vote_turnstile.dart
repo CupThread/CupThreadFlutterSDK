@@ -50,6 +50,10 @@ Future<String?> resolveVoteTurnstileToken(
     }
   }
   if (token != null && token.isNotEmpty) return token;
-  messenger?.showSnackBar(SnackBar(content: Text(verificationCopy)));
+  // The messenger may have been disposed while the provider was pending
+  // (e.g. the app navigated away); never touch it after that.
+  if (messenger != null && messenger.mounted) {
+    messenger.showSnackBar(SnackBar(content: Text(verificationCopy)));
+  }
   return null;
 }

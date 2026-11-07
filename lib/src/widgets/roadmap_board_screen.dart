@@ -197,30 +197,37 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
 
-    // Turnstile preflight: casting a new vote on an app that requires
-    // anonymous-vote verification resolves the token before the optimistic
-    // update, so a missing token never causes a doomed request followed by a
-    // rollback flicker. Removing a vote is never verified.
-    String? voteToken;
-    if (voteNeedsTurnstilePreflight(config, isAnon, !target.hasVoted)) {
-      voteToken = await resolveVoteTurnstileToken(context, client);
-      if (voteToken == null) return;
-    }
-
-    final nextVoted = !target.hasVoted;
-    final nextCount = target.voteCount + (nextVoted ? 1 : -1);
-
+    // Lock the row first so taps during a pending Turnstile preflight cannot
+    // start overlapping verification or vote requests. The lock is released
+    // on every exit path below.
     setState(() {
       _votingIds.add(target.id);
-      _requests = _requests
-          .map((i) => i.id == target.id
-              ? i.copyWith(
-                  hasVoted: nextVoted, voteCount: nextCount < 0 ? 0 : nextCount)
-              : i)
-          .toList();
     });
 
     try {
+      // Turnstile preflight: casting a new vote on an app that requires
+      // anonymous-vote verification resolves the token before the optimistic
+      // update, so a missing token never causes a doomed request followed by
+      // a rollback flicker. Removing a vote is never verified.
+      String? voteToken;
+      if (voteNeedsTurnstilePreflight(config, isAnon, !target.hasVoted)) {
+        voteToken = await resolveVoteTurnstileToken(context, client);
+        if (!mounted || voteToken == null) return;
+      }
+
+      final nextVoted = !target.hasVoted;
+      final nextCount = target.voteCount + (nextVoted ? 1 : -1);
+
+      setState(() {
+        _requests = _requests
+            .map((i) => i.id == target.id
+                ? i.copyWith(
+                    hasVoted: nextVoted,
+                    voteCount: nextCount < 0 ? 0 : nextCount)
+                : i)
+            .toList();
+      });
+
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
           : await client.castVote(target.id,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -213,23 +214,82 @@ void main() {
         isNull,
       );
     });
+
+    test('relative or scheme-less challenge overrides yield no URL', () {
+      final relative = FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+        turnstileChallengeUrl: 'challenge/verify',
+      );
+      final schemeless = FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+        turnstileChallengeUrl: '//portal.example.com/challenge',
+      );
+      final empty = FeedbackClientConfig(
+        baseUrl: 'https://api.cupthread.com',
+        appKey: 'app_test_123',
+        turnstileChallengeUrl: '',
+      );
+
+      for (final config in [relative, schemeless, empty]) {
+        expect(
+          config.makeTurnstileChallengeUrl(
+            const TurnstileChallenge.vote('app_test_123'),
+            siteKey: 'sk',
+          ),
+          isNull,
+          reason: '${config.turnstileChallengeUrl} must not produce a URL',
+        );
+      }
+    });
   });
 
   group('issue #47 — castVote Turnstile token resolution', () {
+    PublicAppConfig voteConfig({
+      bool requireAnonymousVoteTurnstile = true,
+      bool withTurnstile = false,
+    }) =>
+        PublicAppConfig(
+          appId: 'app_123',
+          appKey: 'app_test_123',
+          slug: 'test-app',
+          name: 'Test App',
+          allowPublic: true,
+          allowedPlatforms: const [
+            FeedbackPlatform.ios,
+            FeedbackPlatform.android
+          ],
+          maxAttachmentBytes: 1048576,
+          allowAnonymousRoadmap: true,
+          allowAnonymousVote: true,
+          allowAnonymousFeedback: true,
+          allowAnonymousChangelog: true,
+          requireAnonymousVoteTurnstile: requireAnonymousVoteTurnstile,
+          turnstile:
+              withTurnstile ? const TurnstileConfig(siteKey: 'sk') : null,
+          sdk: const SdkAppearance(),
+        );
+
     FeedbackClient clientWith(
       MockClient fn, {
       TurnstileTokenProvider? provider,
+      TurnstileChallengeTokenProvider? challengeProvider,
+      PublicAppConfig? config,
     }) =>
         FeedbackClient(
           FeedbackClientConfig(
             baseUrl: 'https://api.cupthread.com',
             appKey: 'app_test_123',
             turnstileTokenProvider: provider,
+            turnstileChallengeTokenProvider: challengeProvider,
           ),
           httpClient: fn,
+          initialConfig: config,
         );
 
-    test('attaches the provider-minted token to the vote body', () async {
+    test('attaches the provider-minted token to the vote body when gated',
+        () async {
       late http.Request captured;
       final client = clientWith(
         MockClient((request) async {
@@ -241,6 +301,7 @@ void main() {
           );
         }),
         provider: () async => 'tok_vote',
+        config: voteConfig(),
       );
 
       final result = await client.castVote('fr_1', userToken: 'user_1');
@@ -254,6 +315,61 @@ void main() {
         'userToken': 'user_1',
         'turnstileToken': 'tok_vote',
       });
+    });
+
+    test('does not consult a provider for ungated votes', () async {
+      var providerConsulted = false;
+      late http.Request captured;
+      final client = clientWith(
+        MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({'voted': true, 'voteCount': 6}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        provider: () async {
+          providerConsulted = true;
+          return 'tok_vote';
+        },
+      );
+
+      await client.castVote('fr_1', userToken: 'user_1');
+
+      // An ungated vote must never pop a possibly-interactive challenge.
+      expect(providerConsulted, isFalse);
+      expect(jsonDecode(captured.body).containsKey('turnstileToken'), isFalse);
+    });
+
+    test('consults a provider when shipNotifyEmail is set on a gated board',
+        () async {
+      var providerConsulted = false;
+      late http.Request captured;
+      final client = clientWith(
+        MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({'voted': true, 'voteCount': 6}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        provider: () async {
+          providerConsulted = true;
+          return 'tok_ship';
+        },
+        config: voteConfig(requireAnonymousVoteTurnstile: false,
+            withTurnstile: true),
+      );
+
+      await client.castVote('fr_1',
+          userToken: 'user_1', shipNotifyEmail: 'me@example.com');
+
+      expect(providerConsulted, isTrue);
+      final body = jsonDecode(captured.body) as Map<String, dynamic>;
+      expect(body['turnstileToken'], 'tok_ship');
+      expect(body['shipNotifyEmail'], 'me@example.com');
     });
 
     test('an explicit token wins and the provider is not consulted',
@@ -280,6 +396,91 @@ void main() {
 
       expect(providerConsulted, isFalse);
       expect(jsonDecode(captured.body)['turnstileToken'], 'tok_explicit');
+    });
+
+    test('binding-aware provider receives the exact challenge per endpoint',
+        () async {
+      final challenges = <TurnstileChallenge>[];
+      final responses = {
+        '/api/v1/feature-requests/fr_1/vote':
+            jsonEncode({'voted': true, 'voteCount': 6}),
+        '/api/v1/feedback':
+            jsonEncode({'submissionId': 'fb_1', 'forwardedToGithub': false}),
+        '/api/v1/feature-requests': jsonEncode({'id': 'fr_2'}),
+        '/api/v1/public/apps/app_test_123/changelog/subscribe':
+            jsonEncode({'subscribed': true}),
+      };
+      final client = clientWith(
+        MockClient((request) async {
+          final body = responses[request.url.path];
+          if (body == null) {
+            fail('unexpected request ${request.method} ${request.url.path}');
+          }
+          return http.Response(body, 200,
+              headers: {'content-type': 'application/json'});
+        }),
+        challengeProvider: (challenge) async {
+          challenges.add(challenge);
+          return 'tok_bound';
+        },
+        config: voteConfig(),
+      );
+
+      await client.castVote('fr_1', userToken: 'user_1');
+      await client.submit(
+        const FeedbackDraft(
+          title: 'Broken thing',
+          description: 'It broke',
+          platform: FeedbackPlatform.ios,
+        ),
+      );
+      await client.submitFeatureRequest(
+        const FeatureRequestDraft(title: 't', description: 'd'),
+        userToken: 'user_1',
+      );
+      await client.subscribeToChangelog('me@example.com',
+          userToken: 'user_1');
+
+      expect(
+        challenges.map((c) => c.action),
+        [
+          TurnstileAction.vote,
+          TurnstileAction.feedback,
+          TurnstileAction.featureRequest,
+          TurnstileAction.changelogSubscribe,
+        ],
+      );
+      expect(
+        challenges.map((c) => c.cdata),
+        everyElement('app_test_123'),
+      );
+    });
+
+    test('binding-aware provider is preferred over the legacy provider',
+        () async {
+      var legacyConsulted = false;
+      late http.Request captured;
+      final client = clientWith(
+        MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({'voted': true, 'voteCount': 6}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        provider: () async {
+          legacyConsulted = true;
+          return 'tok_legacy';
+        },
+        challengeProvider: (challenge) async => 'tok_bound',
+        config: voteConfig(),
+      );
+
+      await client.castVote('fr_1', userToken: 'user_1');
+
+      expect(legacyConsulted, isFalse);
+      expect(jsonDecode(captured.body)['turnstileToken'], 'tok_bound');
     });
 
     test('sends no turnstileToken when nothing resolves one', () async {
@@ -479,6 +680,114 @@ void main() {
         requests.where((r) => r.method == 'DELETE' && r.url.path.endsWith('/vote')),
         hasLength(1),
       );
+    });
+
+    testWidgets('ignores taps while a Turnstile preflight is pending',
+        (tester) async {
+      final requests = <http.Request>[];
+      var providerConsultations = 0;
+      final providerGate = Completer<String?>();
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+          turnstileTokenProvider: () async {
+            providerConsultations++;
+            return providerGate.future;
+          },
+        ),
+        httpClient: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path == '/api/v1/feature-requests') {
+            return http.Response(
+              jsonEncode({
+                'requests': [featureRequestJson()],
+                'totalCount': 1,
+                'hasMore': false,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.contains('/versions')) {
+            return http.Response(jsonEncode({'versions': []}), 200,
+                headers: {'content-type': 'application/json'});
+          }
+          if (request.url.path.endsWith('/vote')) {
+            return http.Response(
+              jsonEncode({'voted': true, 'voteCount': 6}),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 200);
+        }),
+        initialConfig: widgetConfig(),
+      );
+
+      await tester.pumpWidget(host(client, widgetConfig()));
+      await tester.pumpAndSettle();
+
+      // First tap starts the (pending) verification; second tap must be a
+      // no-op while the row is locked.
+      await tester.tap(find.byType(VoteButton).first);
+      await tester.pump();
+      await tester.tap(find.byType(VoteButton).first);
+      await tester.pump();
+
+      providerGate.complete('tok_late');
+      await tester.pumpAndSettle();
+
+      expect(providerConsultations, 1);
+      expect(
+        requests.where((r) => r.url.path.endsWith('/vote')),
+        hasLength(1),
+      );
+      expect(find.text('6'), findsWidgets);
+    });
+
+    testWidgets('resolving a preflight after unmount does not throw',
+        (tester) async {
+      final providerGate = Completer<String?>();
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+          turnstileTokenProvider: () async => providerGate.future,
+        ),
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/api/v1/feature-requests') {
+            return http.Response(
+              jsonEncode({
+                'requests': [featureRequestJson()],
+                'totalCount': 1,
+                'hasMore': false,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.contains('/versions')) {
+            return http.Response(jsonEncode({'versions': []}), 200,
+                headers: {'content-type': 'application/json'});
+          }
+          return http.Response('{}', 200);
+        }),
+        initialConfig: widgetConfig(),
+      );
+
+      await tester.pumpWidget(host(client, widgetConfig()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(VoteButton).first);
+      await tester.pump();
+
+      // The host navigates away (or the sheet is dismissed) while the
+      // provider is pending; the late token must not reach a setState.
+      await tester.pumpWidget(const SizedBox.shrink());
+      providerGate.complete('tok_late');
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
     });
   });
 
