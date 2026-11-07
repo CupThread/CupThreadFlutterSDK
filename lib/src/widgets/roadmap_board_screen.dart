@@ -41,6 +41,8 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   final Set<String> _votingIds = {};
 
   PublicAppConfig? _lastConfig;
+  String? _lastUserToken;
+  bool? _lastIsAnonymous;
   bool _hasAttemptedLoad = false;
 
   @override
@@ -66,9 +68,27 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     if (_isPlatformGated()) return;
     if (_isAnonymousViewGated()) return;
 
-    if (!_hasAttemptedLoad || _lastConfig != appConfig) {
+    final userToken = CupThreadTheme.userTokenOf(context);
+    final isAnonymous = CupThreadTheme.isAnonymous(context);
+    if (!_hasAttemptedLoad ||
+        _lastConfig != appConfig ||
+        _lastUserToken != userToken ||
+        _lastIsAnonymous != isAnonymous) {
       _lastConfig = appConfig;
+      _lastUserToken = userToken;
+      _lastIsAnonymous = isAnonymous;
       _hasAttemptedLoad = true;
+      // A session change (e.g. signing in after an authentication error)
+      // must leave the stale error state, or the user stays trapped on
+      // sign-in guidance whose Retry was hidden precisely because a retry
+      // could not succeed under the old session. Mirrors
+      // FeatureRequestsScreen._checkAndLoad — the board consumes the same
+      // session-scoped rows (`hasVoted`, `isOwnRequest`) as the requests
+      // screen, so a reload under the new identity is required here too.
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
       _loadData();
     }
   }
@@ -242,12 +262,27 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
           ? await client.removeVote(target.id, userToken: userToken)
           : await client.castVote(target.id,
               userToken: userToken, turnstileToken: voteToken);
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _requests = _requests
               .map((i) => i.id == target.id
                   ? i.copyWith(hasVoted: res.voted, voteCount: res.voteCount)
                   : i)
+              .toList();
+        });
+      } else if (mounted) {
+        // A reload replaced the board while the vote was in flight. The
+        // response's `voted` belongs to the session that cast the vote —
+        // applying it would overwrite the reloaded identity's `hasVoted` —
+        // but `voteCount` is global, so a stale response still reconciles
+        // the count without touching the new session's voted state.
+        setState(() {
+          _requests = _requests
+              .map(
+                (i) => i.id == target.id
+                    ? i.copyWith(voteCount: res.voteCount)
+                    : i,
+              )
               .toList();
         });
       }
