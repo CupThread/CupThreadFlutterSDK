@@ -118,6 +118,118 @@ class FeedbackClient {
     );
   }
 
+  /// Maps the intake endpoints' deterministic, code-bearing rejections to a
+  /// typed [FeedbackRejectionException]: the `code` field of
+  /// `{"error": ..., "code": ...}` bodies decides (never the message text).
+  ///
+  /// The status-only 415 content-scan rejection is matched only when
+  /// [statusOnly415] is set (the raw-bytes slot `PUT`, where 415 always
+  /// means the stored bytes failed inspection); JSON endpoints keep RFC
+  /// semantics, where a 415 says nothing about an attachment.
+  ///
+  /// Returns null for anything else so unknown codes and other statuses
+  /// keep surfacing as a generic unexpected-status error.
+  static FeedbackRejectionException? _rejection(
+    int status,
+    String responseBody, {
+    bool statusOnly415 = false,
+  }) {
+    String? code;
+    if (responseBody.isNotEmpty) {
+      try {
+        final parsed = jsonDecode(responseBody);
+        if (parsed is Map<String, dynamic>) {
+          final c = parsed['code'];
+          if (c is String && c.isNotEmpty) code = c;
+        }
+      } catch (_) {}
+    }
+
+    switch (status) {
+      case 415:
+        // Content inspection on the stored bytes: deterministic, no code.
+        // Only meaningful on the slot PUT (see [statusOnly415]).
+        if (!statusOnly415) return null;
+        return FeedbackRejectionException(
+          reason: FeedbackRejectionReason.contentRejected,
+          status: status,
+          responseBody: responseBody,
+        );
+      case 422:
+        if (code == 'scan_rejected') {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.contentRejected,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        return null;
+      case 409:
+        // Slots are single-shot; the referenced upload may already be bound
+        // to another submission. Never retry the same uploadId.
+        const consumedCodes = {
+          'already_uploaded',
+          'session_not_pending',
+          'already_finalized',
+        };
+        if (consumedCodes.contains(code)) {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.alreadyUsed,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        return null;
+      case 400:
+        const uploaderCodes = {'uploader_mismatch', 'uploader_identity_required'};
+        const fileTypeCodes = {
+          'unsupported_mime_type',
+          'executable_extension_prohibited',
+        };
+        if (uploaderCodes.contains(code)) {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.uploaderMismatch,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        if (fileTypeCodes.contains(code)) {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.unsupportedFileType,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        if (code == 'direct_attachment_forbidden') {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.directAttachmentForbidden,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        return null;
+      case 413:
+        // Per-file policy failure at session creation; the slot PUT maps
+        // this to AttachmentTooLargeException before reaching here.
+        if (code == 'file_too_large') {
+          return FeedbackRejectionException(
+            reason: FeedbackRejectionReason.fileTooLarge,
+            status: status,
+            code: code!,
+            responseBody: responseBody,
+          );
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
   /// Resolves the Turnstile token to attach to an intake submission:
   /// draft-level token wins over the configured provider.
   Future<String?> _resolveTurnstileToken(String? explicit) async {    final trimmed = explicit?.trim();
@@ -378,6 +490,14 @@ class FeedbackClient {
         throw AttachmentTooLargeException(bytes.length, limit ?? bytes.length);
       }
       if (response.statusCode != 200 && response.statusCode != 201) {
+        final rejection = _rejection(
+          response.statusCode,
+          response.body,
+          statusOnly415: true,
+        );
+        if (rejection != null) {
+          throw rejection;
+        }
         throw UnexpectedStatusException(response.statusCode, response.body);
       }
 
@@ -1081,6 +1201,10 @@ class FeedbackClient {
       final quota = _quotaRejection(response.statusCode, response.body);
       if (quota != null) {
         throw quota;
+      }
+      final rejection = _rejection(response.statusCode, response.body);
+      if (rejection != null) {
+        throw rejection;
       }
       throw UnexpectedStatusException(response.statusCode, response.body);
     }

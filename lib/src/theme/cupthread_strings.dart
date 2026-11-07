@@ -94,6 +94,13 @@ class CupThreadStrings {
   final String submissionQuotaExceeded;
   final String subscriptionInactive;
 
+  // Deterministic upload/submit rejections (FeedbackRejectionException).
+  final String attachmentRejected;
+  final String unsupportedFileType;
+  final String attachmentAlreadyUsed;
+  final String uploadIdentityMismatch;
+  final String directAttachmentForbidden;
+
   // Errors, Sign-in & Profile Sections
   final String reply;
 
@@ -197,6 +204,18 @@ class CupThreadStrings {
         'The monthly submission limit has been reached. Please try again later.',
     this.subscriptionInactive =
         'Submissions are temporarily unavailable. Please try again later.',
+    this.attachmentRejected =
+        'That file was rejected by content inspection. '
+        'Please remove it or choose a different file.',
+    this.unsupportedFileType =
+        "That file type isn't supported. Please choose a different file.",
+    this.attachmentAlreadyUsed =
+        'That attachment was already submitted. Please attach the file again.',
+    this.uploadIdentityMismatch =
+        "We couldn't attach your files. Please attach them again and resend.",
+    this.directAttachmentForbidden =
+        "That attachment can't be submitted directly. "
+        'Please remove it and attach the file again.',
     this.reply = 'Reply',
     this.replyingTo = 'Replying to {name}',
     this.emailInvalid = 'Please enter a valid email address.',
@@ -238,6 +257,11 @@ class CupThreadStrings {
     changelogDisabled: '更新日志当前已禁用。',
     configLoadFailed: '加载配置失败。',
     attachmentTooLarge: '附件大小超出最大允许限制。',
+    attachmentRejected: '该文件未通过内容检查，请移除该文件或另选其他文件。',
+    unsupportedFileType: '不支持该文件类型，请另选其他文件。',
+    attachmentAlreadyUsed: '该附件已随之前的提交发送，请重新添加附件。',
+    uploadIdentityMismatch: '附件未能关联到本次提交，请重新添加附件后再发送。',
+    directAttachmentForbidden: '该附件无法直接提交，请移除后重新添加附件。',
 
     featureRequests: '功能建议',
     proposeFeature: '提交建议',
@@ -332,6 +356,11 @@ class CupThreadStrings {
     changelogDisabled: '更新履歴は現在無効になっています。',
     configLoadFailed: '設定の読み込みに失敗しました。',
     attachmentTooLarge: '添付ファイルのサイズが上限を超えています。',
+    attachmentRejected: 'そのファイルは内容検査で拒否されました。削除するか、別のファイルを選択してください。',
+    unsupportedFileType: 'このファイル形式はサポートされていません。別のファイルを選択してください。',
+    attachmentAlreadyUsed: 'その添付ファイルは既に送信済みです。添付し直してください。',
+    uploadIdentityMismatch: '添付ファイルを送信できませんでした。添付し直してお送りください。',
+    directAttachmentForbidden: 'その添付ファイルは直接送信できません。削除してから添付し直してください。',
 
     featureRequests: '機能リクエスト',
     proposeFeature: '機能を提案',
@@ -426,6 +455,11 @@ class CupThreadStrings {
     changelogDisabled: 'Le journal des modifications est actuellement désactivé.',
     configLoadFailed: 'Échec du chargement de la configuration.',
     attachmentTooLarge: 'La pièce jointe dépasse la taille maximale autorisée.',
+    attachmentRejected: "Ce fichier a été refusé par l'inspection du contenu. Veuillez le retirer ou en choisir un autre.",
+    unsupportedFileType: "Ce type de fichier n'est pas pris en charge. Veuillez choisir un autre fichier.",
+    attachmentAlreadyUsed: 'Cette pièce jointe a déjà été envoyée. Veuillez la joindre à nouveau.',
+    uploadIdentityMismatch: 'Impossible de joindre vos fichiers. Veuillez les joindre à nouveau et renvoyer.',
+    directAttachmentForbidden: 'Cette pièce jointe ne peut pas être envoyée directement. Veuillez la retirer et la joindre à nouveau.',
 
     featureRequests: 'Demandes de fonctionnalités',
     proposeFeature: 'Proposer une fonctionnalité',
@@ -521,6 +555,11 @@ class CupThreadStrings {
     changelogDisabled: 'El registro de cambios está actualmente deshabilitado.',
     configLoadFailed: 'Error al cargar la configuración.',
     attachmentTooLarge: 'El archivo adjunto supera el tamaño máximo permitido.',
+    attachmentRejected: 'Ese archivo fue rechazado por la inspección de contenido. Quítalo o elige otro archivo.',
+    unsupportedFileType: 'No se admite ese tipo de archivo. Elige otro archivo.',
+    attachmentAlreadyUsed: 'Ese adjunto ya fue enviado. Vuelve a adjuntarlo.',
+    uploadIdentityMismatch: 'No pudimos adjuntar tus archivos. Vuelve a adjuntarlos y reenvía.',
+    directAttachmentForbidden: 'Ese adjunto no se puede enviar directamente. Quítalo y vuelve a adjuntarlo.',
 
     featureRequests: 'Solicitudes de funciones',
     proposeFeature: 'Proponer función',
@@ -615,6 +654,11 @@ class CupThreadStrings {
     changelogDisabled: 'Das Änderungsprotokoll ist derzeit deaktiviert.',
     configLoadFailed: 'Konfiguration konnte nicht geladen werden.',
     attachmentTooLarge: 'Der Anhang überschreitet die maximal zulässige Größe.',
+    attachmentRejected: 'Diese Datei wurde bei der Inhaltsprüfung abgelehnt. Bitte entfernen Sie sie oder wählen Sie eine andere Datei.',
+    unsupportedFileType: 'Dieser Dateityp wird nicht unterstützt. Bitte wählen Sie eine andere Datei.',
+    attachmentAlreadyUsed: 'Dieser Anhang wurde bereits übermittelt. Bitte hängen Sie ihn erneut an.',
+    uploadIdentityMismatch: 'Ihre Dateien konnten nicht angehängt werden. Bitte hängen Sie sie erneut an und senden Sie erneut.',
+    directAttachmentForbidden: 'Dieser Anhang kann nicht direkt übermittelt werden. Bitte entfernen Sie ihn und hängen Sie ihn erneut an.',
 
     featureRequests: 'Funktionswünsche',
     proposeFeature: 'Funktion vorschlagen',
@@ -711,6 +755,11 @@ class CupThreadStrings {
     changelogDisabled: 'Il registro delle modifiche è attualmente disabilitato.',
     configLoadFailed: 'Impossibile caricare la configurazione.',
     attachmentTooLarge: "L'allegato supera la dimensione massima consentita.",
+    attachmentRejected: 'Questo file è stato rifiutato dall\'ispezione dei contenuti. Rimuovilo o scegli un file diverso.',
+    unsupportedFileType: 'Questo tipo di file non è supportato. Scegli un file diverso.',
+    attachmentAlreadyUsed: 'Questo allegato è già stato inviato. Allegalo di nuovo.',
+    uploadIdentityMismatch: 'Impossibile allegare i tuoi file. Allegali di nuovo e reinvia.',
+    directAttachmentForbidden: 'Questo allegato non può essere inviato direttamente. Rimuovilo e allegalo di nuovo.',
 
     featureRequests: 'Richieste di funzionalità',
     proposeFeature: 'Proponi una funzionalità',
@@ -805,6 +854,11 @@ class CupThreadStrings {
     changelogDisabled: 'O registro de alterações está desativado no momento.',
     configLoadFailed: 'Falha ao carregar a configuração.',
     attachmentTooLarge: 'O anexo excede o tamanho máximo permitido.',
+    attachmentRejected: 'Esse arquivo foi rejeitado na inspeção de conteúdo. Remova-o ou escolha outro arquivo.',
+    unsupportedFileType: 'Não há suporte para esse tipo de arquivo. Escolha outro arquivo.',
+    attachmentAlreadyUsed: 'Esse anexo já foi enviado. Anexe-o novamente.',
+    uploadIdentityMismatch: 'Não foi possível anexar seus arquivos. Anexe-os novamente e reenvie.',
+    directAttachmentForbidden: 'Esse anexo não pode ser enviado diretamente. Remova-o e anexe-o novamente.',
 
     featureRequests: 'Solicitações de recursos',
     proposeFeature: 'Propor recurso',
@@ -899,6 +953,11 @@ class CupThreadStrings {
     changelogDisabled: '更新日誌目前已停用。',
     configLoadFailed: '載入設定失敗。',
     attachmentTooLarge: '附件大小超過最大允許限制。',
+    attachmentRejected: '該檔案未通過內容檢查，請移除該檔案或另選其他檔案。',
+    unsupportedFileType: '不支援該檔案類型，請另選其他檔案。',
+    attachmentAlreadyUsed: '該附件已隨先前的提交送出，請重新加入附件。',
+    uploadIdentityMismatch: '附件未能關聯到本次提交，請重新加入附件後再傳送。',
+    directAttachmentForbidden: '該附件無法直接提交，請移除後重新加入附件。',
 
     featureRequests: '功能建議',
     proposeFeature: '提交建議',
@@ -993,6 +1052,11 @@ class CupThreadStrings {
     changelogDisabled: '변경 내역이 현재 비활성화되어 있습니다.',
     configLoadFailed: '설정을 불러오지 못했습니다.',
     attachmentTooLarge: '첨부 파일 크기가 최대 허용치를 초과했습니다.',
+    attachmentRejected: '해당 파일이 콘텐츠 검사에서 거부되었습니다. 파일을 제거하거나 다른 파일을 선택해 주세요.',
+    unsupportedFileType: '지원되지 않는 파일 형식입니다. 다른 파일을 선택해 주세요.',
+    attachmentAlreadyUsed: '해당 첨부 파일은 이미 전송되었습니다. 첨부 파일을 다시 추가해 주세요.',
+    uploadIdentityMismatch: '파일을 첨부하지 못했습니다. 첨부 파일을 다시 추가한 후 보내 주세요.',
+    directAttachmentForbidden: '해당 첨부 파일은 직접 전송할 수 없습니다. 제거한 후 첨부 파일을 다시 추가해 주세요.',
 
     featureRequests: '기능 요청',
     proposeFeature: '기능 제안하기',
@@ -1087,6 +1151,11 @@ class CupThreadStrings {
     changelogDisabled: 'Dziennik zmian jest obecnie wyłączony.',
     configLoadFailed: 'Nie udało się załadować konfiguracji.',
     attachmentTooLarge: 'Załącznik przekracza maksymalny dozwolony rozmiar.',
+    attachmentRejected: 'Ten plik został odrzucony przez kontrolę treści. Usuń go lub wybierz inny plik.',
+    unsupportedFileType: 'Ten typ pliku nie jest obsługiwany. Wybierz inny plik.',
+    attachmentAlreadyUsed: 'Ten załącznik został już wysłany. Załącz go ponownie.',
+    uploadIdentityMismatch: 'Nie udało się dołączyć plików. Dołącz je ponownie i wyślij jeszcze raz.',
+    directAttachmentForbidden: 'Tego załącznika nie można wysłać bezpośrednio. Usuń go i załącz ponownie.',
 
     featureRequests: 'Propozycje funkcji',
     proposeFeature: 'Zaproponuj funkcję',
@@ -1181,6 +1250,11 @@ class CupThreadStrings {
     changelogDisabled: 'Endringsloggen er for øyeblikket deaktivert.',
     configLoadFailed: 'Kunne ikke laste inn konfigurasjonen.',
     attachmentTooLarge: 'Vedlegget overskrider maksimal tillatt størrelse.',
+    attachmentRejected: 'Den filen ble avvist av innholdskontrollen. Fjern den eller velg en annen fil.',
+    unsupportedFileType: 'Den filtypen støttes ikke. Velg en annen fil.',
+    attachmentAlreadyUsed: 'Dette vedlegget er allerede sendt. Legg det ved på nytt.',
+    uploadIdentityMismatch: 'Vi klarte ikke å legge ved filene dine. Legg dem ved på nytt og send igjen.',
+    directAttachmentForbidden: 'Dette vedlegget kan ikke sendes direkte. Fjern det og legg det ved på nytt.',
 
     featureRequests: 'Funksjonsønsker',
     proposeFeature: 'Foreslå funksjon',
@@ -1275,6 +1349,11 @@ class CupThreadStrings {
     changelogDisabled: 'Değişiklik günlüğü şu anda devre dışı.',
     configLoadFailed: 'Yapılandırma yüklenemedi.',
     attachmentTooLarge: 'Ek, izin verilen maksimum boyutu aşıyor.',
+    attachmentRejected: 'Bu dosya içerik incelemesinde reddedildi. Lütfen dosyayı kaldırın veya başka bir dosya seçin.',
+    unsupportedFileType: 'Bu dosya türü desteklenmiyor. Lütfen başka bir dosya seçin.',
+    attachmentAlreadyUsed: 'Bu ek zaten gönderildi. Lütfen eki yeniden ekleyin.',
+    uploadIdentityMismatch: 'Dosyalarınız eklenemedi. Lütfen ekleri yeniden ekleyip tekrar gönderin.',
+    directAttachmentForbidden: 'Bu ek doğrudan gönderilemez. Lütfen eki kaldırın ve yeniden ekleyin.',
 
     featureRequests: 'Özellik istekleri',
     proposeFeature: 'Özellik öner',
@@ -1369,6 +1448,11 @@ class CupThreadStrings {
     changelogDisabled: 'Nhật ký thay đổi hiện đang bị tắt.',
     configLoadFailed: 'Không thể tải cấu hình.',
     attachmentTooLarge: 'Tệp đính kèm vượt quá kích thước tối đa cho phép.',
+    attachmentRejected: 'Tệp này không qua được kiểm tra nội dung. Vui lòng xóa tệp hoặc chọn tệp khác.',
+    unsupportedFileType: 'Không hỗ trợ loại tệp này. Vui lòng chọn tệp khác.',
+    attachmentAlreadyUsed: 'Tệp đính kèm này đã được gửi trước đó. Vui lòng đính kèm lại.',
+    uploadIdentityMismatch: 'Không thể đính kèm tệp của bạn. Vui lòng đính kèm lại rồi gửi.',
+    directAttachmentForbidden: 'Tệp đính kèm này không thể gửi trực tiếp. Vui lòng xóa và đính kèm lại.',
 
     featureRequests: 'Yêu cầu tính năng',
     proposeFeature: 'Đề xuất tính năng',
@@ -1504,6 +1588,17 @@ class CupThreadStrings {
           : submissionQuotaExceeded;
     }
     if (error is AttachmentTooLargeException) return attachmentTooLarge;
+    if (error is FeedbackRejectionException) {
+      return switch (error.reason) {
+        FeedbackRejectionReason.contentRejected => attachmentRejected,
+        FeedbackRejectionReason.unsupportedFileType => unsupportedFileType,
+        FeedbackRejectionReason.fileTooLarge => attachmentTooLarge,
+        FeedbackRejectionReason.uploaderMismatch => uploadIdentityMismatch,
+        FeedbackRejectionReason.alreadyUsed => attachmentAlreadyUsed,
+        FeedbackRejectionReason.directAttachmentForbidden =>
+          directAttachmentForbidden,
+      };
+    }
     if (error is FeatureDisabledException) return featureUnavailable;
     if (error is AuthenticationRequiredException) return signInRequired;
     return unexpectedError;
@@ -1600,6 +1695,11 @@ class CupThreadStrings {
     String? signInRequiredToComment,
     String? signInRequiredToSubmitFeedback,
     String? unexpectedError,
+    String? attachmentRejected,
+    String? unsupportedFileType,
+    String? attachmentAlreadyUsed,
+    String? uploadIdentityMismatch,
+    String? directAttachmentForbidden,
   }) {
     return CupThreadStrings(
       retry: retry ?? this.retry,
@@ -1684,6 +1784,14 @@ class CupThreadStrings {
       submissionQuotaExceeded:
           submissionQuotaExceeded ?? this.submissionQuotaExceeded,
       subscriptionInactive: subscriptionInactive ?? this.subscriptionInactive,
+      attachmentRejected: attachmentRejected ?? this.attachmentRejected,
+      unsupportedFileType: unsupportedFileType ?? this.unsupportedFileType,
+      attachmentAlreadyUsed:
+          attachmentAlreadyUsed ?? this.attachmentAlreadyUsed,
+      uploadIdentityMismatch:
+          uploadIdentityMismatch ?? this.uploadIdentityMismatch,
+      directAttachmentForbidden:
+          directAttachmentForbidden ?? this.directAttachmentForbidden,
       reply: reply ?? this.reply,
       replyingTo: replyingTo ?? this.replyingTo,
       emailInvalid: emailInvalid ?? this.emailInvalid,
