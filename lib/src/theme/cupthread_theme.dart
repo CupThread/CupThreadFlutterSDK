@@ -329,6 +329,12 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   bool _isConfigLoading = true;
   Object? _configError;
 
+  /// Monotonically increasing token for config loads. Every [_loadConfig]
+  /// entry claims the next generation, and a fetch whose generation has been
+  /// superseded — by a later load, a host-supplied config, or a client swap —
+  /// must not apply its result to this State.
+  int _configLoadGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -391,6 +397,9 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
   }
 
   Future<void> _loadConfig() async {
+    // Claim the generation first: even the early return below must invalidate
+    // any fetch still in flight.
+    final generation = ++_configLoadGeneration;
     if (widget.config != null) {
       setState(() {
         _appConfig = widget.config;
@@ -399,26 +408,41 @@ class _CupThreadThemeState extends State<CupThreadTheme> {
       });
       return;
     }
+    final client = widget.client;
     setState(() {
       _isConfigLoading = true;
       _configError = null;
     });
     try {
-      final config = await widget.client.fetchAppConfig(forceRefresh: true);
-      if (mounted) {
-        setState(() {
-          _appConfig = config;
-          _isConfigLoading = false;
-          _configError = null;
-        });
+      final config = await client.fetchAppConfig(forceRefresh: true);
+      // The fetch may outlive the inputs it was started against. Mirroring
+      // _resolveToken's explicit-input-wins rule: a host-supplied config or a
+      // later load always wins over an in-flight result, and a swapped client
+      // means the response belongs to a transport this widget no longer uses.
+      if (!mounted ||
+          generation != _configLoadGeneration ||
+          widget.config != null ||
+          widget.client != client) {
+        return;
       }
+      setState(() {
+        _appConfig = config;
+        _isConfigLoading = false;
+        _configError = null;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isConfigLoading = false;
-          _configError = e;
-        });
+      // A failure from a superseded load must neither clear a later load's
+      // loading state nor present a host-supplied config as failed.
+      if (!mounted ||
+          generation != _configLoadGeneration ||
+          widget.config != null ||
+          widget.client != client) {
+        return;
       }
+      setState(() {
+        _isConfigLoading = false;
+        _configError = e;
+      });
     }
   }
 
