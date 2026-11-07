@@ -88,11 +88,9 @@ class ChangelogOverlay extends StatelessWidget {
     );
 
     if (autoMarkSeen && data.entries.isNotEmpty) {
-      final latest = data.entries.first;
-      final key = latest.versionLabel ?? latest.id;
-      if (key.isNotEmpty) {
-        await client.markChangelogSeen(key);
-      }
+      // Marks both the entry id and its version label so the unseen check
+      // recognizes the release regardless of which key it reads (issue #98).
+      await client.markChangelogEntrySeen(data.entries.first);
     }
   }
 
@@ -177,13 +175,11 @@ class ChangelogOverlay extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () async {
                 if (autoMarkSeen && entries.isNotEmpty) {
-                  final latest = entries.first;
-                  final key = latest.versionLabel ?? latest.id;
-                  if (key.isNotEmpty) {
-                    try {
-                      await CupThreadTheme.clientOf(context).markChangelogSeen(key);
-                    } catch (_) {}
-                  }
+                  try {
+                    await CupThreadTheme
+                        .clientOf(context)
+                        .markChangelogEntrySeen(entries.first);
+                  } catch (_) {}
                 }
                 if (context.mounted) {
                   Navigator.of(context).maybePop();

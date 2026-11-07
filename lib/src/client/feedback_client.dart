@@ -1122,28 +1122,96 @@ class FeedbackClient {
   /// Storage key for tracking seen changelog versions.
   String get _changelogSeenKey => 'cupthread_seen_changelog_${config.appKey}';
 
+  /// Upper bound on the keys retained in the persisted seen set. Oldest keys
+  /// (in insertion order) are dropped first so the single storage value the
+  /// set lives in cannot grow without limit.
+  static const int _maxSeenChangelogEntries = 50;
+
+  /// Decodes the persisted seen-set value.
+  ///
+  /// The current format is a JSON array of keys, whose delimiters cannot
+  /// collide with the keys themselves — a host-authored `versionLabel` is
+  /// free text and may contain commas (issue #98). Values written by older
+  /// SDK versions as a comma-joined string are still accepted so an upgrade
+  /// does not wipe existing seen state; anything that does not decode as a
+  /// JSON array falls back to the legacy `split(',')` reading.
+  Set<String> _decodeSeenVersions(String? val) {
+    if (val == null || val.isEmpty) return <String>{};
+    try {
+      final decoded = jsonDecode(val);
+      if (decoded is List) {
+        return decoded
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {
+      // Not JSON — fall through to the legacy comma-joined format.
+    }
+    return val
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+  }
+
+  /// Read-modify-writes the persisted seen set: [update] mutates the decoded
+  /// set in place, then the result is re-capped to the most recent
+  /// [_maxSeenChangelogEntries] keys (insertion order) and persisted as a
+  /// JSON array.
+  Future<void> _updateSeenVersions(void Function(Set<String> seen) update) async {
+    final val = await _storage.getItem(_changelogSeenKey);
+    final seen = _decodeSeenVersions(val);
+    update(seen);
+    if (seen.length > _maxSeenChangelogEntries) {
+      final retained = seen.skip(seen.length - _maxSeenChangelogEntries).toSet();
+      seen
+        ..clear()
+        ..addAll(retained);
+    }
+    await _storage.setItem(_changelogSeenKey, jsonEncode(seen.toList()));
+  }
+
   /// Checks if a changelog version or entry ID has already been marked as seen.
   Future<bool> hasSeenChangelog(String version) async {
     try {
       final val = await _storage.getItem(_changelogSeenKey);
-      if (val == null || val.isEmpty) return false;
-      final seenVersions = val.split(',').map((s) => s.trim()).toSet();
-      return seenVersions.contains(version.trim());
+      return _decodeSeenVersions(val).contains(version.trim());
     } catch (_) {
       return false;
     }
   }
 
   /// Marks a changelog version or entry ID as seen.
+  ///
+  /// The key is stored verbatim (trimmed) in a JSON-array seen set, so keys
+  /// containing any character — including commas — round-trip exactly
+  /// (issue #98). Re-marking an already-seen key bumps it to the most recent
+  /// position; the retained history is capped at [_maxSeenChangelogEntries].
   Future<void> markChangelogSeen(String version) async {
     try {
-      final key = _changelogSeenKey;
-      final val = await _storage.getItem(key);
-      final seenVersions = val != null && val.isNotEmpty
-          ? val.split(',').map((s) => s.trim()).toSet()
-          : <String>{};
-      seenVersions.add(version.trim());
-      await _storage.setItem(key, seenVersions.join(','));
+      final key = version.trim();
+      if (key.isEmpty) return;
+      await _updateSeenVersions((seen) => seen..remove(key)..add(key));
+    } catch (_) {}
+  }
+
+  /// Marks a changelog entry as seen under every key it may be looked up by.
+  ///
+  /// The canonical key is the system-authored [ChangelogEntry.id]; the
+  /// host-authored [ChangelogEntry.versionLabel] is also recorded so older
+  /// SDK versions — which keyed the seen check on the label — still suppress
+  /// the overlay for this release. Both keys go through a single
+  /// read-modify-write.
+  Future<void> markChangelogEntrySeen(ChangelogEntry entry) async {
+    try {
+      final id = entry.id.trim();
+      final label = entry.versionLabel?.trim() ?? '';
+      await _updateSeenVersions((seen) {
+        if (id.isNotEmpty) seen..remove(id)..add(id);
+        if (label.isNotEmpty && label != id) seen..remove(label)..add(label);
+      });
     } catch (_) {}
   }
 
@@ -1180,8 +1248,16 @@ class FeedbackClient {
 
       if (onlyIfUnseen) {
         final latest = entries.first;
-        final versionKey = latest.versionLabel ?? latest.id;
-        if (versionKey.isNotEmpty && await hasSeenChangelog(versionKey)) {
+        final id = latest.id.trim();
+        final label = latest.versionLabel?.trim() ?? '';
+        // The canonical seen-key is the system-authored entry id, which is
+        // delimiter-free; the host-authored version label is also honored so
+        // seen state recorded by older SDK versions — which keyed on the
+        // label — still suppresses the overlay (issue #98).
+        final seenById = id.isNotEmpty && await hasSeenChangelog(id);
+        final seenByLabel =
+            label.isNotEmpty && label != id && await hasSeenChangelog(label);
+        if (seenById || seenByLabel) {
           return null;
         }
       }
