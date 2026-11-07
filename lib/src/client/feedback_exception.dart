@@ -119,6 +119,96 @@ class SubmissionQuotaException extends FeedbackException {
   String toString() => 'SubmissionQuotaException($status): $message';
 }
 
+/// Why a CupThread intake endpoint or upload slot deterministically rejected
+/// the request. Every reason is stable across retries with the same input —
+/// the remedy is to change the request (replace a file, fix the identity),
+/// never to retry blindly.
+enum FeedbackRejectionReason {
+  /// Content inspection rejected the file. Either the upload slot answered
+  /// HTTP 415 for the stored bytes, or a referenced attachment failed the
+  /// scan at submission time (HTTP 422 `scan_rejected`). The same file fails
+  /// again on retry — remove or replace it.
+  contentRejected,
+
+  /// The file type is not accepted (`unsupported_mime_type` or
+  /// `executable_extension_prohibited` at session creation). Let the user
+  /// pick a different file.
+  unsupportedFileType,
+
+  /// The file exceeds the configured attachment size limit (HTTP 413
+  /// `file_too_large` at session creation).
+  fileTooLarge,
+
+  /// The upload identity changed between session creation and submission
+  /// (`uploader_mismatch`) or the session was created without one
+  /// (`uploader_identity_required`). Fix the identity, then retry.
+  uploaderMismatch,
+
+  /// The slot or referenced upload was already consumed
+  /// (`already_uploaded`, `session_not_pending`, `already_finalized`).
+  /// Never retry the same `uploadId` — the winner owns it.
+  alreadyUsed,
+
+  /// Raw attachment URLs or storage keys were rejected
+  /// (`direct_attachment_forbidden`) — attachments must reference verified
+  /// upload sessions via `uploadId`.
+  directAttachmentForbidden,
+}
+
+/// Thrown when an intake endpoint (`POST /api/v1/feedback`,
+/// `POST /api/v1/feature-requests`, `POST /api/v1/uploads/sessions`) or an
+/// upload slot (`PUT /api/v1/uploads/{uploadId}`) rejects the request with a
+/// deterministic, code-bearing error (`scan_rejected`, `uploader_mismatch`,
+/// `already_finalized`, …) or the status-only 415 content-scan rejection.
+///
+/// These rejections are deterministic: [reason] tells the host what to do
+/// (replace a file, fix the identity, drop the upload) and the bundled UI
+/// renders a specific message through `CupThreadStrings`
+/// instead of the generic retryable error. Never retry automatically.
+class FeedbackRejectionException extends FeedbackException {
+  /// What kind of deterministic rejection the server reported.
+  final FeedbackRejectionReason reason;
+
+  /// Stable machine-readable error code from the API response (e.g.
+  /// `scan_rejected`). Empty when matched on the HTTP status alone (the 415
+  /// content-scan rejection carries no code).
+  final String code;
+
+  /// HTTP status code returned by the server.
+  final int status;
+
+  /// Raw response body for host diagnostics and logging.
+  ///
+  /// Deliberately excluded from [message] and [toString()] so rendering a
+  /// caught exception can never surface internal payloads to end users.
+  final String responseBody;
+
+  // Non-const like SubmissionQuotaException: the message is derived from the
+  // runtime [reason] and cannot be a const initializer.
+  FeedbackRejectionException({
+    required this.reason,
+    required this.status,
+    this.code = '',
+    this.responseBody = '',
+  }) : super(switch (reason) {
+          FeedbackRejectionReason.contentRejected =>
+            'Content inspection rejected the upload (HTTP $status); remove or replace the file.',
+          FeedbackRejectionReason.unsupportedFileType =>
+            'The file type is not accepted (HTTP $status); pick a different file.',
+          FeedbackRejectionReason.fileTooLarge =>
+            'The file exceeds the attachment size limit (HTTP $status).',
+          FeedbackRejectionReason.uploaderMismatch =>
+            'The upload identity does not match the session creator (HTTP $status).',
+          FeedbackRejectionReason.alreadyUsed =>
+            'The upload slot was already consumed (HTTP $status); do not retry the same uploadId.',
+          FeedbackRejectionReason.directAttachmentForbidden =>
+            'Direct attachment URLs and keys are forbidden (HTTP $status); reference a verified uploadId.',
+        });
+
+  @override
+  String toString() => 'FeedbackRejectionException($status, ${reason.name}): $message';
+}
+
 /// Thrown when response parsing or network transport fails.
 class InvalidResponseException extends FeedbackException {
   final Object? cause;
