@@ -84,6 +84,9 @@ void main() {
           );
         }),
         provider: () async => throw StateError('WebView plugin crashed'),
+        // Gated so the provider is actually consulted (issue #85): the
+        // throw must still count as an unresolved token.
+        config: voteConfig(),
       );
 
       final result = await client.submit(
@@ -118,6 +121,9 @@ void main() {
         },
         challengeProvider: (challenge) async =>
             throw StateError('hosted challenge failed to load'),
+        // Gated so the provider is actually consulted (issue #85): the
+        // throw must still end resolution before the legacy provider.
+        config: voteConfig(),
       );
 
       await client.submit(
@@ -150,6 +156,8 @@ void main() {
           providerConsulted = true;
           return 'tok_legacy';
         },
+        // Gated so the explicit-token short-circuit is exercised (issue #85).
+        config: voteConfig(),
       );
 
       await client.submit(
@@ -179,6 +187,9 @@ void main() {
           );
         }),
         provider: () async => throw StateError('no network while minting'),
+        // Gated so the provider is actually consulted (issue #85): the
+        // throw must still count as an unresolved token.
+        config: voteConfig(),
       );
 
       final result = await client.submitFeatureRequest(
