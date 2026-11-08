@@ -179,17 +179,25 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     final generation = ++_requestGeneration;
 
     try {
+      // The version list only feeds the filter chips and is app-scoped
+      // public data — nothing a search keystroke or a session/config
+      // reload can change — so it is fetched only when the screen does
+      // not have one yet. Pairing it onto every refresh path used to
+      // re-hit `GET /public/versions/:appKey` once per settled keystroke
+      // for results that were parsed and discarded (issue #121).
+      final needsVersions = _versions.isEmpty;
       final results = await Future.wait([
         client.fetchFeatureRequests(
           userToken: userToken,
           versionId: _selectedVersionId,
           query: _query.isNotEmpty ? _query : null,
         ),
-        client.fetchVersions(),
+        if (needsVersions) client.fetchVersions(),
       ]);
 
       final requestsRes = results[0] as ListFeatureRequestsResult;
-      final versionsRes = results[1] as List<AppVersion>;
+      final versionsRes =
+          needsVersions ? results[1] as List<AppVersion> : _versions;
 
       if (mounted && generation == _requestGeneration) {
         setState(() {
