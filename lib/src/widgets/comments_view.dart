@@ -144,18 +144,18 @@ class CommentsViewState extends State<CommentsView> {
     setState(() => _isPosting = true);
 
     try {
-      // Author attribution is resolved server-side from the signed-in
-      // profile, so the draft carries no client-supplied author fields.
-      // A reply target whose id never arrived (e.g. a comment parsed from
-      // a legacy flat fixture) must not be sent as `parentId: ''` — the
-      // API rejects that with 400 invalid_parent — so it degrades to a
-      // top-level comment.
+      // The draft carries exactly the schema-declared fields: authorship is
+      // resolved server-side from the signed-in profile, and the reply
+      // target travels as its display name only (`replyToAuthorName` — the
+      // schema declares no `replyToClerkId`). A reply target whose id never
+      // arrived (e.g. a comment parsed from a legacy flat fixture) must not
+      // be sent as `parentId: ''` — the API rejects that with 400
+      // invalid_parent — so it degrades to a top-level comment.
       final target = _replyingTo;
       final canReply = target != null && target.id.trim().isNotEmpty;
       final draft = CommentDraft(
         body: body,
         parentId: canReply ? target.id : null,
-        replyToClerkId: canReply ? target.authorClerkId : null,
         replyToAuthorName: canReply ? target.authorName : null,
       );
 

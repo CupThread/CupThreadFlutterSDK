@@ -1058,9 +1058,11 @@ class FeedbackClient {
   /// directly requires the host to inject an `http.Client` whose requests
   /// carry the end user's Clerk session credentials.
   ///
-  /// Author attribution ([CommentDraft.authorName] and friends) is resolved
-  /// server-side from the signed-in profile: the server ignores the
-  /// client-supplied author fields even though the draft still sends them.
+  /// Author attribution is resolved server-side from the signed-in
+  /// profile, so the wire payload carries exactly the fields the API's
+  /// `CreateFeatureRequestCommentInput` schema declares — `body`,
+  /// `parentId`, `replyToAuthorName`. The deprecated [CommentDraft] author
+  /// fields are never sent.
   ///
   /// The server answers with the created comment wrapped in an envelope
   /// (`FeatureRequestCommentCreated`: `{ "comment": { … } }`), which this

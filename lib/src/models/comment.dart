@@ -124,21 +124,33 @@ class FeatureRequestCommentPage {
 
 /// Draft for posting a new comment.
 ///
-/// Author attribution is resolved server-side from the signed-in profile:
-/// the API accepts comments from a Clerk end-user session only and ignores
-/// client-supplied [authorName] / [authorEmail] / [authorAvatarUrl]. The
-/// fields remain part of the payload for API-shape compatibility, but hosts
-/// should not rely on them having any effect.
+/// The wire payload is exactly what the API's `CreateFeatureRequestCommentInput`
+/// schema declares — [body], [parentId], [replyToAuthorName] — as [toJson]
+/// emits. Author identity is always derived server-side from the
+/// authenticated session or the public commenter token, so the deprecated
+/// author fields below are kept only so existing host code keeps compiling
+/// and never reach the wire.
 class CommentDraft {
   final String body;
 
   /// Ignored by the server; authorship is resolved from the signed-in profile.
+  @Deprecated('No longer sent: the comment schema has no author fields and '
+      'the server derives authorship from the session.')
   final String? authorName;
+
+  /// Ignored by the server; authorship is resolved from the signed-in profile.
+  @Deprecated('No longer sent: the comment schema has no author fields and '
+      'the server derives authorship from the session.')
   final String? authorEmail;
 
   /// Ignored by the server; the avatar is resolved from the signed-in profile.
+  @Deprecated('No longer sent: the comment schema has no author fields and '
+      'the server derives authorship from the session.')
   final String? authorAvatarUrl;
   final String? parentId;
+
+  /// Never declared by the comment schema; the server ignores it.
+  @Deprecated('No longer sent: the comment schema has no such property.')
   final String? replyToClerkId;
   final String? replyToAuthorName;
 
@@ -153,16 +165,16 @@ class CommentDraft {
   });
 
   Map<String, dynamic> toJson() {
+    // Exactly the properties `CreateFeatureRequestCommentInput` declares.
+    // The server silently strips anything else today (the author fields
+    // were documented as stripped; `replyToClerkId` was never a schema
+    // property), so emitting only the declared shape costs nothing now and
+    // keeps every comment post working if the API ever hardens input
+    // validation — mirroring the strictness this SDK already applies to
+    // response parsing.
     return {
       'body': body.trim(),
-      if (authorName != null && authorName!.trim().isNotEmpty)
-        'authorName': authorName!.trim(),
-      if (authorEmail != null && authorEmail!.trim().isNotEmpty)
-        'authorEmail': authorEmail!.trim(),
-      if (authorAvatarUrl != null && authorAvatarUrl!.trim().isNotEmpty)
-        'authorAvatarUrl': authorAvatarUrl!.trim(),
       if (parentId != null) 'parentId': parentId,
-      if (replyToClerkId != null) 'replyToClerkId': replyToClerkId,
       if (replyToAuthorName != null && replyToAuthorName!.trim().isNotEmpty)
         'replyToAuthorName': replyToAuthorName!.trim(),
     };
