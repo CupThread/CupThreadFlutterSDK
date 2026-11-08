@@ -636,5 +636,58 @@ void main() {
 
       expect(find.text('Comments (1)'), findsOneWidget);
     });
+
+    testWidgets('keeps the final page when the server never advances its cursor',
+        (tester) async {
+      var requestCount = 0;
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_trunc/comments') {
+          requestCount++;
+          return http.Response(
+            jsonEncode({
+              'comments': [commentJson('cm_$requestCount')],
+              'total': 99,
+              'hasMore': true,
+              'nextCursor': 'same-cursor',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{"error":"not found"}', 404);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const Scaffold(
+              body: SingleChildScrollView(
+                child: CommentsView(featureRequestId: 'fr_trunc'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The walk stops after the second request, but the page fetched at
+      // the stuck cursor is fresh content and must still be rendered
+      // (issue #128) instead of silently dropped.
+      expect(requestCount, 2);
+      expect(find.text('Comments (99)'), findsOneWidget);
+      expect(find.text('Body of cm_1'), findsOneWidget);
+      expect(find.text('Body of cm_2'), findsOneWidget);
+    });
   });
 }

@@ -1059,9 +1059,13 @@ class FeedbackClient {
   /// Fetches all discussion comments on a feature request, in server order.
   ///
   /// Follows `hasMore` / `nextCursor` across pages so threads with more than
-  /// one page still load completely. Stops early when the server fails to
-  /// advance the cursor (null, unchanged, or already visited), and a page cap
-  /// of [_commentsMaxPages] backstops anything else.
+  /// one page still load completely. Every fetched page is kept — including
+  /// the final one — so a misbehaving server never causes silent content
+  /// loss (issue #128). The walk stops early when the server fails to
+  /// advance the cursor (null, unchanged, or already visited), which is
+  /// safe because the loop terminates at that point and can never append
+  /// the page twice; a page cap of [_commentsMaxPages] backstops anything
+  /// else.
   Future<List<FeatureRequestComment>> fetchComments(String featureRequestId) async {
     final all = <FeatureRequestComment>[];
     final seenCursors = <String>{};
@@ -1069,21 +1073,19 @@ class FeedbackClient {
     var hasMore = true;
     for (var page = 0; hasMore && page < _commentsMaxPages; page++) {
       final result = await fetchCommentsPage(featureRequestId, cursor: cursor);
+      all.addAll(result.comments);
       final next = result.nextCursor;
 
       // While hasMore is true the server must hand back an advancing
       // cursor; a null, unchanged, or revisited cursor would return the
-      // same page forever. Keep the first page's comments even then, but
-      // drop a repeated page so its entries are not appended twice.
+      // same page forever, so treat it purely as a stop condition. The
+      // page just fetched is kept unconditionally: terminating the walk
+      // already guarantees it cannot be appended a second time.
       final cannotAdvance = result.hasMore &&
           (next == null || next == cursor || seenCursors.contains(next));
-      if (!cannotAdvance || cursor == null) {
-        all.addAll(result.comments);
-      }
       if (next != null) seenCursors.add(next);
-      hasMore = result.hasMore;
+      hasMore = result.hasMore && !cannotAdvance;
       cursor = next;
-      if (cannotAdvance) break;
     }
     return all;
   }
@@ -1174,9 +1176,13 @@ class FeedbackClient {
   /// (see [_comparePublishedAtDesc]).
   ///
   /// Follows `hasMore` / `nextCursor` across pages so apps with more than
-  /// 100 published entries still see their full history. Stops early when
-  /// the server fails to advance the cursor (null, unchanged, or already
-  /// visited), and a page cap of [_changelogMaxPages] backstops anything else.
+  /// 100 published entries still see their full history. Every fetched page
+  /// is kept — including the final one — so a misbehaving server never
+  /// causes silent content loss (issue #128). The walk stops early when the
+  /// server fails to advance the cursor (null, unchanged, or already
+  /// visited), which is safe because the loop terminates at that point and
+  /// can never append the page twice; a page cap of [_changelogMaxPages]
+  /// backstops anything else.
   Future<List<ChangelogEntry>> fetchChangelog() async {
     final all = <ChangelogEntry>[];
     final seenCursors = <String>{};
@@ -1184,21 +1190,19 @@ class FeedbackClient {
     var hasMore = true;
     for (var page = 0; hasMore && page < _changelogMaxPages; page++) {
       final result = await fetchChangelogPage(cursor: cursor);
+      all.addAll(result.entries);
       final next = result.nextCursor;
 
       // While hasMore is true the server must hand back an advancing
       // cursor; a null, unchanged, or revisited cursor would return the
-      // same page forever. Keep the first page's entries even then, but
-      // drop a repeated page so its entries are not appended twice.
+      // same page forever, so treat it purely as a stop condition. The
+      // page just fetched is kept unconditionally: terminating the walk
+      // already guarantees it cannot be appended a second time.
       final cannotAdvance = result.hasMore &&
           (next == null || next == cursor || seenCursors.contains(next));
-      if (!cannotAdvance || cursor == null) {
-        all.addAll(result.entries);
-      }
       if (next != null) seenCursors.add(next);
-      hasMore = result.hasMore;
+      hasMore = result.hasMore && !cannotAdvance;
       cursor = next;
-      if (cannotAdvance) break;
     }
     all.sort(_comparePublishedAtDesc);
     return all;

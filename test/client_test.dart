@@ -424,7 +424,7 @@ void main() {
       expect(entries.single.id, 'cl_only');
     });
 
-    test('fetchChangelog stops early on a server that never advances its cursor', () async {
+    test('fetchChangelog keeps the final page when the server never advances its cursor', () async {
       var requestCount = 0;
 
       final mockHttpClient = MockClient((request) async {
@@ -436,7 +436,11 @@ void main() {
                 'id': 'cl_$requestCount',
                 'title': 'Entry $requestCount',
                 'body': 'Body',
-                'publishedAt': '2026-05-01T00:00:00.000Z',
+                // Distinct instants so the trailing newest-first sort is
+                // deterministic over the retained pages.
+                'publishedAt': requestCount == 1
+                    ? '2026-05-02T00:00:00.000Z'
+                    : '2026-05-01T00:00:00.000Z',
               }
             ],
             'hasMore': true,
@@ -457,10 +461,51 @@ void main() {
 
       final entries = await client.fetchChangelog();
 
-      // The repeated page is dropped, so no duplicate entries are appended.
+      // The walk stops after the second request, but every fetched page is
+      // kept — including the final one, whose content was never delivered
+      // before (issue #128).
       expect(requestCount, 2);
-      expect(entries, hasLength(1));
-      expect(entries.single.id, 'cl_1');
+      expect(entries.map((e) => e.id).toList(), ['cl_1', 'cl_2']);
+    });
+
+    test('fetchChangelog keeps the final page when the server revisits an earlier cursor', () async {
+      final mockHttpClient = MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        // An alternating cursor cycle: null → b → a → b → a → …
+        final next = cursor == 'a' ? 'b' : 'a';
+        final label = cursor ?? 'first';
+        return http.Response(
+          jsonEncode({
+            'entries': [
+              {
+                'id': 'cl_$label',
+                'title': 'Entry $label',
+                'body': 'Body',
+                'publishedAt': '2026-05-0${label == 'first' ? 3 : label == 'a' ? 2 : 1}T00:00:00.000Z',
+              }
+            ],
+            'hasMore': true,
+            'nextCursor': next,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      final entries = await client.fetchChangelog();
+
+      // The walk stops at the revisited cursor, but the page fetched at 'b'
+      // is retained — and the trailing newest-first sort still orders the
+      // full result (issue #128).
+      expect(entries.map((e) => e.id).toList(), ['cl_first', 'cl_a', 'cl_b']);
     });
 
     test('fetchChangelog stops on hasMore=true with a null nextCursor', () async {
@@ -646,7 +691,7 @@ void main() {
       expect(comments.single.id, 'cm_only');
     });
 
-    test('fetchComments stops early on a server that repeats the same nextCursor', () async {
+    test('fetchComments keeps the final page when the server repeats the same nextCursor', () async {
       var requestCount = 0;
 
       final mockHttpClient = MockClient((request) async {
@@ -673,13 +718,14 @@ void main() {
 
       final comments = await client.fetchComments('fr_abc');
 
-      // The repeated page is dropped, so no duplicate comments are appended.
+      // The walk stops after the second request, but both fetched pages are
+      // kept — the final page was fresh content, never delivered before
+      // (issue #128).
       expect(requestCount, 2);
-      expect(comments, hasLength(1));
-      expect(comments.single.id, 'cm_1');
+      expect(comments.map((c) => c.id).toList(), ['cm_1', 'cm_2']);
     });
 
-    test('fetchComments stops early on a server that revisits an earlier cursor', () async {
+    test('fetchComments keeps the final page when the server revisits an earlier cursor', () async {
       final mockHttpClient = MockClient((request) async {
         final cursor = request.url.queryParameters['cursor'];
         // An alternating cursor cycle: null → b → a → b → a → …
@@ -707,8 +753,9 @@ void main() {
       final comments = await client.fetchComments('fr_abc');
 
       // Requests: first page, then 'a', then 'b' whose next cursor 'a' was
-      // already visited — the loop stops there and drops that final page.
-      expect(comments.map((c) => c.id).toList(), ['cm_first', 'cm_a']);
+      // already visited — the walk stops there, but the page fetched at 'b'
+      // is fresh content and is retained (issue #128).
+      expect(comments.map((c) => c.id).toList(), ['cm_first', 'cm_a', 'cm_b']);
     });
 
     test('fetchComments stops on hasMore=true with a null nextCursor', () async {
