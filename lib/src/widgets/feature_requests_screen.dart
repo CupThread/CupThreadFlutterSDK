@@ -785,6 +785,10 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   }
 
   Widget _buildRequestCard(FeatureRequestItem item, CupThreadColors colors) {
+    // Capture the generation when this card is built: the card is rebuilt
+    // after every reload, so the sheet callback below always compares its
+    // vote against the generation it was opened under.
+    final generation = _requestGeneration;
     return Card(
       color: colors.card,
       elevation: 0,
@@ -800,9 +804,18 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
           item: item,
           onVoteChange: (updated) {
             if (!mounted) return;
+            final isSameGeneration = generation == _requestGeneration;
             setState(() {
-              _items =
-                  _items.map((i) => i.id == updated.id ? updated : i).toList();
+              _items = _items.map((i) {
+                if (i.id != updated.id) return i;
+                return isSameGeneration
+                    ? updated
+                    // A reload replaced the list while the sheet's vote was
+                    // in flight: the response's `voted` belongs to the
+                    // session that cast the vote — reconcile only the
+                    // global voteCount, mirroring _handleToggleVote.
+                    : i.copyWith(voteCount: updated.voteCount);
+              }).toList();
             });
           },
         ),
