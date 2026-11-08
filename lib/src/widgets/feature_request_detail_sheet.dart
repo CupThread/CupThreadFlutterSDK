@@ -9,21 +9,56 @@ import 'markdown_text.dart';
 import 'vote_button.dart';
 import 'vote_turnstile.dart';
 
+/// How a [FeatureRequestDetailSheet] vote change reached the host.
+enum FeatureRequestVoteEventKind {
+  /// The in-sheet optimistic projection computed before the vote request
+  /// was sent — not server truth.
+  optimistic,
+
+  /// The server's vote response — the only kind that carries an
+  /// authoritative `hasVoted`/`voteCount` pair.
+  confirmed,
+
+  /// The pre-vote snapshot restored after the vote request failed.
+  rollback,
+}
+
+/// Signature for [FeatureRequestDetailSheet.onVoteEvent].
+typedef FeatureRequestVoteEventHandler = void Function(
+  FeatureRequestVoteEventKind kind,
+  FeatureRequestItem item,
+);
+
 /// Bottom sheet presenting complete feature request details and discussion.
 class FeatureRequestDetailSheet extends StatefulWidget {
   final FeatureRequestItem item;
+
+  /// Called for every vote-state change regardless of origin. Prefer
+  /// [onVoteEvent], which distinguishes optimistic projections, confirmed
+  /// responses, and rollbacks — this callback reports all three alike.
   final ValueChanged<FeatureRequestItem>? onVoteChange;
+
+  /// Called for every vote-state change together with the [kind] that
+  /// produced it. Hosts that reconcile list rows from this callback need
+  /// the kind: a stale [FeatureRequestVoteEventKind.confirmed] item
+  /// reconciles a reloaded row's global `voteCount`, while
+  /// [FeatureRequestVoteEventKind.optimistic] and
+  /// [FeatureRequestVoteEventKind.rollback] items are projections of the
+  /// sheet-open snapshot and must never overwrite a reloaded row.
+  final FeatureRequestVoteEventHandler? onVoteEvent;
 
   const FeatureRequestDetailSheet({
     super.key,
     required this.item,
     this.onVoteChange,
+    this.onVoteEvent,
   });
 
   static Future<void> show(
     BuildContext context, {
     required FeatureRequestItem item,
     ValueChanged<FeatureRequestItem>? onVoteChange,
+    FeatureRequestVoteEventHandler? onVoteEvent,
   }) {
     // Capture the host scope (theme, strings, locale, session, config,
     // policies) before pushing the route so the sheet renders identically.
@@ -41,6 +76,7 @@ class FeatureRequestDetailSheet extends StatefulWidget {
           child: FeatureRequestDetailSheet(
             item: item,
             onVoteChange: onVoteChange,
+            onVoteEvent: onVoteEvent,
           ),
         ),
       ),
@@ -122,6 +158,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
         _item = optimistic;
       });
       widget.onVoteChange?.call(optimistic);
+      widget.onVoteEvent?.call(FeatureRequestVoteEventKind.optimistic, optimistic);
 
       final res = previousItem.hasVoted
           ? await client.removeVote(previousItem.id, userToken: userToken)
@@ -136,6 +173,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
           _item = confirmed;
         });
         widget.onVoteChange?.call(confirmed);
+        widget.onVoteEvent?.call(FeatureRequestVoteEventKind.confirmed, confirmed);
       }
     } catch (_) {
       // Copy out so the null check promotes: a local written inside a try
@@ -146,6 +184,7 @@ class _FeatureRequestDetailSheetState extends State<FeatureRequestDetailSheet> {
           _item = rollbackTarget;
         });
         widget.onVoteChange?.call(rollbackTarget);
+        widget.onVoteEvent?.call(FeatureRequestVoteEventKind.rollback, rollbackTarget);
       }
     } finally {
       if (mounted) {

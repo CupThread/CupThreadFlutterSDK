@@ -52,6 +52,16 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   /// is applied only while its captured generation still matches, so a slow
   /// refresh or append can never clobber newer results.
   int _requestGeneration = 0;
+
+  /// Monotonically increasing token for the session identity the list rows
+  /// were loaded under (`hasVoted`/`isOwnRequest` are identity-scoped).
+  /// Unlike [_requestGeneration] — which every reload bumps, including
+  /// same-session searches and filters — this advances only when the user
+  /// token or anonymous status actually changes, so vote responses can
+  /// distinguish "the row was re-refreshed" from "the row now belongs to a
+  /// different session" and apply their session-scoped `voted` only in the
+  /// former case.
+  int _identityGeneration = 0;
   final Set<String> _votingIds = {};
   Timer? _searchDebounce;
   final TextEditingController _searchController = TextEditingController();
@@ -89,6 +99,13 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         _lastConfig != appConfig ||
         _lastUserToken != userToken ||
         _lastIsAnonymous != isAnonymous) {
+      // Bump only on a real identity change — a config-only refresh (new
+      // config instance, same session) reloads the rows but must not
+      // invalidate in-flight votes' right to apply their `voted`.
+      if (_hasAttemptedLoad &&
+          (_lastUserToken != userToken || _lastIsAnonymous != isAnonymous)) {
+        _identityGeneration++;
+      }
       _lastConfig = appConfig;
       _lastUserToken = userToken;
       _lastIsAnonymous = isAnonymous;
@@ -274,6 +291,7 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
+    final identityGeneration = _identityGeneration;
 
     // Lock the row first so taps during a pending Turnstile preflight cannot
     // start overlapping verification or vote requests. The lock is released
@@ -296,15 +314,24 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       final nextVoted = !target.hasVoted;
       final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
-      setState(() {
-        _items = _items
-            .map((i) => i.id == target.id
-                ? i.copyWith(
-                    hasVoted: nextVoted,
-                    voteCount: nextCount < 0 ? 0 : nextCount)
-                : i)
-            .toList();
-      });
+      // Project the optimistic state only while no reload replaced the list
+      // during the Turnstile preflight: the projection is computed from the
+      // pre-preflight row snapshot, and a reloaded row must not inherit it —
+      // its rollback would be skipped as stale, leaving the wrong identity
+      // state until the next refresh. The request still proceeds; its
+      // confirmed response reconciles the reloaded row (the list vote's
+      // apply-response branch below handles both generations).
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _items = _items
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: nextVoted,
+                      voteCount: nextCount < 0 ? 0 : nextCount)
+                  : i)
+              .toList();
+        });
+      }
 
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
@@ -320,17 +347,20 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         });
       } else if (mounted) {
         // A refresh replaced the list while the vote was in flight. The
-        // response's `voted` belongs to the session that cast the vote —
-        // applying it would overwrite the reloaded identity's `hasVoted` —
-        // but `voteCount` is global, so a stale response still reconciles
-        // the count without touching the new session's voted state.
+        // response's `voted` belongs to the session that cast the vote: it
+        // still describes the reloaded rows when the refresh ran under the
+        // same identity (a search or filter refresh — not a session
+        // change), but must not overwrite them after a session change. The
+        // identity generation separates the two; `voteCount` is global, so
+        // the count reconciles either way.
+        final sameIdentity = identityGeneration == _identityGeneration;
         setState(() {
           _items = _items
-              .map(
-                (i) => i.id == target.id
-                    ? i.copyWith(voteCount: res.voteCount)
-                    : i,
-              )
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: sameIdentity ? res.voted : i.hasVoted,
+                      voteCount: res.voteCount)
+                  : i)
               .toList();
         });
       }
@@ -785,6 +815,12 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
   }
 
   Widget _buildRequestCard(FeatureRequestItem item, CupThreadColors colors) {
+    // Capture both generations when this card is built: the card is rebuilt
+    // after every reload, so the sheet callback below always compares its
+    // vote against the reload state and the session identity it was opened
+    // under.
+    final generation = _requestGeneration;
+    final identityGeneration = _identityGeneration;
     return Card(
       color: colors.card,
       elevation: 0,
@@ -798,11 +834,37 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
         onTap: () => FeatureRequestDetailSheet.show(
           context,
           item: item,
-          onVoteChange: (updated) {
+          onVoteEvent: (kind, updated) {
             if (!mounted) return;
+            final isSameGeneration = generation == _requestGeneration;
             setState(() {
-              _items =
-                  _items.map((i) => i.id == updated.id ? updated : i).toList();
+              _items = _items.map((i) {
+                if (i.id != updated.id) return i;
+                if (isSameGeneration) return updated;
+                // A reload replaced the list while the sheet's vote was in
+                // flight. Only the confirmed event carries server truth:
+                // the optimistic and rollback items are projections of the
+                // sheet-open snapshot, and the reloaded row never carried
+                // them — reconciling their counts would overwrite the
+                // reloaded count with a stale pre-vote value. The confirmed
+                // item's `voted` belongs to the session that cast the vote:
+                // apply it only when the reload ran under the same identity
+                // (the identity generation, not the request generation —
+                // same-session searches and filters reload without changing
+                // whose `hasVoted` the rows carry), while the global
+                // voteCount reconciles either way. Mirrors
+                // _handleToggleVote.
+                if (kind != FeatureRequestVoteEventKind.confirmed) return i;
+                // Same identity: merge only the vote fields — the reloaded
+                // row's other fields (title, status, column, version) are
+                // fresher than the sheet-open snapshot's. Different
+                // identity: only the global count, as below.
+                return identityGeneration == _identityGeneration
+                    ? i.copyWith(
+                        hasVoted: updated.hasVoted,
+                        voteCount: updated.voteCount)
+                    : i.copyWith(voteCount: updated.voteCount);
+              }).toList();
             });
           },
         ),

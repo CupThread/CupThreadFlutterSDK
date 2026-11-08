@@ -47,6 +47,17 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
   /// is applied only while its captured generation still matches, so a stale
   /// page append can never follow a refresh that replaced the list.
   int _requestGeneration = 0;
+
+  /// Monotonically increasing token for the session identity the board rows
+  /// were loaded under (`hasVoted`/`isOwnRequest` are identity-scoped).
+  /// Unlike [_requestGeneration] — which every reload bumps — this advances
+  /// only when the user token or anonymous status actually changes, so vote
+  /// responses can distinguish "the row was re-refreshed" from "the row now
+  /// belongs to a different session" and apply their session-scoped `voted`
+  /// only in the former case. Mirrors
+  /// `FeatureRequestsScreen._identityGeneration` — both screens consume the
+  /// same session-scoped rows.
+  int _identityGeneration = 0;
   final Set<String> _votingIds = {};
 
   PublicAppConfig? _lastConfig;
@@ -83,6 +94,14 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         _lastConfig != appConfig ||
         _lastUserToken != userToken ||
         _lastIsAnonymous != isAnonymous) {
+      // Bump only on a real identity change — a config-only refresh (new
+      // config instance, same session) reloads the rows but must not
+      // invalidate in-flight votes' right to apply their `voted`. Mirrors
+      // `FeatureRequestsScreen._checkAndLoad`.
+      if (_hasAttemptedLoad &&
+          (_lastUserToken != userToken || _lastIsAnonymous != isAnonymous)) {
+        _identityGeneration++;
+      }
       _lastConfig = appConfig;
       _lastUserToken = userToken;
       _lastIsAnonymous = isAnonymous;
@@ -264,6 +283,7 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
     final client = CupThreadTheme.clientOf(context);
     final userToken = CupThreadTheme.userTokenOf(context);
     final generation = _requestGeneration;
+    final identityGeneration = _identityGeneration;
 
     // Lock the row first so taps during a pending Turnstile preflight cannot
     // start overlapping verification or vote requests. The lock is released
@@ -286,15 +306,22 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       final nextVoted = !target.hasVoted;
       final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
-      setState(() {
-        _requests = _requests
-            .map((i) => i.id == target.id
-                ? i.copyWith(
-                    hasVoted: nextVoted,
-                    voteCount: nextCount < 0 ? 0 : nextCount)
-                : i)
-            .toList();
-      });
+      // Project the optimistic state only while no reload replaced the
+      // board during the Turnstile preflight — mirroring
+      // `FeatureRequestsScreen._handleToggleVote`: the projection is
+      // computed from the pre-preflight row snapshot, and a reloaded row
+      // must not inherit it (its rollback would be skipped as stale).
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _requests = _requests
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: nextVoted,
+                      voteCount: nextCount < 0 ? 0 : nextCount)
+                  : i)
+              .toList();
+        });
+      }
 
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
@@ -310,17 +337,20 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
         });
       } else if (mounted) {
         // A reload replaced the board while the vote was in flight. The
-        // response's `voted` belongs to the session that cast the vote —
-        // applying it would overwrite the reloaded identity's `hasVoted` —
-        // but `voteCount` is global, so a stale response still reconciles
-        // the count without touching the new session's voted state.
+        // response's `voted` belongs to the session that cast the vote: it
+        // still describes the reloaded rows when the refresh ran under the
+        // same identity, but must not overwrite them after a session
+        // change. The identity generation separates the two — mirroring
+        // `FeatureRequestsScreen._handleToggleVote`; `voteCount` is global,
+        // so the count reconciles either way.
+        final sameIdentity = identityGeneration == _identityGeneration;
         setState(() {
           _requests = _requests
-              .map(
-                (i) => i.id == target.id
-                    ? i.copyWith(voteCount: res.voteCount)
-                    : i,
-              )
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: sameIdentity ? res.voted : i.hasVoted,
+                      voteCount: res.voteCount)
+                  : i)
               .toList();
         });
       }
@@ -725,6 +755,15 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                                     return _buildLoadMoreRow(colors, strings);
                                   }
                                   final item = columnItems[idx];
+                                  // Capture both generations when this row is
+                                  // built: the row is rebuilt after every
+                                  // reload, so the sheet callback below always
+                                  // compares its vote against the reload
+                                  // state and the session identity it was
+                                  // opened under.
+                                  final generation = _requestGeneration;
+                                  final identityGeneration =
+                                      _identityGeneration;
                                   return Card(
                                     color: colors.card,
                                     elevation: 0,
@@ -740,14 +779,61 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                                           FeatureRequestDetailSheet.show(
                                         context,
                                         item: item,
-                                        onVoteChange: (updated) {
+                                        onVoteEvent: (kind, updated) {
                                           if (!mounted) return;
+                                          final isSameGeneration =
+                                              generation == _requestGeneration;
                                           setState(() {
-                                            _requests = _requests
-                                                .map((i) => i.id == updated.id
-                                                    ? updated
-                                                    : i)
-                                                .toList();
+                                            _requests = _requests.map((i) {
+                                              if (i.id != updated.id) return i;
+                                              if (isSameGeneration) {
+                                                return updated;
+                                              }
+                                              // A reload replaced the board
+                                              // while the sheet's vote was
+                                              // in flight. Only the confirmed
+                                              // event carries server truth:
+                                              // optimistic and rollback items
+                                              // are projections of the
+                                              // sheet-open snapshot, and the
+                                              // reloaded row never carried
+                                              // them. The confirmed item's
+                                              // `voted` belongs to the
+                                              // session that cast the vote —
+                                              // apply it only when the reload
+                                              // ran under the same identity,
+                                              // while the global voteCount
+                                              // reconciles either way.
+                                              // Mirrors
+                                              // FeatureRequestsScreen's
+                                              // onVoteEvent bridge and
+                                              // _handleToggleVote.
+                                              if (kind !=
+                                                  FeatureRequestVoteEventKind
+                                                      .confirmed) {
+                                                return i;
+                                              }
+                                              // Same identity: merge only the
+                                              // vote fields — the reloaded
+                                              // row's other fields (title,
+                                              // status, column, version) are
+                                              // fresher than the sheet-open
+                                              // snapshot's, and reverting them
+                                              // could even move the card
+                                              // between columns. Different
+                                              // identity: only the global
+                                              // count.
+                                              return identityGeneration ==
+                                                      _identityGeneration
+                                                  ? i.copyWith(
+                                                      hasVoted:
+                                                          updated.hasVoted,
+                                                      voteCount:
+                                                          updated.voteCount)
+                                                  : i.copyWith(
+                                                      voteCount:
+                                                          updated.voteCount);
+                                            }).toList();
                                           });
                                         },
                                       ),
