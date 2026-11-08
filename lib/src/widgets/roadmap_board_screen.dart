@@ -306,15 +306,22 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
       final nextVoted = !target.hasVoted;
       final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
-      setState(() {
-        _requests = _requests
-            .map((i) => i.id == target.id
-                ? i.copyWith(
-                    hasVoted: nextVoted,
-                    voteCount: nextCount < 0 ? 0 : nextCount)
-                : i)
-            .toList();
-      });
+      // Project the optimistic state only while no reload replaced the
+      // board during the Turnstile preflight — mirroring
+      // `FeatureRequestsScreen._handleToggleVote`: the projection is
+      // computed from the pre-preflight row snapshot, and a reloaded row
+      // must not inherit it (its rollback would be skipped as stale).
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _requests = _requests
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: nextVoted,
+                      voteCount: nextCount < 0 ? 0 : nextCount)
+                  : i)
+              .toList();
+        });
+      }
 
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
@@ -806,9 +813,23 @@ class _RoadmapBoardScreenState extends State<RoadmapBoardScreen> {
                                                       .confirmed) {
                                                 return i;
                                               }
+                                              // Same identity: merge only the
+                                              // vote fields — the reloaded
+                                              // row's other fields (title,
+                                              // status, column, version) are
+                                              // fresher than the sheet-open
+                                              // snapshot's, and reverting them
+                                              // could even move the card
+                                              // between columns. Different
+                                              // identity: only the global
+                                              // count.
                                               return identityGeneration ==
                                                       _identityGeneration
-                                                  ? updated
+                                                  ? i.copyWith(
+                                                      hasVoted:
+                                                          updated.hasVoted,
+                                                      voteCount:
+                                                          updated.voteCount)
                                                   : i.copyWith(
                                                       voteCount:
                                                           updated.voteCount);

@@ -72,17 +72,68 @@ void main() {
     ),
   );
 
+  /// The same configs with anonymous-vote Turnstile verification required,
+  /// so a row vote parks inside the preflight token provider — the async
+  /// window the stale optimistic projection must be guarded against.
+  const turnstileConfig = PublicAppConfig(
+    appId: 'app_123',
+    appKey: 'app_test_123',
+    slug: 'test-app',
+    name: 'Test App',
+    allowPublic: true,
+    allowedPlatforms: [FeedbackPlatform.ios, FeedbackPlatform.android],
+    maxAttachmentBytes: 1048576,
+    allowAnonymousRoadmap: true,
+    allowAnonymousVote: true,
+    allowAnonymousFeedback: true,
+    allowAnonymousChangelog: true,
+    requireAnonymousVoteTurnstile: true,
+    sdk: SdkAppearance(
+      features: SdkFeatures(
+        feedback: true,
+        featureRequests: true,
+        roadmap: true,
+        changelog: true,
+      ),
+    ),
+  );
+
+  const turnstileReloadedConfig = PublicAppConfig(
+    appId: 'app_123',
+    appKey: 'app_test_123',
+    slug: 'test-app',
+    name: 'Test App Reloaded',
+    allowPublic: true,
+    allowedPlatforms: [FeedbackPlatform.ios, FeedbackPlatform.android],
+    maxAttachmentBytes: 1048576,
+    allowAnonymousRoadmap: true,
+    allowAnonymousVote: true,
+    allowAnonymousFeedback: true,
+    allowAnonymousChangelog: true,
+    requireAnonymousVoteTurnstile: true,
+    sdk: SdkAppearance(
+      features: SdkFeatures(
+        feedback: true,
+        featureRequests: true,
+        roadmap: true,
+        changelog: true,
+      ),
+    ),
+  );
+
   Map<String, dynamic> requestJson({
     required int voteCount,
     required bool hasVoted,
+    String columnName = 'Planned',
+    String title = 'Dark mode support',
   }) =>
       {
         'id': 'fr_1',
         'appId': 'app_123',
-        'title': 'Dark mode support',
+        'title': title,
         'description': 'Add full dark mode theme',
         'status': 'under_review',
-        'columnName': 'Planned',
+        'columnName': columnName,
         'columnColor': '#3B82F6',
         'columnId': 'col_1',
         'approved': true,
@@ -181,6 +232,11 @@ void main() {
                   requestJson(
                     voteCount: reloaded ? 7 : 5,
                     hasVoted: true,
+                    // The reload carries refreshed moderation fields so the
+                    // same-identity confirmed merge is observable: only the
+                    // vote fields may change, the refreshed column must
+                    // survive.
+                    columnName: reloaded ? 'Shipped' : 'Planned',
                   ),
                 ],
                 'totalCount': 1,
@@ -226,6 +282,59 @@ void main() {
             child: const FeatureRequestsScreen(),
           ),
         );
+
+    /// An unvoted anonymous row (count 5) served first and a re-refreshed
+    /// unvoted row (count 7) afterwards. The config requires anonymous-vote
+    /// Turnstile verification and the challenge provider parks on
+    /// [challenge], so a new vote hangs inside the preflight — the async
+    /// window between the tap and the optimistic write. The vote request
+    /// itself parks on [voteResponse].
+    FeedbackClient clientWithParkedPreflight({
+      required Completer<String> challenge,
+      required Completer<http.Response> voteResponse,
+      required ValueNotifier<int> requestsServed,
+    }) {
+      return FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+          turnstileChallengeTokenProvider: (_) => challenge.future,
+        ),
+        initialConfig: turnstileConfig,
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/api/v1/feature-requests') {
+            requestsServed.value += 1;
+            final reloaded = requestsServed.value >= 2;
+            return http.Response(
+              jsonEncode({
+                'requests': [
+                  requestJson(
+                    voteCount: reloaded ? 7 : 5,
+                    hasVoted: false,
+                  ),
+                ],
+                'totalCount': 1,
+                'hasMore': false,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.contains('/versions')) {
+            return http.Response(jsonEncode({'versions': []}), 200,
+                headers: {'content-type': 'application/json'});
+          }
+          if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+            return voteResponse.future;
+          }
+          return http.Response(
+            '{}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+    }
 
     testWidgets('a stale sheet vote response after a reload only reconciles '
         'the voteCount — the reloaded identity keeps its hasVoted',
@@ -389,6 +498,10 @@ void main() {
           reason: 'a same-identity reload must not strip the confirmed '
               'voted flag from the reloaded row');
       expect(rowVoteButton(tester).voteCount, 5);
+      // The confirmed event merged only the vote fields: the refreshed
+      // moderation column survives (the wholesale snapshot would have
+      // reverted it to 'Planned').
+      expect(find.text('Shipped'), findsOneWidget);
     });
 
     testWidgets('stale optimistic and rollback events after a reload leave '
@@ -480,6 +593,66 @@ void main() {
               'must survive the intervening reload');
       expect(rowVoteButton(tester).voteCount, 5);
     });
+
+    testWidgets('a reload landing inside the Turnstile preflight skips the '
+        'stale optimistic projection', (tester) async {
+      // The preflight parks while a same-identity reload replaces the list.
+      // The optimistic projection is computed from the pre-preflight row —
+      // writing it onto the reloaded row would flip the reloaded hasVoted
+      // and stamp the stale count, and its failure rollback would be
+      // skipped as stale, persisting the wrong state until the next
+      // refresh.
+      final challenge = Completer<String>();
+      final voteResponse = Completer<http.Response>();
+      final requestsServed = ValueNotifier<int>(0);
+      final client = clientWithParkedPreflight(
+        challenge: challenge,
+        voteResponse: voteResponse,
+        requestsServed: requestsServed,
+      );
+
+      await tester.pumpWidget(listHost(client, null, turnstileConfig));
+      await tester.pumpAndSettle();
+      expect(rowVoteButton(tester).hasVoted, isFalse);
+      expect(rowVoteButton(tester).voteCount, 5);
+
+      // Tap to vote: the Turnstile preflight parks before the optimistic
+      // write (a new vote is verified; the row is not voted yet).
+      await tester.tap(find.byType(VoteButton));
+      await tester.pump();
+
+      // The same-identity reload lands while the verification is pending.
+      await tester.pumpWidget(listHost(client, null, turnstileReloadedConfig));
+      await tester.pumpAndSettle();
+      expect(requestsServed.value, 2);
+      expect(rowVoteButton(tester).hasVoted, isFalse);
+      expect(rowVoteButton(tester).voteCount, 7);
+
+      // The verification resolves: the stale optimistic projection
+      // (voted true, count 5 + 1) must not be written onto the reloaded
+      // row; the vote request itself proceeds.
+      challenge.complete('turnstile_token');
+      await tester.pumpAndSettle();
+
+      expect(rowVoteButton(tester).hasVoted, isFalse,
+          reason: 'the pre-preflight optimistic projection must be skipped '
+              'after a reload replaced the list');
+      expect(rowVoteButton(tester).voteCount, 7,
+          reason: 'the stale 5 + 1 count must not stamp over the reloaded '
+              'count');
+
+      // The confirmed response still reconciles the reloaded row under the
+      // same identity.
+      voteResponse.complete(http.Response(
+        jsonEncode({'voted': true, 'voteCount': 8}),
+        200,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      expect(rowVoteButton(tester).hasVoted, isTrue);
+      expect(rowVoteButton(tester).voteCount, 8);
+    });
   });
 
   group('RoadmapBoardScreen', () {
@@ -570,6 +743,14 @@ void main() {
                   requestJson(
                     voteCount: reloaded ? 7 : 5,
                     hasVoted: true,
+                    // The board renders one selected column at a time, so
+                    // the refreshed field must be one the visible card
+                    // renders: the title. The same-identity confirmed merge
+                    // must keep it instead of reverting to the sheet-open
+                    // snapshot.
+                    title: reloaded
+                        ? 'Dark mode support (refreshed)'
+                        : 'Dark mode support',
                   ),
                 ],
                 'totalCount': 1,
@@ -611,6 +792,65 @@ void main() {
             child: const RoadmapBoardScreen(),
           ),
         );
+
+    /// Board variant of the parked-preflight client: an unvoted anonymous
+    /// row (count 5) served first and a re-refreshed unvoted row (count 7)
+    /// afterwards, the challenge provider parked on [challenge], and the
+    /// vote request parked on [voteResponse]. Mirrors the requests-screen
+    /// builder.
+    FeedbackClient clientWithParkedPreflight({
+      required Completer<String> challenge,
+      required Completer<http.Response> voteResponse,
+      required ValueNotifier<int> requestsServed,
+    }) {
+      return FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+          turnstileChallengeTokenProvider: (_) => challenge.future,
+        ),
+        initialConfig: turnstileConfig,
+        httpClient: MockClient((request) async {
+          if (request.url.path.contains('/columns/')) {
+            return http.Response(
+              jsonEncode({
+                'columns': [
+                  {'id': 'col_1', 'name': 'Planned', 'position': 0}
+                ]
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/api/v1/feature-requests') {
+            requestsServed.value += 1;
+            final reloaded = requestsServed.value >= 2;
+            return http.Response(
+              jsonEncode({
+                'requests': [
+                  requestJson(
+                    voteCount: reloaded ? 7 : 5,
+                    hasVoted: false,
+                  ),
+                ],
+                'totalCount': 1,
+                'hasMore': false,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/api/v1/feature-requests/fr_1/vote') {
+            return voteResponse.future;
+          }
+          return http.Response(
+            '{}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+    }
 
     testWidgets('a stale sheet vote response after a reload only reconciles '
         'the voteCount — the reloaded identity keeps its hasVoted',
@@ -752,6 +992,9 @@ void main() {
           reason: 'a same-identity reload must not strip the confirmed '
               'voted flag from the reloaded row');
       expect(rowVoteButton(tester).voteCount, 5);
+      // Only the vote fields merged: the refreshed title survives, so the
+      // card does not revert to the sheet-open snapshot.
+      expect(find.text('Dark mode support (refreshed)'), findsOneWidget);
     });
 
     testWidgets('stale optimistic and rollback events after a reload leave '
@@ -829,6 +1072,60 @@ void main() {
           reason: 'the response voted flag is the same identity\'s truth and '
               'must survive the intervening reload');
       expect(rowVoteButton(tester).voteCount, 5);
+    });
+
+    testWidgets('a reload landing inside the Turnstile preflight skips the '
+        'stale optimistic projection', (tester) async {
+      final challenge = Completer<String>();
+      final voteResponse = Completer<http.Response>();
+      final requestsServed = ValueNotifier<int>(0);
+      final client = clientWithParkedPreflight(
+        challenge: challenge,
+        voteResponse: voteResponse,
+        requestsServed: requestsServed,
+      );
+
+      await tester.pumpWidget(boardHost(client, null, turnstileConfig));
+      await tester.pumpAndSettle();
+      expect(rowVoteButton(tester).hasVoted, isFalse);
+      expect(rowVoteButton(tester).voteCount, 5);
+
+      // Tap to vote: the Turnstile preflight parks before the optimistic
+      // write.
+      await tester.tap(find.byType(VoteButton));
+      await tester.pump();
+
+      // The same-identity reload lands while the verification is pending.
+      await tester
+          .pumpWidget(boardHost(client, null, turnstileReloadedConfig));
+      await tester.pumpAndSettle();
+      expect(requestsServed.value, 2);
+      expect(rowVoteButton(tester).hasVoted, isFalse);
+      expect(rowVoteButton(tester).voteCount, 7);
+
+      // The verification resolves: the stale optimistic projection must
+      // not be written onto the reloaded row; the vote request proceeds.
+      challenge.complete('turnstile_token');
+      await tester.pumpAndSettle();
+
+      expect(rowVoteButton(tester).hasVoted, isFalse,
+          reason: 'the pre-preflight optimistic projection must be skipped '
+              'after a reload replaced the board');
+      expect(rowVoteButton(tester).voteCount, 7,
+          reason: 'the stale 5 + 1 count must not stamp over the reloaded '
+              'count');
+
+      // The confirmed response still reconciles the reloaded row under the
+      // same identity.
+      voteResponse.complete(http.Response(
+        jsonEncode({'voted': true, 'voteCount': 8}),
+        200,
+        headers: {'content-type': 'application/json'},
+      ));
+      await tester.pumpAndSettle();
+
+      expect(rowVoteButton(tester).hasVoted, isTrue);
+      expect(rowVoteButton(tester).voteCount, 8);
     });
   });
 }

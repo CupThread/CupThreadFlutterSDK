@@ -314,15 +314,24 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
       final nextVoted = !target.hasVoted;
       final nextCount = target.voteCount + (nextVoted ? 1 : -1);
 
-      setState(() {
-        _items = _items
-            .map((i) => i.id == target.id
-                ? i.copyWith(
-                    hasVoted: nextVoted,
-                    voteCount: nextCount < 0 ? 0 : nextCount)
-                : i)
-            .toList();
-      });
+      // Project the optimistic state only while no reload replaced the list
+      // during the Turnstile preflight: the projection is computed from the
+      // pre-preflight row snapshot, and a reloaded row must not inherit it —
+      // its rollback would be skipped as stale, leaving the wrong identity
+      // state until the next refresh. The request still proceeds; its
+      // confirmed response reconciles the reloaded row (the list vote's
+      // apply-response branch below handles both generations).
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _items = _items
+              .map((i) => i.id == target.id
+                  ? i.copyWith(
+                      hasVoted: nextVoted,
+                      voteCount: nextCount < 0 ? 0 : nextCount)
+                  : i)
+              .toList();
+        });
+      }
 
       final res = target.hasVoted
           ? await client.removeVote(target.id, userToken: userToken)
@@ -846,8 +855,14 @@ class _FeatureRequestsScreenState extends State<FeatureRequestsScreen> {
                 // voteCount reconciles either way. Mirrors
                 // _handleToggleVote.
                 if (kind != FeatureRequestVoteEventKind.confirmed) return i;
+                // Same identity: merge only the vote fields — the reloaded
+                // row's other fields (title, status, column, version) are
+                // fresher than the sheet-open snapshot's. Different
+                // identity: only the global count, as below.
                 return identityGeneration == _identityGeneration
-                    ? updated
+                    ? i.copyWith(
+                        hasVoted: updated.hasVoted,
+                        voteCount: updated.voteCount)
                     : i.copyWith(voteCount: updated.voteCount);
               }).toList();
             });
