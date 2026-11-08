@@ -80,7 +80,10 @@ class CommentsViewState extends State<CommentsView> {
       // Walk the paginated comments endpoint so long threads load completely,
       // capturing the server-reported thread total for the header count. The
       // cursor guard mirrors [FeedbackClient.fetchComments]: a null, unchanged,
-      // or revisited cursor can never advance, so stop instead of looping.
+      // or revisited cursor can never advance, so stop instead of looping —
+      // but keep every fetched page, including the final one (issue #128),
+      // since terminating the walk already guarantees it cannot be appended
+      // a second time.
       final all = <FeatureRequestComment>[];
       final seenCursors = <String>{};
       String? cursor;
@@ -90,16 +93,13 @@ class CommentsViewState extends State<CommentsView> {
         final result =
             await client.fetchCommentsPage(requestId, cursor: cursor);
         total ??= result.total;
+        all.addAll(result.comments);
         final next = result.nextCursor;
         final cannotAdvance = result.hasMore &&
             (next == null || next == cursor || seenCursors.contains(next));
-        if (!cannotAdvance || cursor == null) {
-          all.addAll(result.comments);
-        }
         if (next != null) seenCursors.add(next);
-        hasMore = result.hasMore;
+        hasMore = result.hasMore && !cannotAdvance;
         cursor = next;
-        if (cannotAdvance) break;
       }
       if (_isCurrentLoad(requestId, requestGeneration, loadGeneration)) {
         setState(() {
