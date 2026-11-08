@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -688,6 +689,197 @@ void main() {
       expect(find.text('Comments (99)'), findsOneWidget);
       expect(find.text('Body of cm_1'), findsOneWidget);
       expect(find.text('Body of cm_2'), findsOneWidget);
+    });
+
+    testWidgets('a load landing after an accepted post cannot hide the posted comment',
+        (tester) async {
+      final reloadPage = Completer<http.Response>();
+      final postResponse = Completer<http.Response>();
+      var commentsRequests = 0;
+
+      http.Response commentsPage(List<String> ids, int total) => http.Response(
+            jsonEncode({
+              'comments': ids.map(commentJson).toList(),
+              'total': total,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_trunc/comments') {
+          if (request.method == 'GET') {
+            commentsRequests++;
+            if (commentsRequests == 1) {
+              return commentsPage(['cm_1'], 1);
+            }
+            // The reload's snapshot is served only once released below;
+            // it was fetched before the post reached the server, so it
+            // still shows the thread without the posted comment.
+            return reloadPage.future;
+          }
+          if (request.method == 'POST') {
+            return postResponse.future;
+          }
+        }
+        return http.Response('{"error":"not found"}', 404);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const Scaffold(
+              body: SingleChildScrollView(
+                child: CommentsView(featureRequestId: 'fr_trunc'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comments (1)'), findsOneWidget);
+
+      // Start a reload while the composer is open; its page hangs until it
+      // is released below.
+      final state = tester.state<CommentsViewState>(find.byType(CommentsView));
+      final reloading = state.reload();
+
+      // Post while the reload is still in flight.
+      await tester.enterText(find.byType(TextField), 'From the test');
+      await tester.tap(find.text('Send'));
+      await tester.pump();
+
+      // The server accepts the post first; the widget appends it locally.
+      postResponse.complete(
+        http.Response(
+          jsonEncode({'comment': commentJson('cm_posted')}),
+          201,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Body of cm_posted'), findsOneWidget);
+      expect(find.text('Comments (2)'), findsOneWidget);
+
+      // Only then does the pre-post snapshot land. Applying it would hide
+      // the posted comment and regress the header to the stale total, so
+      // it must be discarded wholesale (issue #131).
+      reloadPage.complete(commentsPage(['cm_1'], 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Body of cm_posted'), findsOneWidget);
+      expect(find.text('Body of cm_1'), findsOneWidget);
+      expect(find.text('Comments (2)'), findsOneWidget);
+
+      await reloading;
+    });
+
+    testWidgets('a load landing before a post still keeps the fresh list and the appended comment',
+        (tester) async {
+      final reloadPage = Completer<http.Response>();
+      final postResponse = Completer<http.Response>();
+      var commentsRequests = 0;
+
+      http.Response commentsPage(List<String> ids, int total) => http.Response(
+            jsonEncode({
+              'comments': ids.map(commentJson).toList(),
+              'total': total,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+
+      final mockHttpClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/feature-requests/fr_trunc/comments') {
+          if (request.method == 'GET') {
+            commentsRequests++;
+            if (commentsRequests == 1) {
+              return commentsPage(['cm_1'], 1);
+            }
+            return reloadPage.future;
+          }
+          if (request.method == 'POST') {
+            return postResponse.future;
+          }
+        }
+        return http.Response('{"error":"not found"}', 404);
+      });
+
+      final client = FeedbackClient(
+        FeedbackClientConfig(
+          baseUrl: 'https://api.cupthread.com',
+          appKey: 'app_test_123',
+        ),
+        httpClient: mockHttpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CupThreadTheme(
+            client: client,
+            userToken: 'user_tok_1',
+            child: const Scaffold(
+              body: SingleChildScrollView(
+                child: CommentsView(featureRequestId: 'fr_trunc'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final state = tester.state<CommentsViewState>(find.byType(CommentsView));
+      final reloading = state.reload();
+
+      await tester.enterText(find.byType(TextField), 'From the test');
+      await tester.tap(find.text('Send'));
+      await tester.pump();
+
+      // This time the reload lands while the post is still in flight. The
+      // post has not been accepted yet, so the snapshot is not stale: it
+      // must still apply. Pump without advancing virtual time — the posting
+      // spinner animates continuously, so pumpAndSettle would drive the
+      // FakeAsync clock past the client's request timeout and fail the
+      // pending POST.
+      reloadPage.complete(commentsPage(['cm_1', 'cm_server2'], 2));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Body of cm_server2'), findsOneWidget);
+      expect(find.text('Comments (2)'), findsOneWidget);
+
+      // The accepted post then appends on top of the fresh list.
+      postResponse.complete(
+        http.Response(
+          jsonEncode({'comment': commentJson('cm_posted')}),
+          201,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Body of cm_1'), findsOneWidget);
+      expect(find.text('Body of cm_server2'), findsOneWidget);
+      expect(find.text('Body of cm_posted'), findsOneWidget);
+      expect(find.text('Comments (3)'), findsOneWidget);
+
+      await reloading;
     });
   });
 }

@@ -32,7 +32,9 @@ class CommentsViewState extends State<CommentsView> {
   int _requestGeneration = 0;
 
   /// Bumped on every load, so an older in-flight load cannot overwrite a
-  /// newer one for the same request.
+  /// newer one for the same request, and when a post is accepted, so a
+  /// load whose snapshot predates that post cannot overwrite the appended
+  /// comment (issue #131).
   int _loadGeneration = 0;
 
   /// Page cap for loading the thread, mirroring the client-side walk guard.
@@ -167,6 +169,15 @@ class CommentsViewState extends State<CommentsView> {
 
       if (_isCurrentRequest(requestId, requestGeneration)) {
         setState(() {
+          // The server has accepted the comment, so any load still in flight
+          // that began before this post is stale by definition: its snapshot
+          // predates the accepted comment, and applying it after the append
+          // below would hide the posted comment and regress the header total
+          // (issue #131). Bumping the generation invalidates exactly those
+          // loads. A load that already landed stays untouched — the append
+          // falls on top of its fresh list — and a post that fails bumps
+          // nothing, so a concurrent reload still applies.
+          _loadGeneration++;
           _comments.add(newComment);
           if (_totalComments != null) _totalComments = _totalComments! + 1;
           _textController.clear();
