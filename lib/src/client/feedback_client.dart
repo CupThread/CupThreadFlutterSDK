@@ -125,6 +125,25 @@ class FeedbackClientConfig {
 
 /// Primary API client for CupThread platform.
 class FeedbackClient {
+  /// Hard ceiling the API applies to the legacy `offset` parameter of
+  /// `GET /api/v1/feature-requests`.
+  ///
+  /// The API contract (DATA-01 pagination note) states that an `offset`
+  /// above 10000 is clamped to 10000 and still answers `200` — it is not
+  /// an error; deep pages belong on the keyset cursor. A client walk past
+  /// this clamp would therefore receive the same final page again for
+  /// every step beyond it, appending duplicate rows until the reported
+  /// total is reached. [fetchFeatureRequests] mirrors the contract the
+  /// same way its `limit` clamp does: it never sends an offset at or
+  /// past this ceiling, and reports an exhausted page instead (issue
+  /// #125). Cursor walks are unaffected — keyset pages never clamp.
+  ///
+  /// The ceiling itself is conservative by one page: an offset of exactly
+  /// 10000 is documented as served un-clamped, but the walk stops there
+  /// anyway so it can never send an offset the server might clamp; that
+  /// boundary page belongs on the cursor per the API's own guidance.
+  static const int maxLegacyOffset = 10000;
+
   final FeedbackClientConfig config;
   final http.Client _httpClient;
   final TokenStorageAdapter? _storageOverride;
@@ -798,9 +817,18 @@ class FeedbackClient {
   /// is then sent and the legacy `offset` omitted, because the API marks
   /// `offset` as deprecated for deep pages and sending both is ambiguous.
   /// Without a cursor the call uses the legacy `offset` parameter as
-  /// before, so existing callers are unaffected. The returned
-  /// [ListFeatureRequestsResult] exposes `hasMore`/`nextCursor` verbatim
-  /// (tolerant defaults when a server omits the metadata).
+  /// before, so existing callers are unaffected — except that the walk is
+  /// capped at [maxLegacyOffset]: the API clamps any `offset` above 10000
+  /// back to 10000 and still answers `200`, so a deeper request would
+  /// re-serve the same final page forever (issue #125). Instead of
+  /// sending an offset the server must clamp, the call returns an empty
+  /// page that reports exhaustion — `requests` empty, `hasMore` false,
+  /// `nextCursor` null and `total` set to the requested offset (the
+  /// addressable ceiling; the true total is unknowable without a request)
+  /// — which both screens' load-more already treat as the end of the
+  /// walk. The returned [ListFeatureRequestsResult] exposes
+  /// `hasMore`/`nextCursor` verbatim (tolerant defaults when a server
+  /// omits the metadata).
   Future<ListFeatureRequestsResult> fetchFeatureRequests({
     required String userToken,
     int limit = 50,
@@ -816,6 +844,19 @@ class FeedbackClient {
     if (cursor != null && cursor.isNotEmpty) {
       params['cursor'] = cursor;
     } else {
+      // Mirror the server's offset clamp client-side, the way the `limit`
+      // clamp already mirrors its 1–200 contract: a walk at or past the
+      // documented ceiling would be answered with the same final page for
+      // every further step, appending duplicates until the reported total
+      // is reached (issue #125). Report exhaustion instead of sending a
+      // doomed request. Cursor pages never hit this — keyset walks have
+      // no clamped offset at all.
+      if (offset >= maxLegacyOffset) {
+        return ListFeatureRequestsResult(
+          requests: const [],
+          total: offset,
+        );
+      }
       params['offset'] = offset.toString();
     }
     if (versionId != null && versionId.isNotEmpty) {
